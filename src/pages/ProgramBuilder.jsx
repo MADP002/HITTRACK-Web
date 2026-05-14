@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { doc, setDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { logActivity } from '../lib/activityLog'
 
 // Program Builder uses setDoc with merge=true so it can write ALL fields
 // including locked ones (stance, experience, goal, weeklyProgram)
@@ -15,6 +16,14 @@ async function saveToFirestore(profile) {
       updatedAt: new Date().toISOString(),
     }, { merge: true })
     console.log('Program saved to Firestore successfully')
+    // Log signup activity (only the new member completing setup fires this)
+    logActivity({
+      type: 'member_signup',
+      actorId: user.uid,
+      actorName: profile.name || 'New Member',
+      actorRole: 'member',
+      payload: { memberId: user.uid, experience: profile.experience, goal: profile.goal },
+    })
   } catch (err) {
     console.warn('Firestore save warning:', err.message)
     // Even if Firestore fails, localStorage is already saved
@@ -106,6 +115,31 @@ export default function ProgramBuilder() {
     } catch {}
   }, [])
 
+  // ════════════════════════════════════════════════════════
+  //  RE-DO DETECTION — Is this an accidental click?
+  //
+  //  First-time setup: user MUST complete (no cancel option).
+  //  Re-do (programSetupDone already true): allow user to bail out
+  //  if they clicked "Re-do Program" by mistake — keeps existing program.
+  // ════════════════════════════════════════════════════════
+  const [isRedo, setIsRedo] = useState(false)
+  const [cancelConfirm, setCancelConfirm] = useState(false)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hittrack_profile')
+      if (saved) {
+        const p = JSON.parse(saved)
+        if (p.programSetupDone === true) setIsRedo(true)
+      }
+    } catch {}
+  }, [])
+
+  function handleCancelRedo() {
+    // Navigate back to profile WITHOUT touching their saved program
+    setCancelConfirm(false)
+    navigate('/profile')
+  }
+
   const bmi = form.height && form.weight
     ? (parseFloat(form.weight) / ((parseFloat(form.height) / 100) ** 2)).toFixed(1)
     : null
@@ -114,10 +148,65 @@ export default function ProgramBuilder() {
 
   function update(field, val) { setForm(f => ({ ...f, [field]: val })) }
 
+  // ════════════════════════════════════════════════════════
+  //  REGISTRATION LIMITS — Gym safety + Philippine DPA 2012
+  //
+  //  Min age 13: COPPA-compatible floor, common youth boxing minimum.
+  //  Members 13-17 get a warning to bring parent/guardian.
+  //  Max age 100: sanity bound.
+  //  Height/weight bounds catch typos + trolls; not medical limits.
+  // ════════════════════════════════════════════════════════
+  const MIN_AGE = 13
+  const MAX_AGE = 100
+  const MIN_HEIGHT_CM = 100  // ~3'3" — covers smallest 13yo
+  const MAX_HEIGHT_CM = 220  // ~7'3" — taller than nearly anyone realistic
+  const MIN_WEIGHT_KG = 30   // ~66 lb — young teen floor
+  const MAX_WEIGHT_KG = 200  // ~440 lb — sanity ceiling
+
+  // Compute age + flag minor for UI hints
+  const ageNum    = parseInt(form.age, 10)
+  const isMinor   = ageNum >= MIN_AGE && ageNum < 18  // 13-17
+
   function validate() {
     const e = {}
-    if (step === 0) { if (!form.name.trim()) e.name = 'Name is required'; if (!form.age) e.age = 'Age is required' }
-    if (step === 1) { if (!form.height) e.height = 'Height is required'; if (!form.weight) e.weight = 'Weight is required' }
+    if (step === 0) {
+      if (!form.name.trim()) e.name = 'Name is required'
+      else if (form.name.trim().length < 2) e.name = 'Name is too short'
+
+      // ── Age: required + integer + 13-100 range ────────
+      if (!form.age) {
+        e.age = 'Age is required'
+      } else {
+        const a = parseInt(form.age, 10)
+        if (!Number.isInteger(a) || String(a) !== String(form.age).trim()) {
+          e.age = 'Age must be a whole number (no decimals)'
+        } else if (a < MIN_AGE) {
+          e.age = `You must be at least ${MIN_AGE} years old to register`
+        } else if (a > MAX_AGE) {
+          e.age = `Please enter a realistic age (max ${MAX_AGE})`
+        }
+      }
+    }
+    if (step === 1) {
+      // ── Height: 100-220 cm ────────────────────────────
+      if (!form.height) {
+        e.height = 'Height is required'
+      } else {
+        const h = parseFloat(form.height)
+        if (Number.isNaN(h)) e.height = 'Enter a valid number'
+        else if (h < MIN_HEIGHT_CM) e.height = `Minimum ${MIN_HEIGHT_CM} cm`
+        else if (h > MAX_HEIGHT_CM) e.height = `Maximum ${MAX_HEIGHT_CM} cm`
+      }
+      // ── Weight: 30-200 kg ────────────────────────────
+      if (!form.weight) {
+        e.weight = 'Weight is required'
+      } else {
+        const w = parseFloat(form.weight)
+        if (Number.isNaN(w)) e.weight = 'Enter a valid number'
+        else if (w < MIN_WEIGHT_KG) e.weight = `Minimum ${MIN_WEIGHT_KG} kg`
+        else if (w > MAX_WEIGHT_KG) e.weight = `Maximum ${MAX_WEIGHT_KG} kg`
+      }
+    }
     if (step === 2) { if (!form.stance) e.stance = 'Select your stance'; if (!form.experience) e.experience = 'Select your level' }
     if (step === 3) { if (!form.goal) e.goal = 'Select your goal' }
     setErrors(e)
@@ -215,7 +304,34 @@ export default function ProgramBuilder() {
       </div>
 
       {/* Card */}
-      <div style={{ ...glass(), maxWidth: 580, width: '100%', padding: '36px 40px' }}>
+      <div style={{ ...glass(), maxWidth: 580, width: '100%', padding: '36px 40px', position:'relative' }}>
+
+        {/* Cancel button — only shown when re-doing an existing program */}
+        {isRedo && (
+          <button
+            onClick={() => setCancelConfirm(true)}
+            title="Cancel and return to profile (your existing program will not be changed)"
+            style={{
+              position:'absolute',top:14,right:14,zIndex:3,
+              background:'rgba(255,255,255,0.04)',
+              color:'#888',
+              border:'1px solid rgba(255,255,255,0.1)',
+              borderRadius:50,
+              padding:'7px 14px',
+              fontSize:10,
+              fontWeight:800,
+              letterSpacing:'0.08em',
+              cursor:'pointer',
+              display:'flex',
+              alignItems:'center',
+              gap:5,
+              transition:'all 0.2s ease',
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.12)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.35)'}}
+            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)';e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}}>
+            ✕ CANCEL
+          </button>
+        )}
 
         {/* Step header */}
         <div style={s.stepHeader}>
@@ -227,7 +343,7 @@ export default function ProgramBuilder() {
         </div>
 
         {/* Step content */}
-        {step === 0 && <StepBasic form={form} update={update} errors={errors} />}
+        {step === 0 && <StepBasic form={form} update={update} errors={errors} isMinor={isMinor} />}
         {step === 1 && <StepBody  form={form} update={update} errors={errors} bmi={bmi} bmiLabel={bmiLabel} bmiColor={bmiColor} />}
         {step === 2 && <StepStyle form={form} update={update} errors={errors} />}
         {step === 3 && <StepGoals form={form} update={update} errors={errors} />}
@@ -246,12 +362,47 @@ export default function ProgramBuilder() {
         {/* Step counter */}
         <div style={s.stepCounter}>Step {step + 1} of {STEPS.length}</div>
       </div>
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  CANCEL RE-DO CONFIRMATION                            */}
+      {/* ════════════════════════════════════════════════════ */}
+      {cancelConfirm && (
+        <div onClick={()=>setCancelConfirm(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(245,200,66,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(245,200,66,0.2)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
+            <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,boxShadow:'0 4px 14px rgba(245,200,66,0.5)'}}>↩</div>
+                <div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#f5c842'}}>CANCEL & RETURN?</div>
+                  <div style={{fontSize:9,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Your existing program will not be changed</div>
+                </div>
+              </div>
+              <div style={{padding:'14px 16px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.22)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.65}}>
+                You haven't saved anything yet. Cancelling now will discard the inputs on this page and return you to your profile. <strong style={{color:'#f5c842'}}>Your current training program stays intact.</strong>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setCancelConfirm(false)}
+                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:'pointer'}}>
+                  KEEP EDITING
+                </button>
+                <button onClick={handleCancelRedo}
+                  style={{flex:1.3,background:'linear-gradient(135deg,#f5c842,#e08820)',color:'#000',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:'pointer',boxShadow:'0 4px 14px rgba(245,200,66,0.4)'}}>
+                  ↩ RETURN TO PROFILE
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ── STEP 1: Basic Info ────────────────────────────────
-function StepBasic({ form, update, errors }) {
+function StepBasic({ form, update, errors, isMinor }) {
   return (
     <div style={s.stepContent}>
       <Field label="Full Name *"  error={errors.name}>
@@ -261,8 +412,22 @@ function StepBasic({ form, update, errors }) {
         <input style={s.input} placeholder="e.g. Low (optional)" value={form.nickname} onChange={e => update('nickname', e.target.value)} />
       </Field>
       <Field label="Age *" error={errors.age}>
-        <input style={s.input} type="number" placeholder="e.g. 22" value={form.age} onChange={e => update('age', e.target.value)} />
+        <input style={s.input} type="number" min={13} max={100} step={1}
+          placeholder="e.g. 22" value={form.age}
+          onChange={e => update('age', e.target.value)} />
       </Field>
+      {/* Minor warning — appears when valid age is 13-17 */}
+      {isMinor && !errors.age && (
+        <div style={{
+          padding:'12px 14px',background:'rgba(245,200,66,0.08)',
+          border:'1px solid rgba(245,200,66,0.3)',borderRadius:10,
+          fontSize:11,color:'#f5c842',lineHeight:1.6,marginTop:-4
+        }}>
+          <strong>⚠ Members under 18</strong> need a parent or guardian to sign a
+          consent waiver at the gym before training. Please bring an adult
+          guardian on your first visit.
+        </div>
+      )}
     </div>
   )
 }
@@ -273,10 +438,14 @@ function StepBody({ form, update, errors, bmi, bmiLabel, bmiColor }) {
     <div style={s.stepContent}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <Field label="Height (cm) *" error={errors.height}>
-          <input style={s.input} type="number" placeholder="e.g. 170" value={form.height} onChange={e => update('height', e.target.value)} />
+          <input style={s.input} type="number" min={100} max={220} step={1}
+            placeholder="e.g. 170" value={form.height}
+            onChange={e => update('height', e.target.value)} />
         </Field>
         <Field label="Weight (kg) *" error={errors.weight}>
-          <input style={s.input} type="number" placeholder="e.g. 65"  value={form.weight} onChange={e => update('weight', e.target.value)} />
+          <input style={s.input} type="number" min={30} max={200} step={0.5}
+            placeholder="e.g. 65" value={form.weight}
+            onChange={e => update('weight', e.target.value)} />
         </Field>
       </div>
 

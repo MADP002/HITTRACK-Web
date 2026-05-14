@@ -18,14 +18,14 @@ import CoachDashboard from './pages/CoachDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 
 function useAuth() {
-  const [state, setState] = useState({ loading:true, user:null, role:null, programSetupDone:false })
+  const [state, setState] = useState({ loading:true, user:null, role:null, programSetupDone:false, deletedAccount:false })
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       // If no Firebase user — clear ALL localStorage and show login
       if (!firebaseUser) {
         localStorage.clear()
-        setState({ loading:false, user:null, role:null, programSetupDone:false })
+        setState({ loading:false, user:null, role:null, programSetupDone:false, deletedAccount:false })
         return
       }
       // User is logged in — get their data from Firestore (source of truth)
@@ -40,15 +40,38 @@ function useAuth() {
             user: firebaseUser,
             role: data.role || 'member',
             programSetupDone: data.programSetupDone || false,
+            deletedAccount: false,
           })
         } else {
-          // Doc doesn't exist yet — check localStorage as fallback
+          // Firestore user doc missing — check the deletions audit log to see WHY.
+          // If the account was permanently deleted by an admin, we lock the user out.
+          try {
+            const delSnap = await getDoc(doc(db, 'deletions', firebaseUser.uid))
+            if (delSnap.exists()) {
+              // Account was deleted — purge local data, set lockout flag, force sign-out
+              const delData = delSnap.data()
+              console.warn('Account was deleted by admin:', delData.deletedByName)
+              localStorage.clear()
+              // Set a sessionStorage flag the Login page can read to show the lockout message
+              try { sessionStorage.setItem('hittrack_deleted_account', JSON.stringify({
+                memberName: delData.memberName || 'this account',
+                deletedByName: delData.deletedByName || 'an administrator',
+                deletedAt: delData.deletedAt?.seconds || null,
+              })) } catch(_) {}
+              const { signOut } = await import('firebase/auth')
+              await signOut(auth)
+              setState({ loading:false, user:null, role:null, programSetupDone:false, deletedAccount:true })
+              return
+            }
+          } catch(_) { /* deletions read failed — fall through to legacy path */ }
+          // Doc doesn't exist AND no deletion record — likely brand-new signup, use localStorage as fallback
           const local = JSON.parse(localStorage.getItem('hittrack_profile') || '{}')
           setState({
             loading: false,
             user: firebaseUser,
             role: local.role || 'member',
             programSetupDone: local.programSetupDone || false,
+            deletedAccount: false,
           })
         }
       } catch {
@@ -59,6 +82,7 @@ function useAuth() {
           user: firebaseUser,
           role: local.role || 'member',
           programSetupDone: local.programSetupDone || false,
+          deletedAccount: false,
         })
       }
     })

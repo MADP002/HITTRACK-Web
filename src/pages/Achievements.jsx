@@ -1,5 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Navbar from '../components/Navbar'
+
+// ════════════════════════════════════════════════════════
+//  HALL OF CHAMPIONS — Achievements
+//
+//  All 22 badges, XP system, rank-based achievements, and
+//  canvas background preserved. Layered on top: cinematic
+//  Hero Trophy Showcase, Rarity Stat Bar, bigger badge
+//  cards, click-to-zoom showcase modal, and sectioned gallery.
+// ════════════════════════════════════════════════════════
 
 const glass = (extra={}) => ({
   background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
@@ -8,8 +17,7 @@ const glass = (extra={}) => ({
   overflow:'hidden', ...extra,
 })
 
-// ── BADGE DEFINITIONS ─────────────────────────────────
-// Each badge has: id, title, desc, icon, category, condition(stats), rarity, xp
+// ── BADGE DEFINITIONS (unchanged from your version) ──
 const BADGES = [
   // WORKOUT MILESTONES
   { id:'w1',  category:'Milestones', icon:'🥊', title:'First Punch',      desc:'Complete your very first workout',        rarity:'common',    xp:50,   condition: s => s.totalWorkouts >= 1  },
@@ -26,7 +34,7 @@ const BADGES = [
   { id:'s4',  category:'Streaks',    icon:'👑', title:'Iron Will',         desc:'Maintain a 30-day training streak',       rarity:'legendary', xp:750,  condition: s => s.streak >= 30 },
 
   // LEVEL BADGES
-  { id:'l1',  category:'Levels',     icon:'🌱', title:'Beginner\'s Heart', desc:'Start your boxing journey',               rarity:'common',    xp:50,   condition: s => s.totalWorkouts >= 1  },
+  { id:'l1',  category:'Levels',     icon:'🌱', title:"Beginner's Heart",  desc:'Start your boxing journey',               rarity:'common',    xp:50,   condition: s => s.totalWorkouts >= 1  },
   { id:'l2',  category:'Levels',     icon:'⚡', title:'Intermediate',      desc:'Reach Intermediate level (25 workouts)',  rarity:'uncommon',  xp:400,  condition: s => s.totalWorkouts >= 25 },
   { id:'l3',  category:'Levels',     icon:'🔥', title:'Advanced Fighter',  desc:'Reach Advanced level (50 workouts)',      rarity:'rare',      xp:800,  condition: s => s.totalWorkouts >= 50 },
   { id:'l4',  category:'Levels',     icon:'💎', title:'Expert',            desc:'Reach Expert level (75 workouts)',        rarity:'epic',      xp:1200, condition: s => s.totalWorkouts >= 75 },
@@ -44,17 +52,23 @@ const BADGES = [
   { id:'r4',  category:'Rankings',   icon:'🥇', title:'Champion',          desc:'Reach #1 on the gym leaderboard',         rarity:'legendary', xp:1500, condition: s => s.rank === 1               },
 ]
 
-const RARITY_COLOR = {
-  common:    { bg:'rgba(176,190,197,0.1)',  border:'rgba(176,190,197,0.25)', text:'#b0bec5', glow:'rgba(176,190,197,0.3)', label:'Common'    },
-  uncommon:  { bg:'rgba(74,222,128,0.1)',   border:'rgba(74,222,128,0.25)',  text:'#4ade80', glow:'rgba(74,222,128,0.3)',  label:'Uncommon'  },
-  rare:      { bg:'rgba(66,165,245,0.1)',   border:'rgba(66,165,245,0.25)',  text:'#42a5f5', glow:'rgba(66,165,245,0.3)',  label:'Rare'      },
-  epic:      { bg:'rgba(192,132,252,0.1)',  border:'rgba(192,132,252,0.25)', text:'#c084fc', glow:'rgba(192,132,252,0.3)', label:'Epic'      },
-  legendary: { bg:'rgba(245,200,66,0.12)', border:'rgba(245,200,66,0.35)',  text:'#f5c842', glow:'rgba(245,200,66,0.5)',  label:'Legendary' },
+const RARITY = {
+  common:    { name:'Common',    color:'#b0bec5', glow:'rgba(176,190,197,0.35)', stars:1 },
+  uncommon:  { name:'Uncommon',  color:'#22c55e', glow:'rgba(34,197,94,0.4)',    stars:2 },
+  rare:      { name:'Rare',      color:'#42a5f5', glow:'rgba(66,165,245,0.45)',  stars:3 },
+  epic:      { name:'Epic',      color:'#c084fc', glow:'rgba(192,132,252,0.5)',  stars:4 },
+  legendary: { name:'Legendary', color:'#f5c842', glow:'rgba(245,200,66,0.6)',   stars:5 },
 }
 
-const CATEGORIES = ['All', 'Milestones', 'Streaks', 'Levels', 'Consistency', 'Rankings']
+const CATEGORIES = [
+  { id:'All',         icon:'🏆', color:'#f5c842' },
+  { id:'Milestones',  icon:'🥊', color:'#e84a2f' },
+  { id:'Streaks',     icon:'🔥', color:'#e84a2f' },
+  { id:'Levels',      icon:'⚡', color:'#42a5f5' },
+  { id:'Consistency', icon:'📅', color:'#22c55e' },
+  { id:'Rankings',    icon:'📊', color:'#c084fc' },
+]
 
-const MOCK_USERS_COUNT = 12
 function calcRank(totalWorkouts, streak, weeklyPct, level) {
   const LEVEL_BONUS = { Beginner:0, Intermediate:150, Advanced:350, Expert:600, Elite:1000 }
   const myScore = (totalWorkouts*10)+(streak*5)+(LEVEL_BONUS[level]||0)+Math.round(weeklyPct*1.5)
@@ -62,279 +76,493 @@ function calcRank(totalWorkouts, streak, weeklyPct, level) {
   return gymScores.filter(s=>s>myScore).length+1
 }
 
-// ── BADGE CARD ────────────────────────────────────────
-function BadgeCard({ badge, unlocked, progress, idx }) {
-  const [mounted,setMounted]=useState(false)
-  const [hovered,setHovered]=useState(false)
-  useEffect(()=>{ const t=setTimeout(()=>setMounted(true),idx*40); return()=>clearTimeout(t) },[])
-  const r = RARITY_COLOR[badge.rarity]
+function getProgress(badge, stats) {
+  if (badge.id.startsWith('w')) {
+    const targets = { w1:1, w2:10, w3:20, w4:30, w5:50, w6:100 }
+    return Math.min(stats.totalWorkouts / (targets[badge.id]||1), 1)
+  }
+  if (badge.id.startsWith('s')) {
+    const targets = { s1:3, s2:7, s3:14, s4:30 }
+    return Math.min(stats.streak / (targets[badge.id]||1), 1)
+  }
+  if (badge.id.startsWith('l')) {
+    const targets = { l1:1, l2:25, l3:50, l4:75, l5:100 }
+    return Math.min(stats.totalWorkouts / (targets[badge.id]||1), 1)
+  }
+  if (badge.id.startsWith('c')) {
+    const targets = { c1:50, c2:75, c3:100 }
+    return Math.min(stats.weeklyPct / (targets[badge.id]||1), 1)
+  }
+  if (badge.id === 'r1') return Math.min(stats.totalWorkouts, 1)
+  if (badge.id === 'r2') return stats.rank<=10 && stats.rank>0 ? 1 : 0
+  if (badge.id === 'r3') return stats.rank<=3  && stats.rank>0 ? 1 : 0
+  if (badge.id === 'r4') return stats.rank===1 ? 1 : 0
+  return 0
+}
+
+function getProgressLabel(badge, stats) {
+  if (badge.id.startsWith('w')) {
+    const targets = { w1:1, w2:10, w3:20, w4:30, w5:50, w6:100 }
+    const t = targets[badge.id]||1
+    return `${Math.min(stats.totalWorkouts,t)}/${t}`
+  }
+  if (badge.id.startsWith('s')) {
+    const targets = { s1:3, s2:7, s3:14, s4:30 }
+    const t = targets[badge.id]||1
+    return `${Math.min(stats.streak,t)}/${t}`
+  }
+  if (badge.id.startsWith('l')) {
+    const targets = { l1:1, l2:25, l3:50, l4:75, l5:100 }
+    const t = targets[badge.id]||1
+    return `${Math.min(stats.totalWorkouts,t)}/${t}`
+  }
+  if (badge.id.startsWith('c')) {
+    const targets = { c1:50, c2:75, c3:100 }
+    const t = targets[badge.id]||1
+    return `${Math.min(stats.weeklyPct,t)}%/${t}%`
+  }
+  if (badge.id === 'r2') return `Rank #${stats.rank}/10`
+  if (badge.id === 'r3') return `Rank #${stats.rank}/3`
+  if (badge.id === 'r4') return `Rank #${stats.rank}`
+  return ''
+}
+
+// ════════════════════════════════════════════════════════
+//  BADGE CARD — Bigger, more cinematic
+// ════════════════════════════════════════════════════════
+function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
+  const [mounted, setMounted] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const r = RARITY[badge.rarity]
+  useEffect(() => { const t=setTimeout(()=>setMounted(true), idx*40); return ()=>clearTimeout(t) }, [idx])
 
   return (
     <div
+      onClick={onClick}
       onMouseEnter={()=>setHovered(true)}
       onMouseLeave={()=>setHovered(false)}
       style={{
-        background: unlocked ? r.bg : 'rgba(255,255,255,0.02)',
-        borderRadius:16,
-        border:`1.5px solid ${unlocked?(hovered?r.text:r.border):'rgba(255,255,255,0.06)'}`,
-        padding:'20px 16px',
-        display:'flex',flexDirection:'column',alignItems:'center',gap:10,
-        textAlign:'center',position:'relative',overflow:'hidden',
-        boxShadow: unlocked&&hovered ? `0 0 30px ${r.glow}` : 'none',
+        position:'relative', overflow:'hidden', cursor:'pointer',
+        background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',
+        borderRadius:18,
+        border:`1.5px solid ${unlocked ? (hovered ? r.color : r.color+'55') : (hovered ? r.color+'30' : 'rgba(255,255,255,0.06)')}`,
+        padding:'20px 18px 18px',
+        display:'flex', flexDirection:'column', gap:10,
+        minHeight:240,
         opacity: mounted ? 1 : 0,
-        transform: mounted ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.95)',
-        transition:`all 0.4s cubic-bezier(0.34,1.2,0.64,1) ${idx*40}ms`,
-        cursor:'default',
-        filter: unlocked ? 'none' : 'grayscale(0.8)',
-      }}
-    >
-      {/* Glow orb behind icon */}
+        transform: mounted ? (hovered ? 'translateY(-6px) scale(1.02)' : 'translateY(0) scale(1)') : 'translateY(20px) scale(0.95)',
+        transition: `all 0.4s cubic-bezier(0.34,1.2,0.64,1) ${idx*40}ms, transform 0.3s cubic-bezier(0.34,1.56,0.64,1)`,
+        boxShadow: hovered ? `0 16px 40px rgba(0,0,0,0.6),0 0 30px ${r.glow}` : (unlocked ? `0 4px 14px ${r.glow}25` : '0 2px 8px rgba(0,0,0,0.3)'),
+      }}>
+
+      <div style={{position:'absolute', top:12, right:14, fontSize:9, letterSpacing:'0.05em', color:r.color, fontWeight:800, textShadow:unlocked?`0 0 8px ${r.color}88`:'none', opacity:unlocked?1:0.5}}>
+        {Array.from({length:r.stars}).map(()=>'★').join('')}
+      </div>
+
       {unlocked && (
-        <div style={{position:'absolute',top:0,left:'50%',transform:'translateX(-50%)',
-          width:80,height:80,background:`radial-gradient(circle,${r.glow},transparent 70%)`,
-          pointerEvents:'none'}}/>
+        <div style={{position:'absolute', left:'50%', top:30, transform:'translateX(-50%)', width:140, height:140, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, pointerEvents:'none', opacity:hovered?0.9:0.55, transition:'opacity 0.3s'}}/>
       )}
 
-      {/* Lock overlay */}
-      {!unlocked && (
-        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.2)',zIndex:2,borderRadius:16}}>
-          <span style={{fontSize:18,opacity:0.3}}>🔒</span>
+      <div style={{position:'relative', display:'flex', justifyContent:'center', marginTop:8, marginBottom:2}}>
+        <div style={{
+          position:'relative', width:78, height:78, borderRadius:18,
+          background: unlocked ? `linear-gradient(135deg,${r.color},${r.color}88)` : 'rgba(40,35,32,0.7)',
+          border: `2px solid ${unlocked?r.color:'rgba(255,255,255,0.08)'}`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:36,
+          boxShadow: unlocked ? `0 6px 18px ${r.glow},inset 0 2px 6px rgba(255,255,255,0.15)` : 'none',
+          filter: unlocked ? 'none' : 'grayscale(0.85) brightness(0.55)',
+          transition: 'all 0.3s ease',
+          animation: unlocked && hovered ? 'badgeBounce 0.5s ease' : 'none',
+        }}>
+          {badge.icon}
+          {!unlocked && (
+            <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.5)', borderRadius:18}}>
+              <span style={{fontSize:24}}>🔒</span>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Rarity label */}
-      <div style={{position:'absolute',top:10,right:10,fontSize:8,fontWeight:700,
-        color:unlocked?r.text:'#333',letterSpacing:'0.08em',
-        background:unlocked?`${r.text}18`:'transparent',
-        border:unlocked?`1px solid ${r.text}33`:'none',
-        borderRadius:50,padding:'2px 7px',textTransform:'uppercase'}}>
-        {badge.rarity}
       </div>
 
-      {/* Icon */}
-      <div style={{fontSize:unlocked?44:36,filter:unlocked?`drop-shadow(0 0 10px ${r.glow})`:'none',
-        animation:unlocked&&hovered?'badgeBounce 0.5s ease':'none',position:'relative',zIndex:1}}>
-        {badge.icon}
+      <div style={{textAlign:'center'}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:16, letterSpacing:'0.04em', color:unlocked?r.color:'#888', marginBottom:3, textShadow:unlocked?`0 0 10px ${r.glow}`:'none', lineHeight:1.2}}>
+          {badge.title}
+        </div>
+        <div style={{fontSize:10, color:'#777', lineHeight:1.5, padding:'0 4px'}}>
+          {badge.desc}
+        </div>
       </div>
 
-      {/* Title */}
-      <div style={{fontSize:12,fontWeight:700,color:unlocked?r.text:'#444',lineHeight:1.3}}>{badge.title}</div>
-
-      {/* Desc */}
-      <div style={{fontSize:10,color:unlocked?'#7a7570':'#333',lineHeight:1.5}}>{badge.desc}</div>
-
-      {/* XP */}
-      <div style={{fontSize:10,fontWeight:700,
-        color:unlocked?r.text:'#333',
-        background:unlocked?`${r.text}15`:'rgba(255,255,255,0.03)',
-        border:`1px solid ${unlocked?r.text+'33':'rgba(255,255,255,0.05)'}`,
-        borderRadius:50,padding:'3px 10px'}}>
-        {unlocked?`+${badge.xp} XP`:`${badge.xp} XP`}
-      </div>
-
-      {/* Progress bar (for locked) */}
-      {!unlocked && progress !== null && progress !== undefined && (
-        <div style={{width:'100%'}}>
-          <div style={{height:3,background:'rgba(255,255,255,0.06)',borderRadius:50,overflow:'hidden'}}>
-            <div style={{height:'100%',background:'rgba(245,200,66,0.4)',borderRadius:50,
-              width:`${Math.min(progress*100,100)}%`,transition:'width 1s ease'}}/>
+      <div style={{marginTop:'auto', paddingTop:6, display:'flex', flexDirection:'column', gap:6}}>
+        <div style={{display:'flex', justifyContent:'center'}}>
+          <span style={{fontSize:9, fontWeight:800, padding:'3px 10px', borderRadius:50, background:unlocked?`${r.color}22`:'rgba(255,255,255,0.04)', color:unlocked?r.color:'#666', border:`1px solid ${unlocked?r.color+'55':'rgba(255,255,255,0.08)'}`, letterSpacing:'0.08em'}}>
+            {unlocked ? '+' : ''}{badge.xp} XP
+          </span>
+        </div>
+        {unlocked ? (
+          <div style={{display:'flex', justifyContent:'center'}}>
+            <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:`linear-gradient(135deg,${r.color},${r.color}cc)`, color:'#0a0808', letterSpacing:'0.1em', boxShadow:`0 4px 12px ${r.glow}`}}>
+              ✓ UNLOCKED
+            </span>
           </div>
-          <div style={{fontSize:9,color:'#444',marginTop:4}}>{Math.round(progress*100)}% there</div>
-        </div>
-      )}
+        ) : (
+          <div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4, padding:'0 2px'}}>
+              <span style={{fontSize:8, color:'#555', fontWeight:700, letterSpacing:'0.1em'}}>PROGRESS</span>
+              <span style={{fontSize:9, color:r.color, fontWeight:700}}>{getProgressLabel(badge, stats) || `${Math.round((progress||0)*100)}%`}</span>
+            </div>
+            <div style={{height:5, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden', border:'1px solid rgba(255,255,255,0.04)'}}>
+              <div style={{height:'100%', background:`linear-gradient(90deg,${r.color},${r.color}aa)`, borderRadius:50, width:`${Math.min((progress||0)*100, 100)}%`, transition:'width 0.6s ease', boxShadow:`0 0 6px ${r.color}aa`}}/>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-// ── MAIN ─────────────────────────────────────────────
+// ════════════════════════════════════════════════════════
+//  MAIN
+// ════════════════════════════════════════════════════════
 export default function Achievements() {
   const canvasRef = useRef(null)
-  const [category,setCategory] = useState('All')
-  const [showOnly,setShowOnly] = useState('all') // all | unlocked | locked
+  const [category, setCategory] = useState('All')
+  const [showOnly, setShowOnly] = useState('all')
+  const [showcase, setShowcase] = useState(null)
 
-  const profile = (() => {
+  const profile = useMemo(() => {
     try {
-      const p=JSON.parse(localStorage.getItem('hittrack_profile')||'{}')
-      const s=JSON.parse(localStorage.getItem('hittrack_stats')||'{}')
-      return {...p,...s}
+      const p = JSON.parse(localStorage.getItem('hittrack_profile') || '{}')
+      const s = JSON.parse(localStorage.getItem('hittrack_stats')   || '{}')
+      return { ...p, ...s }
     } catch { return {} }
-  })()
+  }, [])
 
   const totalWorkouts = profile.totalWorkouts || 0
   const streak        = profile.streak        || 0
   const weeklyPct     = profile.weeklyPct     || 0
   const currentLevel  = profile.currentLevel  || profile.experience || 'Beginner'
   const rank          = calcRank(totalWorkouts, streak, weeklyPct, currentLevel)
-
   const stats = { totalWorkouts, streak, weeklyPct, rank }
 
-  // Determine which badges are unlocked
-  const badgeStatus = BADGES.map(b => ({
-    ...b,
-    unlocked: b.condition(stats),
-  }))
+  const badgeStatus = useMemo(() => BADGES.map(b => ({ ...b, unlocked: b.condition(stats) })), [totalWorkouts, streak, weeklyPct, rank])
 
-  const unlockedCount = badgeStatus.filter(b=>b.unlocked).length
-  const totalXP       = badgeStatus.filter(b=>b.unlocked).reduce((a,b)=>a+b.xp, 0)
-  const totalPossibleXP = BADGES.reduce((a,b)=>a+b.xp,0)
+  const unlockedCount    = badgeStatus.filter(b => b.unlocked).length
+  const totalXP          = badgeStatus.filter(b => b.unlocked).reduce((a,b) => a+b.xp, 0)
+  const totalPossibleXP  = BADGES.reduce((a,b) => a+b.xp, 0)
+  const completionPct    = Math.round((unlockedCount/BADGES.length)*100)
 
-  // Filter
+  const rarityCount = useMemo(() => {
+    const c = { common:0, uncommon:0, rare:0, epic:0, legendary:0 }
+    badgeStatus.filter(b => b.unlocked).forEach(b => c[b.rarity]++)
+    return c
+  }, [badgeStatus])
+
+  const featured = useMemo(() => {
+    const order = ['legendary','epic','rare','uncommon','common']
+    for (const tier of order) {
+      const got = badgeStatus.filter(b => b.unlocked && b.rarity === tier)
+      if (got.length > 0) return got[got.length-1]
+    }
+    const locked = badgeStatus.filter(b => !b.unlocked)
+    if (locked.length === 0) return badgeStatus[0]
+    return locked.sort((a,b) => getProgress(b, stats) - getProgress(a, stats))[0]
+  }, [badgeStatus, stats])
+
   const filtered = badgeStatus
     .filter(b => category === 'All' || b.category === category)
-    .filter(b => showOnly === 'all' || (showOnly==='unlocked'?b.unlocked:!b.unlocked))
+    .filter(b => showOnly === 'all' || (showOnly==='unlocked' ? b.unlocked : !b.unlocked))
 
-  // Progress for locked badges
-  function getProgress(badge) {
-    if(badge.id.startsWith('w')) {
-      const needed = [1,10,20,30,50,100]
-      const n = needed[['w1','w2','w3','w4','w5','w6'].indexOf(badge.id)]
-      return n ? totalWorkouts/n : null
-    }
-    if(badge.id.startsWith('s')) {
-      const needed = [3,7,14,30]
-      const n = needed[['s1','s2','s3','s4'].indexOf(badge.id)]
-      return n ? streak/n : null
-    }
-    if(badge.id.startsWith('c')) {
-      return weeklyPct/[50,75,100][['c1','c2','c3'].indexOf(badge.id)]
-    }
-    return null
-  }
+  const grouped = useMemo(() => {
+    if (category !== 'All') return [{ cat:category, items:filtered }]
+    const map = {}
+    filtered.forEach(b => { (map[b.category] = map[b.category] || []).push(b) })
+    return Object.entries(map).map(([cat, items]) => ({ cat, items }))
+  }, [filtered, category])
 
-  // Canvas background
-  useEffect(()=>{
-    const canvas=canvasRef.current; if(!canvas)return
-    const ctx=canvas.getContext('2d'); let animId,t=0
-    const resize=()=>{canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight}
-    resize(); window.addEventListener('resize',resize)
-    const draw=()=>{
-      ctx.clearRect(0,0,canvas.width,canvas.height); t+=0.005
-      ctx.strokeStyle='rgba(245,200,66,0.025)'; ctx.lineWidth=1
-      const g=80
-      for(let x=0;x<canvas.width+g;x+=g){const o=(t*15)%g;ctx.beginPath();ctx.moveTo(x-o,0);ctx.lineTo(x-o,canvas.height);ctx.stroke()}
-      for(let y=0;y<canvas.height+g;y+=g){const o=(t*8)%g;ctx.beginPath();ctx.moveTo(0,y-o);ctx.lineTo(canvas.width,y-o);ctx.stroke()}
-      const orbs=[
-        {x:canvas.width*0.1,y:canvas.height*0.2,r:300,c:'rgba(245,200,66,0.04)'},
-        {x:canvas.width*0.9,y:canvas.height*0.6,r:280,c:'rgba(232,74,47,0.03)'},
-        {x:canvas.width*0.5,y:canvas.height*0.9,r:250,c:'rgba(192,132,252,0.03)'},
+  // Canvas grid background (preserved)
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d'); let animId, t=0
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight }
+    resize(); window.addEventListener('resize', resize)
+    const draw = () => {
+      ctx.clearRect(0,0,canvas.width,canvas.height); t += 0.005
+      ctx.strokeStyle = 'rgba(245,200,66,0.025)'; ctx.lineWidth = 1
+      const g = 80
+      for (let x=0; x<canvas.width+g; x+=g) { const o=(t*15)%g; ctx.beginPath(); ctx.moveTo(x-o,0); ctx.lineTo(x-o,canvas.height); ctx.stroke() }
+      for (let y=0; y<canvas.height+g; y+=g) { const o=(t*8)%g;  ctx.beginPath(); ctx.moveTo(0,y-o); ctx.lineTo(canvas.width,y-o); ctx.stroke() }
+      const orbs = [
+        {x:canvas.width*0.1, y:canvas.height*0.2, r:300, c:'rgba(245,200,66,0.04)'},
+        {x:canvas.width*0.9, y:canvas.height*0.6, r:280, c:'rgba(232,74,47,0.03)'},
+        {x:canvas.width*0.5, y:canvas.height*0.9, r:250, c:'rgba(192,132,252,0.03)'},
       ]
-      orbs.forEach(o=>{
-        const grd=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r)
-        grd.addColorStop(0,o.c);grd.addColorStop(1,'transparent')
-        ctx.fillStyle=grd;ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);ctx.fill()
+      orbs.forEach(o => {
+        const grd = ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r)
+        grd.addColorStop(0, o.c); grd.addColorStop(1, 'transparent')
+        ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,Math.PI*2); ctx.fill()
       })
-      animId=requestAnimationFrame(draw)
+      animId = requestAnimationFrame(draw)
     }
     draw()
-    return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
-  },[])
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize) }
+  }, [])
 
   return (
     <>
-      <Navbar user={{name:profile.name||'Athlete'}}/>
-      <canvas ref={canvasRef} style={{position:'fixed',inset:0,width:'100%',height:'100%',zIndex:0,pointerEvents:'none'}}/>
+      <Navbar user={{name: profile.name||'Athlete'}}/>
+      <canvas ref={canvasRef} style={{position:'fixed', inset:0, width:'100%', height:'100%', zIndex:0, pointerEvents:'none'}}/>
 
-      <div style={{position:'relative',zIndex:1,maxWidth:1300,margin:'0 auto',padding:'28px 40px 60px',display:'flex',flexDirection:'column',gap:20,fontFamily:'Montserrat,sans-serif'}}>
+      <div style={{position:'relative', zIndex:1, maxWidth:1400, margin:'0 auto', padding:'24px 40px 80px', display:'flex', flexDirection:'column', gap:18, fontFamily:'Montserrat,sans-serif'}}>
 
         {/* HEADER */}
-        <div style={{...glass({borderRadius:20}),padding:'28px 36px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',overflow:'hidden',border:'1px solid rgba(245,200,66,0.2)'}}>
-          <div style={{position:'absolute',top:-40,right:200,fontSize:140,opacity:0.04,filter:'blur(2px)',userSelect:'none',animation:'trophyFloat 4s ease infinite'}}>🏆</div>
-          <div style={{position:'relative',zIndex:1}}>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,letterSpacing:'0.06em',color:'#f0ece8',lineHeight:1}}>
-              🏆 Achievements
+        <div style={{...glass({borderRadius:20}), padding:'24px 32px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'relative', overflow:'hidden', border:'1px solid rgba(245,200,66,0.2)', flexWrap:'wrap', gap:20}}>
+          <div style={{position:'absolute', top:-40, right:200, fontSize:140, opacity:0.04, filter:'blur(2px)', userSelect:'none', animation:'trophyFloat 4s ease infinite', pointerEvents:'none'}}>🏆</div>
+          <div style={{position:'relative', zIndex:1}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:36, letterSpacing:'0.06em', color:'#f0ece8', lineHeight:1, textShadow:'0 0 24px rgba(245,200,66,0.3)'}}>
+              🏆 HALL OF CHAMPIONS
             </div>
-            <div style={{fontSize:13,color:'#7a7570',marginTop:4}}>
-              {profile.name||'Athlete'} · Collect badges by training consistently
+            <div style={{fontSize:11, color:'#777', letterSpacing:'0.18em', textTransform:'uppercase', fontWeight:700, marginTop:6}}>
+              {profile.name||'Athlete'} · Your boxing trophy room
             </div>
           </div>
-
-          {/* Summary stats */}
-          <div style={{display:'flex',gap:12,position:'relative',zIndex:1}}>
+          <div style={{display:'flex', gap:10, position:'relative', zIndex:1, flexWrap:'wrap'}}>
             {[
-              {label:'Unlocked',  val:`${unlockedCount}/${BADGES.length}`, color:'#f5c842'},
-              {label:'Total XP',  val:totalXP.toLocaleString(),            color:'#4ade80'},
-              {label:'Completion',val:`${Math.round((unlockedCount/BADGES.length)*100)}%`, color:'#e84a2f'},
-            ].map((st,i)=>(
-              <div key={i} style={{textAlign:'center',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:14,padding:'14px 20px',minWidth:100}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:26,color:st.color,lineHeight:1}}>{st.val}</div>
-                <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.1em',marginTop:4,textTransform:'uppercase'}}>{st.label}</div>
+              {label:'Unlocked',   val:`${unlockedCount}/${BADGES.length}`,  color:'#f5c842'},
+              {label:'Total XP',   val:totalXP.toLocaleString(),             color:'#22c55e'},
+              {label:'Completion', val:`${completionPct}%`,                  color:'#e84a2f'},
+            ].map((st,i) => (
+              <div key={i} style={{textAlign:'center', background:'rgba(255,255,255,0.04)', border:`1px solid ${st.color}33`, borderRadius:14, padding:'12px 18px', minWidth:96}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:st.color, lineHeight:1, textShadow:`0 0 12px ${st.color}66`}}>{st.val}</div>
+                <div style={{fontSize:8, color:'#666', fontWeight:700, letterSpacing:'0.12em', marginTop:4, textTransform:'uppercase'}}>{st.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* XP Progress bar */}
-        <div style={{...glass({borderRadius:14}),padding:'16px 24px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-            <span style={{fontSize:11,fontWeight:700,color:'#7a7570',letterSpacing:'0.08em',textTransform:'uppercase'}}>Overall XP Progress</span>
-            <span style={{fontSize:11,fontWeight:700,color:'#f5c842'}}>{totalXP.toLocaleString()} / {totalPossibleXP.toLocaleString()} XP</span>
+        {/* HERO TROPHY SHOWCASE */}
+        {featured && (() => {
+          const r = RARITY[featured.rarity]
+          const isUnlocked = featured.unlocked
+          const prog = getProgress(featured, stats)
+          return (
+            <div onClick={()=>setShowcase(featured)}
+              style={{position:'relative', overflow:'hidden', cursor:'pointer', borderRadius:24, background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)', border:`2px solid ${r.color}55`, padding:'30px 36px', boxShadow:`0 20px 60px rgba(0,0,0,0.6),0 0 60px ${r.glow}`, display:'flex', gap:30, alignItems:'center', flexWrap:'wrap'}}>
+              <div style={{position:'absolute', top:-100, right:-100, width:400, height:400, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 65%)`, pointerEvents:'none', animation:'heroGlow 4s ease-in-out infinite'}}/>
+              <div style={{position:'absolute', bottom:-80, left:-80, width:320, height:320, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, pointerEvents:'none', opacity:0.5}}/>
+              <div style={{position:'relative', flexShrink:0}}>
+                <div style={{position:'absolute', inset:-20, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, animation:'pulseTrophy 2.5s ease-in-out infinite', pointerEvents:'none'}}/>
+                <div style={{position:'relative', width:160, height:160, borderRadius:30, background:isUnlocked?`linear-gradient(135deg,${r.color},${r.color}88)`:'rgba(40,35,32,0.8)', border:`3px solid ${r.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:72, boxShadow:`0 12px 40px ${r.glow},inset 0 4px 12px rgba(255,255,255,0.15)`, filter:isUnlocked?'none':'grayscale(0.7) brightness(0.6)'}}>
+                  {featured.icon}
+                  {!isUnlocked && (
+                    <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.45)', borderRadius:30}}>
+                      <span style={{fontSize:50}}>🔒</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{flex:1, minWidth:260, position:'relative', zIndex:1}}>
+                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8, flexWrap:'wrap'}}>
+                  <span style={{fontSize:9, fontWeight:800, padding:'4px 10px', borderRadius:50, background:isUnlocked?`${r.color}25`:'rgba(255,255,255,0.04)', color:isUnlocked?r.color:'#666', border:`1px solid ${isUnlocked?r.color+'55':'rgba(255,255,255,0.08)'}`, letterSpacing:'0.12em', textTransform:'uppercase'}}>
+                    {isUnlocked ? '🏆 LATEST UNLOCK' : '🎯 NEXT TARGET'}
+                  </span>
+                  <span style={{fontSize:9, fontWeight:800, padding:'4px 10px', borderRadius:50, background:`${r.color}22`, color:r.color, border:`1px solid ${r.color}44`, letterSpacing:'0.1em', textTransform:'uppercase'}}>
+                    {Array.from({length:r.stars}).map(()=>'★').join('')} {r.name}
+                  </span>
+                  <span style={{fontSize:9, fontWeight:700, color:'#666', letterSpacing:'0.1em'}}>· {featured.category} · +{featured.xp} XP</span>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:42, color:isUnlocked?r.color:'#888', letterSpacing:'0.04em', lineHeight:1, marginBottom:8, textShadow:isUnlocked?`0 0 20px ${r.glow}`:'none'}}>
+                  {featured.title}
+                </div>
+                <div style={{fontSize:13, color:'#aaa', lineHeight:1.6, marginBottom:14}}>{featured.desc}</div>
+                {isUnlocked ? (
+                  <div style={{display:'flex', gap:10, alignItems:'center'}}>
+                    <div style={{padding:'8px 16px', background:`linear-gradient(135deg,${r.color},${r.color}aa)`, borderRadius:50, fontSize:11, fontWeight:800, color:'#0a0808', letterSpacing:'0.1em', boxShadow:`0 4px 14px ${r.glow}`}}>✓ UNLOCKED</div>
+                    <span style={{fontSize:10, color:'#888'}}>Tap to view details 🥊</span>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6}}>
+                      <span style={{fontSize:9, color:'#666', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase'}}>Progress</span>
+                      <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:18, color:r.color}}>{getProgressLabel(featured, stats) || `${Math.round(prog*100)}%`}</span>
+                    </div>
+                    <div style={{height:10, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden', border:'1px solid rgba(255,255,255,0.04)'}}>
+                      <div style={{height:'100%', background:`linear-gradient(90deg,${r.color},${r.color}cc)`, borderRadius:50, width:`${prog*100}%`, transition:'width 0.8s ease', boxShadow:`0 0 14px ${r.color}aa`}}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* XP PROGRESS BAR */}
+        <div style={{...glass({borderRadius:14}), padding:'14px 22px'}}>
+          <div style={{display:'flex', justifyContent:'space-between', marginBottom:8, alignItems:'baseline'}}>
+            <span style={{fontSize:10, fontWeight:800, color:'#888', letterSpacing:'0.12em', textTransform:'uppercase'}}>Overall XP Progress</span>
+            <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, color:'#f5c842', letterSpacing:'0.04em'}}>{totalXP.toLocaleString()} <span style={{color:'#666'}}>/ {totalPossibleXP.toLocaleString()} XP</span></span>
           </div>
-          <div style={{height:10,background:'rgba(255,255,255,0.06)',borderRadius:50,overflow:'hidden',position:'relative'}}>
-            <div style={{position:'absolute',inset:0,background:'repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,0.03) 40px,rgba(255,255,255,0.03) 41px)'}}/>
-            <div style={{height:'100%',background:'linear-gradient(90deg,#e84a2f,#f5c842,#4ade80)',borderRadius:50,
-              width:`${(totalXP/totalPossibleXP)*100}%`,transition:'width 1.2s ease',
-              boxShadow:'0 0 20px rgba(245,200,66,0.4)'}}/>
+          <div style={{height:10, background:'rgba(255,255,255,0.06)', borderRadius:50, overflow:'hidden', position:'relative', border:'1px solid rgba(255,255,255,0.04)'}}>
+            <div style={{position:'absolute', inset:0, background:'repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,0.03) 40px,rgba(255,255,255,0.03) 41px)'}}/>
+            <div style={{height:'100%', background:'linear-gradient(90deg,#e84a2f,#f5c842,#22c55e)', borderRadius:50, width:`${(totalXP/totalPossibleXP)*100}%`, transition:'width 1.2s ease', boxShadow:'0 0 20px rgba(245,200,66,0.5)'}}/>
           </div>
-          <div style={{display:'flex',justifyContent:'space-between',marginTop:8}}>
-            <span style={{fontSize:10,color:'#555'}}>Beginner</span>
-            <span style={{fontSize:10,color:'#555'}}>Intermediate</span>
-            <span style={{fontSize:10,color:'#555'}}>Advanced</span>
-            <span style={{fontSize:10,color:'#555'}}>Expert</span>
-            <span style={{fontSize:10,color:'#555'}}>Legend</span>
+          <div style={{display:'flex', justifyContent:'space-between', marginTop:8}}>
+            {['Beginner','Intermediate','Advanced','Expert','Legend'].map((l,i) => (
+              <span key={i} style={{fontSize:9, color:'#555', fontWeight:700, letterSpacing:'0.06em'}}>{l}</span>
+            ))}
           </div>
+        </div>
+
+        {/* RARITY STAT BAR */}
+        <div style={{display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10}}>
+          {Object.entries(RARITY).map(([key, r]) => {
+            const total = BADGES.filter(b => b.rarity === key).length
+            const got = rarityCount[key]
+            return (
+              <div key={key} style={{position:'relative', overflow:'hidden', padding:'12px 14px', background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)', border:`1px solid ${r.color}25`, borderRadius:12, display:'flex', alignItems:'center', gap:10, transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', cursor:'default'}}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.borderColor=r.color+'66'; e.currentTarget.style.boxShadow=`0 8px 24px ${r.glow}`}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.borderColor=r.color+'25'; e.currentTarget.style.boxShadow='none'}}>
+                <div style={{width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${r.color},${r.color}aa)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#0a0808', flexShrink:0, fontFamily:"'Bebas Neue',sans-serif", fontSize:18, fontWeight:800, boxShadow:`0 4px 12px ${r.glow}`}}>
+                  {got}
+                </div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:4, marginBottom:3}}>
+                    <span style={{fontSize:8, fontWeight:800, color:r.color, letterSpacing:'0.12em', textTransform:'uppercase'}}>{r.name}</span>
+                    <span style={{fontSize:8, color:r.color, fontWeight:800}}>{Array.from({length:r.stars}).map(()=>'★').join('')}</span>
+                  </div>
+                  <div style={{display:'flex', alignItems:'center', gap:6}}>
+                    <div style={{flex:1, height:4, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden'}}>
+                      <div style={{height:'100%', background:r.color, borderRadius:50, width:total>0?`${(got/total)*100}%`:'0%', transition:'width 0.6s ease', boxShadow:`0 0 6px ${r.color}88`}}/>
+                    </div>
+                    <span style={{fontSize:8, color:'#666', fontWeight:700, flexShrink:0}}>{got}/{total}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {/* FILTERS */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
-          {/* Category filter */}
-          <div style={{display:'flex',gap:4,background:'rgba(255,255,255,0.03)',borderRadius:50,padding:4,border:'1px solid rgba(255,255,255,0.06)',flexWrap:'wrap'}}>
-            {CATEGORIES.map(cat=>(
-              <button key={cat}
-                style={{background:category===cat?'rgba(245,200,66,0.15)':'transparent',
-                  color:category===cat?'#f5c842':'#555',
-                  border:category===cat?'1px solid rgba(245,200,66,0.3)':'1px solid transparent',
-                  borderRadius:50,padding:'7px 18px',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all 0.2s'}}
-                onClick={()=>setCategory(cat)}>
-                {cat}
-              </button>
-            ))}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap'}}>
+          <div style={{display:'flex', gap:4, background:'rgba(255,255,255,0.03)', borderRadius:50, padding:4, border:'1px solid rgba(255,255,255,0.06)', flexWrap:'wrap'}}>
+            {CATEGORIES.map(cat => {
+              const active = category === cat.id
+              return (
+                <button key={cat.id} onClick={()=>setCategory(cat.id)}
+                  style={{display:'flex', alignItems:'center', gap:6, background:active?`${cat.color}20`:'transparent', color:active?cat.color:'#666', border:active?`1px solid ${cat.color}55`:'1px solid transparent', borderRadius:50, padding:'7px 14px', fontSize:10, fontWeight:800, cursor:'pointer', letterSpacing:'0.06em', transition:'all 0.25s'}}>
+                  <span style={{fontSize:12}}>{cat.icon}</span>
+                  {cat.id.toUpperCase()}
+                </button>
+              )
+            })}
           </div>
-
-          {/* Show filter */}
-          <div style={{display:'flex',gap:4,background:'rgba(255,255,255,0.03)',borderRadius:50,padding:4,border:'1px solid rgba(255,255,255,0.06)'}}>
-            {[['all','All'],['unlocked','Unlocked ✓'],['locked','Locked 🔒']].map(([val,label])=>(
-              <button key={val}
-                style={{background:showOnly===val?'rgba(74,222,128,0.12)':'transparent',
-                  color:showOnly===val?'#4ade80':'#555',
-                  border:showOnly===val?'1px solid rgba(74,222,128,0.25)':'1px solid transparent',
-                  borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all 0.2s'}}
-                onClick={()=>setShowOnly(val)}>
-                {label}
-              </button>
-            ))}
+          <div style={{display:'flex', gap:4, background:'rgba(255,255,255,0.03)', borderRadius:50, padding:4, border:'1px solid rgba(255,255,255,0.06)'}}>
+            {[['all','All'],['unlocked','Unlocked ✓'],['locked','Locked 🔒']].map(([val,label]) => {
+              const active = showOnly === val
+              return (
+                <button key={val} onClick={()=>setShowOnly(val)}
+                  style={{background:active?'rgba(34,197,94,0.15)':'transparent', color:active?'#22c55e':'#666', border:active?'1px solid rgba(34,197,94,0.3)':'1px solid transparent', borderRadius:50, padding:'7px 14px', fontSize:10, fontWeight:800, cursor:'pointer', letterSpacing:'0.06em', transition:'all 0.25s'}}>
+                  {label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {/* BADGE GRID */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:14}}>
-          {filtered.map((badge,i)=>(
-            <BadgeCard key={badge.id} badge={badge} unlocked={badge.unlocked}
-              progress={badge.unlocked?null:getProgress(badge)} idx={i}/>
-          ))}
-        </div>
-
-        {filtered.length===0&&(
-          <div style={{...glass({borderRadius:16}),padding:'40px',textAlign:'center'}}>
-            <div style={{fontSize:36,marginBottom:12}}>🔍</div>
-            <div style={{fontSize:14,fontWeight:700,color:'#f0ece8',marginBottom:6}}>No badges found</div>
-            <div style={{fontSize:12,color:'#555'}}>Try changing your filter</div>
+        {/* GALLERY */}
+        {filtered.length === 0 ? (
+          <div style={{...glass({borderRadius:18}), padding:'50px', textAlign:'center'}}>
+            <div style={{fontSize:42, marginBottom:12, opacity:0.4}}>🔍</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:'#888', letterSpacing:'0.06em'}}>NO BADGES FOUND</div>
+            <div style={{fontSize:11, color:'#555', marginTop:6}}>Try changing your filter</div>
           </div>
+        ) : (
+          grouped.map(({ cat, items }) => {
+            const catInfo = CATEGORIES.find(c => c.id === cat) || CATEGORIES[0]
+            const sectionUnlocked = items.filter(b => b.unlocked).length
+            return (
+              <div key={cat} style={{display:'flex', flexDirection:'column', gap:12}}>
+                {category === 'All' && (
+                  <div style={{display:'flex', alignItems:'center', gap:10, padding:'2px 4px'}}>
+                    <span style={{fontSize:18}}>{catInfo.icon}</span>
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:18, letterSpacing:'0.08em', color:catInfo.color, textShadow:`0 0 14px ${catInfo.color}55`}}>{cat.toUpperCase()}</span>
+                    <span style={{fontSize:9, fontWeight:800, padding:'2px 9px', borderRadius:50, background:`${catInfo.color}20`, color:catInfo.color, letterSpacing:'0.1em', border:`1px solid ${catInfo.color}40`}}>{sectionUnlocked}/{items.length}</span>
+                    <div style={{flex:1, height:1, background:`linear-gradient(90deg,${catInfo.color}30,transparent)`}}/>
+                  </div>
+                )}
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14}}>
+                  {items.map((b,i) => (
+                    <BadgeCard key={b.id} badge={b} unlocked={b.unlocked}
+                      progress={b.unlocked?1:getProgress(b, stats)}
+                      stats={stats}
+                      onClick={()=>setShowcase(b)}
+                      idx={i}/>
+                  ))}
+                </div>
+              </div>
+            )
+          })
         )}
-
       </div>
+
+      {/* SHOWCASE MODAL */}
+      {showcase && (() => {
+        const r = RARITY[showcase.rarity]
+        const prog = getProgress(showcase, stats)
+        return (
+          <div onClick={()=>setShowcase(null)}
+            style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', backdropFilter:'blur(12px)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'popIn 0.3s ease'}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative', background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)', borderRadius:24, border:`2px solid ${r.color}66`, maxWidth:480, width:'100%', overflow:'hidden', boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${r.glow}`, padding:'34px 32px', textAlign:'center'}}>
+              <div style={{position:'absolute', top:-80, left:'50%', transform:'translateX(-50%)', width:360, height:360, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 65%)`, pointerEvents:'none'}}/>
+              <button onClick={()=>setShowcase(null)} style={{position:'absolute', top:14, right:14, width:32, height:32, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:9, color:'#888', fontSize:14, cursor:'pointer'}}>✕</button>
+              <div style={{position:'relative'}}>
+                <div style={{position:'relative', display:'inline-block', marginBottom:20}}>
+                  {showcase.unlocked && <div style={{position:'absolute', inset:-20, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, animation:'pulseTrophy 2.5s ease-in-out infinite'}}/>}
+                  <div style={{position:'relative', width:140, height:140, borderRadius:26, background:showcase.unlocked?`linear-gradient(135deg,${r.color},${r.color}88)`:'rgba(40,35,32,0.8)', border:`3px solid ${r.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:64, boxShadow:`0 12px 36px ${r.glow},inset 0 4px 10px rgba(255,255,255,0.15)`, filter:showcase.unlocked?'none':'grayscale(0.7) brightness(0.6)'}}>
+                    {showcase.icon}
+                    {!showcase.unlocked && <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.45)', borderRadius:26}}><span style={{fontSize:46}}>🔒</span></div>}
+                  </div>
+                </div>
+                <div style={{display:'flex', justifyContent:'center', gap:6, marginBottom:8, flexWrap:'wrap'}}>
+                  <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:`${r.color}22`, color:r.color, border:`1px solid ${r.color}55`, letterSpacing:'0.1em'}}>
+                    {Array.from({length:r.stars}).map(()=>'★').join('')} {r.name.toUpperCase()}
+                  </span>
+                  <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:'rgba(245,200,66,0.15)', color:'#f5c842', border:'1px solid rgba(245,200,66,0.35)', letterSpacing:'0.1em'}}>
+                    +{showcase.xp} XP
+                  </span>
+                </div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:36, color:showcase.unlocked?r.color:'#888', letterSpacing:'0.04em', lineHeight:1, marginBottom:8, textShadow:showcase.unlocked?`0 0 16px ${r.glow}`:'none'}}>{showcase.title}</div>
+                <div style={{fontSize:13, color:'#aaa', lineHeight:1.7, marginBottom:24}}>{showcase.desc}</div>
+                {showcase.unlocked ? (
+                  <div style={{padding:'14px 18px', background:`linear-gradient(135deg,${r.color}22,${r.color}10)`, border:`1px solid ${r.color}55`, borderRadius:14}}>
+                    <div style={{fontSize:11, fontWeight:800, color:r.color, letterSpacing:'0.1em', textTransform:'uppercase'}}>✓ Achievement Earned</div>
+                    <div style={{fontSize:10, color:'#888', marginTop:4}}>You've made it to the Hall of Champions for this milestone 🥊</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8, padding:'0 4px'}}>
+                      <span style={{fontSize:9, color:'#666', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase'}}>Progress to unlock</span>
+                      <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:r.color}}>{getProgressLabel(showcase, stats) || `${Math.round(prog*100)}%`}</span>
+                    </div>
+                    <div style={{height:12, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden', border:'1px solid rgba(255,255,255,0.04)'}}>
+                      <div style={{height:'100%', background:`linear-gradient(90deg,${r.color},${r.color}cc)`, borderRadius:50, width:`${prog*100}%`, transition:'width 0.8s ease', boxShadow:`0 0 14px ${r.color}aa`}}/>
+                    </div>
+                    <div style={{fontSize:11, color:'#888', marginTop:14}}>Keep training — you're on the way 🥊</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <style>{`
-        @keyframes trophyFloat{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
-        @keyframes badgeBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+        @keyframes trophyFloat { 0%,100% { transform: translateY(0) rotate(-3deg) } 50% { transform: translateY(-8px) rotate(3deg) } }
+        @keyframes badgeBounce { 0%,100% { transform: scale(1) } 50% { transform: scale(1.2) } }
+        @keyframes pulseTrophy { 0%,100% { transform: scale(1); opacity: 0.6 } 50% { transform: scale(1.15); opacity: 0.9 } }
+        @keyframes heroGlow { 0%,100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.1); opacity: 0.7 } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.85) } to { opacity: 1; transform: scale(1) } }
       `}</style>
     </>
   )

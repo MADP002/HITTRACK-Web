@@ -234,20 +234,19 @@ export default function Leaderboard(){
       // SINGLE SOURCE OF TRUTH: read users (identity) + merge stats (performance)
       const usersSnap=await getDocs(collection(db,'users'))
       const list=[]
-      let permissionErrors=0
       for(const ud of usersSnap.docs){
         const userData=ud.data()
         // Only include members on the gym leaderboard
         if(userData.role && userData.role!=='member') continue
+        // Skip deactivated accounts — they don't compete on the leaderboard
+        if(userData.status==='inactive') continue
         if(!userData.name) continue
         // Pull stats (may not exist for new users OR may be permission-denied)
         let stats={}
         try{
           const ss=await getDoc(doc(db,'stats',ud.id))
           if(ss.exists()) stats=ss.data()
-        }catch(e){
-          permissionErrors++
-        }
+        }catch(e){/* stats may be missing — fine */}
         // Merge — same semantics as coach/admin
         const merged={uid:ud.id,...userData,...stats}
         // 🎯 LEVEL RESOLUTION — `users.experience` is the AUTHORITATIVE source
@@ -273,11 +272,6 @@ export default function Leaderboard(){
         merged.isMe=me&&ud.id===me.uid
         list.push(merged)
       }
-      // 🔍 DIAGNOSTIC — remove this block once leaderboard is verified working
-      console.group('🥊 [Leaderboard Debug] Raw data per member')
-      list.forEach(u=>console.log(`${u.name}: level=${u.experience}, wkt=${u.totalWorkouts}, streak=${u.streak}, score=${u.score}`))
-      if(permissionErrors>0) console.warn(`⚠️ ${permissionErrors} stats permission errors — check Firestore rules for /stats/{userId}`)
-      console.groupEnd()
       // Safety net: add current user if somehow missing from users collection
       if(me&&!list.find(u=>u.uid===me.uid)&&profile.name){
         const fallback={

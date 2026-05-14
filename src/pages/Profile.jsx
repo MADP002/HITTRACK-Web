@@ -9,6 +9,39 @@ const LEVEL_COLOR = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#4ad
 const LEVEL_ICON  = { Beginner:'🥊', Intermediate:'⚡', Advanced:'🔥', Expert:'💎', Elite:'👑' }
 const LEVEL_BONUS = { Beginner:0, Intermediate:150, Advanced:350 }
 
+// ════════════════════════════════════════════════════════
+//  EDIT CONSTRAINTS — Balanced model
+//  Editable here: nickname, phone, height, weight, injuries
+//  Locked here:   name, email, dob, age (computed), stance, goal,
+//                 experience, daysPerWeek
+//  Bounds mirror Signup + ProgramBuilder for consistency.
+// ════════════════════════════════════════════════════════
+const MIN_HEIGHT_CM = 100
+const MAX_HEIGHT_CM = 220
+const MIN_WEIGHT_KG = 30
+const MAX_WEIGHT_KG = 200
+const PHONE_RE = /^(\+?\d{10,15}|0\d{10})$/
+
+// Compute age from a YYYY-MM-DD string; null if invalid/missing
+function computeAge(dobStr) {
+  if (!dobStr) return null
+  const dob = new Date(dobStr)
+  if (isNaN(dob.getTime())) return null
+  const today = new Date()
+  let a = today.getFullYear() - dob.getFullYear()
+  const m = today.getMonth() - dob.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--
+  return a
+}
+
+// Pretty-print a YYYY-MM-DD as "Jan 15, 2003"
+function fmtDOB(dobStr) {
+  if (!dobStr) return '—'
+  const d = new Date(dobStr)
+  if (isNaN(d.getTime())) return dobStr
+  return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })
+}
+
 const glass=(e={})=>({
   background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
   borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',
@@ -83,22 +116,88 @@ export default function Profile(){
 
   // Ideal weight range based on height
   const idealMin=profile.height?Math.round(18.5*((profile.height/100)**2)):null
+
+  // Age is now derived from DOB. Falls back to legacy stored age for pre-DOB users.
+  const computedAge = computeAge(profile.dob)
+  const displayAge  = computedAge !== null ? computedAge : (profile.age || null)
   const idealMax=profile.height?Math.round(24.9*((profile.height/100)**2)):null
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(''),3000)}
-  function handleEdit(){setDraft({name:profile.name||'',nickname:profile.nickname||'',age:profile.age||'',height:profile.height||'',weight:profile.weight||'',daysPerWeek:profile.daysPerWeek||3});setEditing(true)}
 
-  async function handleSave(){
+  // ════════════════════════════════════════════════════════
+  //  EDIT MODE — Balanced model
+  //  Only nickname, phone, height, weight, injuries are editable.
+  //  Age is computed from DOB (locked); name/email/dob/days are locked.
+  // ════════════════════════════════════════════════════════
+  function handleEdit() {
+    setDraft({
+      nickname: profile.nickname || '',
+      phone:    profile.phone    || '',
+      height:   profile.height   || '',
+      weight:   profile.weight   || '',
+      injuries: profile.injuries || '',
+    })
+    setEditing(true)
+  }
+
+  async function handleSave() {
+    // ── Client-side validation ─────────────────────────────
+    if (draft.phone && draft.phone.trim() && !PHONE_RE.test(draft.phone.trim())) {
+      showToast('❌ Invalid phone number')
+      return
+    }
+    if (draft.height !== '') {
+      const h = parseFloat(draft.height)
+      if (Number.isNaN(h) || h < MIN_HEIGHT_CM || h > MAX_HEIGHT_CM) {
+        showToast(`❌ Height must be ${MIN_HEIGHT_CM}-${MAX_HEIGHT_CM} cm`)
+        return
+      }
+    }
+    if (draft.weight !== '') {
+      const w = parseFloat(draft.weight)
+      if (Number.isNaN(w) || w < MIN_WEIGHT_KG || w > MAX_WEIGHT_KG) {
+        showToast(`❌ Weight must be ${MIN_WEIGHT_KG}-${MAX_WEIGHT_KG} kg`)
+        return
+      }
+    }
+
     setSaving(true)
-    const updated={...profile,...draft}
-    if(draft.height&&draft.weight) updated.bmi=parseFloat((parseFloat(draft.weight)/((parseFloat(draft.height)/100)**2)).toFixed(1))
+    const updated = {
+      ...profile,
+      nickname: (draft.nickname || '').trim(),
+      phone:    (draft.phone    || '').trim(),
+      height:   draft.height ? parseFloat(draft.height) : profile.height,
+      weight:   draft.weight ? parseFloat(draft.weight) : profile.weight,
+      injuries: (draft.injuries || '').trim(),
+    }
+    if (updated.height && updated.weight) {
+      updated.bmi = parseFloat((updated.weight / ((updated.height/100)**2)).toFixed(1))
+    }
     setProfile(updated)
-    localStorage.setItem('hittrack_profile',JSON.stringify(updated))
-    try{
-      const user=auth.currentUser
-      if(user) await updateDoc(doc(db,'users',user.uid),{name:draft.name,nickname:draft.nickname,age:parseInt(draft.age)||profile.age,height:parseFloat(draft.height)||profile.height,weight:parseFloat(draft.weight)||profile.weight,daysPerWeek:parseInt(draft.daysPerWeek)||profile.daysPerWeek,bmi:updated.bmi,updatedAt:serverTimestamp()})
-    }catch(e){console.error(e)}
-    setEditing(false);setSaving(false);showToast('✅ Profile updated!')
+    localStorage.setItem('hittrack_profile', JSON.stringify(updated))
+    try {
+      const user = auth.currentUser
+      if (user) {
+        await updateDoc(doc(db, 'users', user.uid), {
+          nickname: updated.nickname,
+          phone:    updated.phone,
+          height:   updated.height,
+          weight:   updated.weight,
+          injuries: updated.injuries,
+          bmi:      updated.bmi,
+          updatedAt: serverTimestamp(),
+        })
+      }
+    } catch(e) {
+      console.error(e)
+      showToast('⚠ Saved locally, sync failed')
+      setSaving(false)
+      setEditing(false)
+      return
+    }
+    setEditing(false)
+    setSaving(false)
+    showToast('✅ Profile updated!')
   }
 
   async function handleLogout(){
@@ -187,7 +286,7 @@ export default function Profile(){
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                   {profile.goal&&<div style={{fontSize:10,fontWeight:700,color:'#42a5f5',background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.2)',borderRadius:50,padding:'3px 10px'}}>🎯 {profile.goal}</div>}
                   {profile.daysPerWeek&&<div style={{fontSize:10,fontWeight:700,color:'#4ade80',background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:50,padding:'3px 10px'}}>📅 {profile.daysPerWeek}x/week</div>}
-                  {profile.age&&<div style={{fontSize:10,fontWeight:700,color:'#c084fc',background:'rgba(192,132,252,0.1)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:50,padding:'3px 10px'}}>🎂 {profile.age} yrs</div>}
+                  {displayAge&&<div style={{fontSize:10,fontWeight:700,color:'#c084fc',background:'rgba(192,132,252,0.1)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:50,padding:'3px 10px'}}>🎂 {displayAge} yrs</div>}
                   {profile.injuries&&profile.injuries!=='None'&&<div style={{fontSize:10,fontWeight:700,color:'#f5c842',background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:50,padding:'3px 10px'}}>⚠️ {profile.injuries}</div>}
                 </div>
               </div>
@@ -260,7 +359,7 @@ export default function Profile(){
                 {[
                   {icon:'📏',label:'Height',val:profile.height?`${profile.height} cm`:'—',color:'#42a5f5'},
                   {icon:'⚖️',label:'Weight',val:profile.weight?`${profile.weight} kg`:'—',color:'#c084fc'},
-                  {icon:'🎂',label:'Age',    val:profile.age?`${profile.age} years`:'—',color:'#fb923c'},
+                  {icon:'🎂',label:'Age',    val:displayAge?`${displayAge} years`:'—',color:'#fb923c'},
                   {icon:'🥊',label:'Stance', val:profile.stance||'—',color:'#f5c842'},
                 ].map((m,i)=>(
                   <div key={i} style={{background:'rgba(255,255,255,0.03)',border:`1px solid ${m.color}18`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:10}}>
@@ -341,25 +440,63 @@ export default function Profile(){
             }
           </div>
           <div style={{padding:'22px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:18}}>
-            {[
-              {field:'name',       label:'Full Name',     type:'text'},
-              {field:'nickname',   label:'Nickname',      type:'text'},
-              {field:'age',        label:'Age',           type:'number'},
-              {field:'height',     label:'Height (cm)',   type:'number'},
-              {field:'weight',     label:'Weight (kg)',   type:'number'},
-              {field:'daysPerWeek',label:'Training Days/Week', type:'number'},
-            ].map(f=>(
-              <div key={f.field}>
-                <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:7,display:'block'}}>{f.label}</label>
-                {editing
-                  ?<input type={f.type} value={draft[f.field]||''} onChange={e=>setDraft(d=>({...d,[f.field]:e.target.value}))} style={inp}
-                    onFocus={e=>e.target.style.borderColor='rgba(245,200,66,0.4)'}
-                    onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}/>
-                  :<div style={{fontSize:14,fontWeight:600,color:'#f0ece8',padding:'11px 0',borderBottom:'1px solid rgba(255,255,255,0.05)'}}>{profile[f.field]||'—'}</div>
-                }
-              </div>
-            ))}
+            {(() => {
+              // Field config: editable per Balanced model
+              const FIELDS = [
+                { field:'name',        label:'Full Name',        editable:false, val:profile.name||'—' },
+                { field:'nickname',    label:'Nickname',         editable:true,  type:'text', placeholder:'e.g. Low' },
+                { field:'email',       label:'Email',            editable:false, val:auth.currentUser?.email||profile.email||'—' },
+                { field:'dob',         label:'Date of Birth',    editable:false, val:fmtDOB(profile.dob) },
+                { field:'age',         label:'Age (from DOB)',   editable:false, val:displayAge?`${displayAge} years`:'—' },
+                { field:'phone',       label:'Phone Number',     editable:true,  type:'tel', placeholder:'09171234567' },
+                { field:'height',      label:'Height (cm)',      editable:true,  type:'number', min:MIN_HEIGHT_CM, max:MAX_HEIGHT_CM, step:1 },
+                { field:'weight',      label:'Weight (kg)',      editable:true,  type:'number', min:MIN_WEIGHT_KG, max:MAX_WEIGHT_KG, step:0.5 },
+                { field:'injuries',    label:'Injuries',         editable:true,  type:'text', placeholder:'e.g. none, lower back' },
+                { field:'daysPerWeek', label:'Training Days/Wk', editable:false, val:profile.daysPerWeek||'—' },
+              ]
+              return FIELDS.map(f => {
+                const isLocked = !f.editable
+                const value = f.val !== undefined ? f.val : (profile[f.field] || '—')
+                return (
+                  <div key={f.field}>
+                    <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:7,display:'flex',alignItems:'center',gap:5}}>
+                      {f.label}
+                      {isLocked && <span title="Locked field" style={{fontSize:9,color:'#444'}}>🔒</span>}
+                    </label>
+                    {editing && f.editable ? (
+                      <input
+                        type={f.type}
+                        value={draft[f.field] ?? ''}
+                        placeholder={f.placeholder||''}
+                        min={f.min} max={f.max} step={f.step}
+                        onChange={e=>setDraft(d=>({...d,[f.field]:e.target.value}))}
+                        style={inp}
+                        onFocus={e=>e.target.style.borderColor='rgba(245,200,66,0.4)'}
+                        onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}
+                      />
+                    ) : (
+                      <div style={{
+                        fontSize:14,fontWeight:600,
+                        color:isLocked?'#888':'#f0ece8',
+                        padding:'11px 0',
+                        borderBottom:`1px solid rgba(255,255,255,${isLocked?0.03:0.05})`
+                      }}>
+                        {value || '—'}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            })()}
           </div>
+          {/* Edit-mode helper text */}
+          {editing && (
+            <div style={{padding:'0 22px 18px',marginTop:-4}}>
+              <div style={{padding:'10px 14px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.18)',borderRadius:10,fontSize:11,color:'#888',lineHeight:1.55}}>
+                🔒 <strong style={{color:'#aaa'}}>Locked fields</strong> (name, email, date of birth, training days, experience, stance, goal) can only be changed by your coach or admin. Need a change? Send a message.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── ACCOUNT SETTINGS ── */}

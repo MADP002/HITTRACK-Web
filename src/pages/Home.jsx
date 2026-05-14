@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase'
-import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, addDoc, deleteDoc, serverTimestamp, increment, runTransaction } from 'firebase/firestore'
 import Navbar from '../components/Navbar'
-import { buildSchedule, EXERCISE_POOLS } from '../lib/scheduleBuilder'
+import { buildSchedule, EXERCISE_POOLS, fmtDuration, isRichExercise, exerciseName } from '../lib/scheduleBuilder'
+import { evaluateAdaptations, computeDifficulty, buildResetDayWorkout, getChampionBonusExercise, getDayStatus } from '../lib/adaptiveEngine'
+import { logActivity } from '../lib/activityLog'
+import { isClassActive } from '../lib/classLifecycle'
 
 // ── CONSTANTS ─────────────────────────────────────────
 const CIRCUMFERENCE      = 339
 const WORKOUTS_PER_LEVEL = 25
 const LEVELS             = ['Beginner','Intermediate','Advanced','Expert','Elite']
+const LEVEL_COLOR        = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#22c55e', Expert:'#42a5f5', Elite:'#c084fc' }
 const MILESTONE_BADGES   = [10,20,30,40,50,60]
 
 const TIPS = [
@@ -66,6 +70,16 @@ export default function Home() {
   const [classes,           setClasses]            = useState([])
   const [loadingClasses,    setLoadingClasses]     = useState(true)
 
+  // ── ADAPTIVE ENGINE state (Issue 3 — Step 3+5) ──
+  const [adaptiveDecisions, setAdaptiveDecisions] = useState([])
+  const [adaptiveDifficulty, setAdaptiveDifficulty] = useState(3)
+  const [adaptiveOpen, setAdaptiveOpen]   = useState(false)  // explainability modal
+  const [adaptiveLog, setAdaptiveLog]     = useState([])      // last 10 from Firestore
+  const [resetDayActive, setResetDayActive] = useState(false) // Step 4 auto-substitution flag
+
+  // ── Cancel-booking confirmation (Improvement 1) ──
+  const [cancelConfirm, setCancelConfirm] = useState(null) // { classIndex, classData } | null
+
   const [schedule]        = useState(() => buildSchedule(profile, new Date()))
   const [selDay,           setSelDay]       = useState(0)
   const [badgePopup,       setBadgePopup]   = useState(null)
@@ -92,25 +106,69 @@ export default function Home() {
     }).catch(console.error)
   }, [])
 
-  // ── Load classes from Firestore ───────────────────────
+  // ── Load classes from Firestore (REALTIME — Issue 2 fix) ──
+  // Switched from one-shot getDocs to onSnapshot so enrolled counts
+  // and new classes appear instantly for every member.
   useEffect(() => {
-    getDocs(collection(db, 'classes')).then(snap => {
-      const cls = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const unsub = onSnapshot(collection(db, 'classes'), (snap) => {
+      const cls = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(isClassActive)
       setClasses(cls)
-      setClassStatuses(cls.map(() => 'open'))
       setLoadingClasses(false)
-    }).catch(() => setLoadingClasses(false))
+    }, (err) => {
+      console.error('Classes stream error:', err)
+      setLoadingClasses(false)
+    })
+    return () => unsub()
   }, [])
 
+  // ── Load THIS user's bookings (REALTIME) ────────────────
+  // Was: classStatuses defaulted to all 'open' on every reload, wiping the
+  // visual "Booked" state. Now we subscribe to bookings and rebuild it.
+  const [myBookings, setMyBookings] = useState([])  // [{id, classId, ...}, ...]
+  useEffect(() => {
+    const u = auth.currentUser
+    if (!u) return
+    const q = query(collection(db, 'bookings'), where('userId', '==', u.uid))
+    const unsub = onSnapshot(q, (snap) => {
+      setMyBookings(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    }, (err) => console.error('My bookings stream error:', err))
+    return () => unsub()
+  }, [])
+
+  // Rebuild classStatuses whenever classes or myBookings change
+  useEffect(() => {
+    if (classes.length === 0) { setClassStatuses([]); return }
+    const bookedIds = new Set(myBookings.map(b => b.classId))
+    setClassStatuses(classes.map(c => bookedIds.has(c.id) ? 'booked' : 'open'))
+  }, [classes, myBookings])
+
   // ── Load announcements/notifications ────────────────────
+  // Shows:
+  //   1. Gym-wide announcements (audience='all' or unset)
+  //   2. Personally-targeted notifications for THIS member (thank-yous etc.)
+  //      Filter EXCLUDES level_change since those get a celebration popup instead.
   const [announcements, setAnnouncements] = useState([])
   useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
     import('firebase/firestore').then(({ onSnapshot, orderBy: fbOrderBy, query: fbQuery }) => {
       const q = fbQuery(collection(db, 'notifications'), fbOrderBy('createdAt', 'desc'))
       const unsub = onSnapshot(q, (snap) => {
         const ns = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(n => n.audience === 'all' || !n.audience)
-        setAnnouncements(ns.slice(0, 3)) // show latest 3
+          .filter(n => {
+            // Gym-wide announcements
+            if (n.audience === 'all' || !n.audience) {
+              // But hide system event types like level_change celebration popups
+              return n.type !== 'level_change'
+            }
+            // Personally targeted to THIS member (thank-yous, etc.)
+            // — but skip level_change (handled by celebration popup)
+            if (n.targetUserId === user.uid && n.type !== 'level_change') {
+              return true
+            }
+            return false
+          })
+        setAnnouncements(ns.slice(0, 5)) // show latest 5
       }, () => {})
       return unsub
     })
@@ -130,6 +188,63 @@ export default function Home() {
       }).catch(() => {})
     })
   }, [])
+
+  // ════════════════════════════════════════════════════════
+  //  COACH FEEDBACK — Member can clear after reading
+  //
+  //  Members own their feedback (it's addressed to them) and may
+  //  delete entries once they've read them, so the list doesn't
+  //  stockpile. Coach + admin retain their own copies on their side.
+  // ════════════════════════════════════════════════════════
+  const [clearFbConfirm, setClearFbConfirm] = useState(false)
+  const [clearingFb, setClearingFb] = useState(false)
+
+  async function deleteFeedback(fbId) {
+    if (!fbId) return
+    // Snapshot for rollback
+    const prev = coachFeedback
+    // Optimistic remove
+    setCoachFeedback(p => p.filter(f => f.id !== fbId))
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore')
+      await deleteDoc(doc(db, 'feedback', fbId))
+    } catch (e) {
+      console.error('Delete feedback failed:', e)
+      setCoachFeedback(prev) // rollback
+      if (e.code === 'permission-denied' || /permission/i.test(e.message || '')) {
+        alert('❌ Permission denied. Coach must update Firestore rules to allow member delete on feedback.')
+      } else {
+        alert('❌ Could not delete: ' + (e.message || 'unknown error'))
+      }
+    }
+  }
+
+  async function clearAllFeedback() {
+    if (coachFeedback.length === 0) return
+    setClearingFb(true)
+    const prev = coachFeedback
+    // Optimistic clear
+    setCoachFeedback([])
+    try {
+      const { deleteDoc, doc, writeBatch } = await import('firebase/firestore')
+      // Batch in chunks of 500 (Firestore limit)
+      const ids = prev.map(f => f.id).filter(Boolean)
+      const chunks = []
+      for (let i = 0; i < ids.length; i += 500) chunks.push(ids.slice(i, i + 500))
+      for (const chunk of chunks) {
+        const batch = writeBatch(db)
+        chunk.forEach(id => batch.delete(doc(db, 'feedback', id)))
+        await batch.commit()
+      }
+      setClearFbConfirm(false)
+    } catch (e) {
+      console.error('Clear feedback failed:', e)
+      setCoachFeedback(prev) // rollback
+      alert('❌ Failed to clear: ' + (e.message || 'unknown error'))
+    } finally {
+      setClearingFb(false)
+    }
+  }
 
   // ── Save workout data to Firestore ───────────────────
   const saveWorkoutData = useCallback(async (checked, generated, extras) => {
@@ -271,8 +386,198 @@ export default function Home() {
     saveStats({ totalWorkouts, streak, weeklyPct, currentLevel, updatedAt: new Date().toISOString() })
   }, [totalWorkouts, streak, weeklyPct, currentLevel])
 
+  // ════════════════════════════════════════════════════════
+  //  ADAPTIVE ENGINE — Steps 3, 4, 5
+  //
+  //  Runs whenever the dependencies change. Pure, deterministic,
+  //  fully explainable. Persists every decision to Firestore for
+  //  the audit log (capstone defense gold).
+  // ════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!profile?.experience || allExercises.length === 0) return
+
+    // Build weekly history from dayChecked (last 4 weeks)
+    const weeks = [0, 1, 2, 3].map(w => {
+      const days = schedule.slice(w * 7, w * 7 + 7).filter(d => d.isWorkout || generatedWorkouts[d.idx])
+      const total = days.reduce((sum, d) => sum + (d.workout?.exercises?.length || generatedWorkouts[d.idx]?.exercises?.length || 0), 0)
+      const done = days.reduce((sum, d) => sum + ((dayChecked[d.idx] || []).filter(Boolean).length), 0)
+      return { weekStart: `Week ${w + 1}`, pct: total > 0 ? Math.round((done / total) * 100) : 0 }
+    })
+
+    // Compute consecutive missed days BACKWARD from today
+    // Today (schedule[0]) is excluded — only count fully past days
+    let missedStreak = 0
+    for (let d = 1; d <= 7; d++) {
+      const ch = dayChecked[-d]  // negative index = past day storage
+      const expected = schedule[-d]?.isWorkout
+      if (!expected) continue  // rest day — skip
+      if (ch && ch.length > 0 && ch.every(Boolean)) break  // completed → streak end
+      missedStreak++
+    }
+
+    // Build engine input state
+    const state = {
+      experience: profile.experience,
+      goal: profile.goal,
+      streak,
+      weeklyPct,
+      totalWorkouts,
+      weeklyHistory: weeks,
+      missedDaysInARow: missedStreak,
+    }
+
+    const decisions = evaluateAdaptations(state)
+    const difficulty = computeDifficulty(state)
+    setAdaptiveDecisions(decisions)
+    setAdaptiveDifficulty(difficulty)
+
+    // Step 4 — Reset Day auto-substitution
+    const hasResetDecision = decisions.some(d => d.rule === 'RESET_DAY')
+    if (hasResetDecision && !resetDayActive && selDay === 0) {
+      // Replace today's workout with the light reset variant
+      const resetWorkout = buildResetDayWorkout()
+      setGeneratedWorkouts(prev => ({ ...prev, 0: resetWorkout }))
+      setDayChecked(prev => ({ ...prev, 0: new Array(resetWorkout.exercises.length).fill(false) }))
+      setResetDayActive(true)
+    } else if (!hasResetDecision && resetDayActive) {
+      setResetDayActive(false)
+    }
+
+    // Step 5 — Persist decisions to Firestore (best-effort, non-blocking)
+    const persist = async () => {
+      const user = auth.currentUser
+      if (!user || decisions.length === 0) return
+      try {
+        // Throttle: only persist once per session per rule combination
+        const sessionKey = 'hittrack_last_adaptive_' + user.uid
+        const lastSig = sessionStorage.getItem(sessionKey)
+        const sig = decisions.map(d => d.rule).sort().join('|')
+        if (lastSig === sig) return
+        sessionStorage.setItem(sessionKey, sig)
+        // Write each decision as its own audit entry
+        for (const d of decisions) {
+          await addDoc(collection(db, 'adaptiveDecisions'), {
+            userId: user.uid,
+            userName: profile.name || 'Member',
+            rule: d.rule,
+            severity: d.severity,
+            title: d.title,
+            message: d.message,
+            dataUsed: d.dataUsed || null,
+            difficulty,
+            createdAt: serverTimestamp(),
+          })
+        }
+      } catch (err) {
+        console.warn('Adaptive log persist (non-fatal):', err)
+      }
+    }
+    persist()
+  }, [profile?.experience, profile?.goal, streak, weeklyPct, totalWorkouts, allExercises.length])
+
+  // Load last 10 adaptive decisions for explainability modal
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
+    const q = query(collection(db, 'adaptiveDecisions'), where('userId', '==', user.uid))
+    const unsub = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        .slice(0, 10)
+      setAdaptiveLog(docs)
+    }, (err) => console.warn('Adaptive log stream:', err))
+    return () => unsub()
+  }, [])
+
+  // ════════════════════════════════════════════════════════
+  //  LEVEL CHANGE WATCHER — Coach/Admin promoted you?
+  //  Detects level_change notifications for this user, shows a
+  //  celebratory popup, and refreshes the profile so the UI
+  //  immediately reflects the new level.
+  // ════════════════════════════════════════════════════════
+  const [levelChangePopup, setLevelChangePopup] = useState(null)
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
+    const q = query(
+      collection(db, 'notifications'),
+      where('targetUserId', '==', user.uid),
+      where('type', '==', 'level_change')
+    )
+    const unsub = onSnapshot(q, async (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      if (docs.length === 0) return
+      const latest = docs[0]
+      // Dedupe — only show once per notification id per session
+      const seenKey = 'hittrack_seen_level_changes'
+      const seen = JSON.parse(sessionStorage.getItem(seenKey) || '[]')
+      if (seen.includes(latest.id)) return
+      // Refresh profile from Firestore (gets the new experience field)
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid))
+        if (userSnap.exists()) {
+          const fresh = userSnap.data()
+          const merged = { ...profile, ...fresh }
+          setProfile(merged)
+          localStorage.setItem('hittrack_profile', JSON.stringify(merged))
+        }
+      } catch (e) { console.warn('Could not refresh profile:', e) }
+      // Show the popup
+      setLevelChangePopup(latest)
+      sessionStorage.setItem(seenKey, JSON.stringify([...seen, latest.id]))
+    }, (err) => console.warn('Level change watcher:', err))
+    return () => unsub()
+  }, [])
+
+  // ════════════════════════════════════════════════════════
+  //  CLASS THANK-YOU WATCHER — Coach thanked you for showing up?
+  //  Detects class_thanks notifications targeted at this member,
+  //  shows a one-time celebratory popup. Notification stays in the
+  //  member's announcements widget too (handled by the loader above).
+  // ════════════════════════════════════════════════════════
+  const [thanksPopup, setThanksPopup] = useState(null)
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
+    const q = query(
+      collection(db, 'notifications'),
+      where('targetUserId', '==', user.uid),
+      where('type', '==', 'class_thanks')
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      if (docs.length === 0) return
+      const latest = docs[0]
+      // Dedupe — only show once per notification id per session
+      const seenKey = 'hittrack_seen_class_thanks'
+      const seen = JSON.parse(sessionStorage.getItem(seenKey) || '[]')
+      if (seen.includes(latest.id)) return
+      // Only show if it arrived recently (last 24h) — don't spam on fresh logins
+      const createdMs = (latest.createdAt?.seconds || 0) * 1000
+      if (createdMs && (Date.now() - createdMs) > 24 * 60 * 60 * 1000) {
+        // Mark as seen but don't show the popup
+        sessionStorage.setItem(seenKey, JSON.stringify([...seen, latest.id]))
+        return
+      }
+      setThanksPopup(latest)
+      sessionStorage.setItem(seenKey, JSON.stringify([...seen, latest.id]))
+    }, (err) => console.warn('Thank-you watcher:', err))
+    return () => unsub()
+  }, [])
+
   // ── ACTIONS ───────────────────────────────────────────
   function toggleEx(scheduleIdx, exIdx) {
+    // 🔒 DATE-LOCK GUARD (Issue 3 — Step 1)
+    // Only TODAY (schedule[0]) is editable. Past = past-done/past-missed (immutable).
+    // Future = locked entirely.
+    if (scheduleIdx > 0) {
+      // Optional friendly toast — silently no-op in production
+      console.warn('🔒 Future workouts are locked until their scheduled date')
+      return
+    }
+    if (scheduleIdx < 0) return  // past — also immutable
     setDayChecked(prev => {
       const total = allExercises.length
       const arr   = [...(prev[scheduleIdx] || new Array(total).fill(false))]
@@ -284,6 +589,11 @@ export default function Home() {
   }
 
   function generateRandom(scheduleIdx) {
+    // 🔒 DATE-LOCK — only allow rerolling today's workout
+    if (scheduleIdx !== 0) {
+      console.warn('🔒 Can only generate workouts for today')
+      return
+    }
     const exp    = profile?.experience || 'Beginner'
     const goal   = profile?.goal || 'Learn Boxing'
     const pool   = EXERCISE_POOLS[exp]?.[goal] || EXERCISE_POOLS.Beginner['Learn Boxing']
@@ -302,11 +612,24 @@ export default function Home() {
     const cls = classes[i]
     if (!cls) return
     if (classStatuses[i] === 'booked') {
-      setClassStatuses(prev => { const n=[...prev]; n[i]='open'; return n })
+      // Open confirmation modal instead of canceling immediately
+      setCancelConfirm({ classIndex: i, classData: cls })
       return
     }
-    // Check conflict
-    const matchDay = schedule.findIndex(d => d.dayName === cls.day?.split(',')[0]?.trim())
+    // Pre-flight: check if class is already full (server will re-check atomically)
+    if (cls.spots && (cls.enrolled || 0) >= cls.spots) {
+      alert(`❌ "${cls.name}" is full. First come, first served — try another class.`)
+      return
+    }
+    // Find matching workout day for conflict check (existing logic unchanged)
+    const dayMap = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 }
+    const today = new Date()
+    const targetDayIdx = dayMap[cls.day] ?? -1
+    let matchDay = -1
+    for (let d = 0; d < schedule.length; d++) {
+      const dDate = new Date(today); dDate.setDate(today.getDate() + d)
+      if (dDate.getDay() === targetDayIdx) { matchDay = d; break }
+    }
     const hasWorkout = matchDay >= 0 && (schedule[matchDay]?.workout || generatedWorkouts[matchDay])
     if (hasWorkout && matchDay >= 0) {
       setConflictModal({ classIdx:i, classData:cls, dayIdx:matchDay, existingWorkout: schedule[matchDay]?.workout || generatedWorkouts[matchDay] })
@@ -315,34 +638,102 @@ export default function Home() {
     }
   }
 
+  // ── ATOMIC BOOKING (Issue 2 fix) ─────────────────────
+  // Uses a Firestore transaction for true first-come first-serve.
+  // Notifies the coach in realtime via the notifications collection.
   async function doBook(i, cls, dayIdx) {
-    setClassStatuses(prev => { const n=[...prev]; n[i]='booked'; return n })
-    // Save booking to Firestore
+    const user = auth.currentUser
+    if (!user || !cls?.id) return
     try {
-      const user = auth.currentUser
-      if (!user || !cls?.id) return
-      const { addDoc } = await import('firebase/firestore')
-      // Check not already booked
-      const existingQuery = query(
-        collection(db, 'bookings'),
-        where('userId', '==', user.uid),
-        where('classId', '==', cls.id)
-      )
-      const existing = await getDocs(existingQuery)
-      if (existing.empty) {
-        await addDoc(collection(db, 'bookings'), {
+      // 1. Check if already booked (cheap read first)
+      const dupQuery = query(collection(db,'bookings'), where('userId','==',user.uid), where('classId','==',cls.id))
+      const dupSnap = await getDocs(dupQuery)
+      if (!dupSnap.empty) {
+        alert(`You've already booked "${cls.name}".`)
+        return
+      }
+      // 2. Atomic transaction: increment enrolled & create booking together
+      await runTransaction(db, async (tx) => {
+        const classRef = doc(db,'classes',cls.id)
+        const classSnap = await tx.get(classRef)
+        if (!classSnap.exists()) throw new Error('Class no longer exists')
+        const data = classSnap.data()
+        const enrolled = data.enrolled || 0
+        const spots = data.spots || 0
+        if (spots > 0 && enrolled >= spots) {
+          throw new Error(`SOLD_OUT:"${cls.name}" filled up while you were booking. First come, first served.`)
+        }
+        tx.update(classRef, { enrolled: increment(1) })
+        const bookingRef = doc(collection(db,'bookings'))
+        tx.set(bookingRef, {
           userId: user.uid,
           userName: profile.name || 'Member',
           classId: cls.id,
           className: cls.name,
-          createdAt: new Date().toISOString(),
+          classDay: cls.day || '',
+          classTime: cls.time || '',
+          coach: cls.coach || '',
+          createdAt: serverTimestamp(),
         })
-        // Update enrolled count on class
-        await updateDoc(doc(db, 'classes', cls.id), {
-          enrolled: (cls.enrolled || 0) + 1,
-        })
-      }
-    } catch(e) { console.error('Booking error:', e) }
+      })
+      // 3. Log to activity feed (separate from announcements — coach/admin see this in their dashboard)
+      logActivity({
+        type: 'booking_created',
+        actorId: user.uid,
+        actorName: profile.name || 'Member',
+        actorRole: 'member',
+        payload: {
+          classId: cls.id,
+          className: cls.name,
+          classDay: cls.day || '',
+          classTime: cls.time || '',
+          coach: cls.coach || '',
+        },
+      })
+    } catch (e) {
+      console.error('Booking error:', e)
+      const msg = String(e?.message||'')
+      if (msg.startsWith('SOLD_OUT:')) alert('🚫 ' + msg.replace('SOLD_OUT:',''))
+      else alert('Booking failed: ' + (msg || 'unknown error'))
+    }
+  }
+
+  async function cancelBooking(cls) {
+    const user = auth.currentUser
+    if (!user || !cls?.id) return
+    try {
+      // Find the user's booking doc for this class
+      const q = query(collection(db,'bookings'), where('userId','==',user.uid), where('classId','==',cls.id))
+      const snap = await getDocs(q)
+      if (snap.empty) return  // nothing to cancel
+      // Atomic: delete the booking + decrement enrolled
+      await runTransaction(db, async (tx) => {
+        const classRef = doc(db,'classes',cls.id)
+        const classSnap = await tx.get(classRef)
+        if (classSnap.exists()) {
+          const cur = classSnap.data().enrolled || 0
+          if (cur > 0) tx.update(classRef, { enrolled: increment(-1) })
+        }
+        for (const bd of snap.docs) tx.delete(doc(db,'bookings',bd.id))
+      })
+      // Log cancellation to activity feed
+      logActivity({
+        type: 'booking_cancelled',
+        actorId: user.uid,
+        actorName: profile.name || 'Member',
+        actorRole: 'member',
+        payload: {
+          classId: cls.id,
+          className: cls.name,
+          classDay: cls.day || '',
+          classTime: cls.time || '',
+          coach: cls.coach || '',
+        },
+      })
+    } catch (e) {
+      console.error('Cancel booking error:', e)
+      alert('Could not cancel booking: ' + (e.message || 'unknown error'))
+    }
   }
 
   function handleConflictProceed() {
@@ -378,6 +769,311 @@ export default function Home() {
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <button onClick={handleConflictProceed} style={{background:'linear-gradient(135deg,#42a5f5,#1565c0)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer'}}>✅ Yes, Add to My Workout</button>
               <button onClick={() => setConflictModal(null)} style={{background:'transparent',color:'#7a7570',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer'}}>✕ Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  LEVEL CHANGE CELEBRATION POPUP                      */}
+      {/*  Shown when coach/admin promotes or moves the member */}
+      {/* ════════════════════════════════════════════════════ */}
+      {levelChangePopup && (() => {
+        const oldLv = levelChangePopup.oldLevel || 'Beginner'
+        const newLv = levelChangePopup.newLevel || 'Beginner'
+        const LEVELS_ORDER = ['Beginner','Intermediate','Advanced']
+        const isPromote = LEVELS_ORDER.indexOf(newLv) > LEVELS_ORDER.indexOf(oldLv)
+        const lc = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#22c55e' }[newLv] || '#f5c842'
+        const lvIc = { Beginner:'🥊', Intermediate:'⚡', Advanced:'🔥' }[newLv] || '🥊'
+        return (
+          <div onClick={()=>setLevelChangePopup(null)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'popIn 0.4s ease'}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:24,border:`2px solid ${lc}55`,maxWidth:440,width:'100%',overflow:'hidden',boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${lc}40`}}>
+              {/* Burst */}
+              <div style={{position:'absolute',top:-50,left:'50%',transform:'translateX(-50%)',width:280,height:280,borderRadius:'50%',background:`radial-gradient(circle,${lc}30,transparent 70%)`,pointerEvents:'none'}}/>
+              <div style={{position:'relative',padding:'34px 30px 28px',textAlign:'center'}}>
+                <div style={{fontSize:54,marginBottom:8}}>{isPromote?'🎉':'🎚'}</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.06em',color:lc,marginBottom:6,textShadow:`0 0 20px ${lc}66`}}>
+                  {isPromote?'LEVELED UP!':'LEVEL UPDATED'}
+                </div>
+                <div style={{fontSize:11,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginBottom:24}}>
+                  By {levelChangePopup.from || 'Your Coach'}
+                </div>
+
+                {/* Old → New visual */}
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,marginBottom:24}}>
+                  {/* Old */}
+                  <div style={{textAlign:'center',opacity:0.4}}>
+                    <div style={{width:62,height:62,borderRadius:'50%',background:'rgba(255,255,255,0.04)',border:'2px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,margin:'0 auto 6px'}}>
+                      {{Beginner:'🥊',Intermediate:'⚡',Advanced:'🔥'}[oldLv]||'🥊'}
+                    </div>
+                    <div style={{fontSize:9,color:'#666',fontWeight:800,letterSpacing:'0.1em'}}>{oldLv.toUpperCase()}</div>
+                  </div>
+                  {/* Arrow */}
+                  <div style={{fontSize:24,color:lc,opacity:0.7}}>{isPromote?'➡':'⬅'}</div>
+                  {/* New */}
+                  <div style={{textAlign:'center'}}>
+                    <div style={{width:74,height:74,borderRadius:'50%',background:`linear-gradient(135deg,${lc},${lc}aa)`,border:`3px solid ${lc}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 6px',boxShadow:`0 8px 24px ${lc}66,inset 0 2px 6px rgba(255,255,255,0.2)`}}>
+                      {lvIc}
+                    </div>
+                    <div style={{fontSize:11,fontWeight:800,color:lc,letterSpacing:'0.1em',textShadow:`0 0 10px ${lc}66`}}>{newLv.toUpperCase()}</div>
+                  </div>
+                </div>
+
+                <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:24,padding:'0 8px'}}>
+                  {levelChangePopup.message || `You're now ${newLv}. Your training plan and leaderboard division have been updated.`}
+                </div>
+
+                <button onClick={()=>setLevelChangePopup(null)}
+                  style={{width:'100%',background:`linear-gradient(135deg,${lc},${lc}cc)`,color:'#000',border:'none',borderRadius:50,padding:'14px',fontSize:13,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',boxShadow:`0 6px 20px ${lc}50,inset 0 1px 0 rgba(255,255,255,0.2)`,transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow=`0 10px 30px ${lc}80,inset 0 1px 0 rgba(255,255,255,0.25)`}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow=`0 6px 20px ${lc}50,inset 0 1px 0 rgba(255,255,255,0.2)`}}>
+                  🥊 LET'S GO!
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  CLASS THANK-YOU POPUP — Shown after coach ends a    */}
+      {/*  class you participated in. One-time per notification.*/}
+      {/* ════════════════════════════════════════════════════ */}
+      {thanksPopup && (
+        <div onClick={()=>setThanksPopup(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'popIn 0.4s ease'}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:24,border:'2px solid rgba(34,197,94,0.55)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 60px rgba(34,197,94,0.4)'}}>
+            {/* Burst */}
+            <div style={{position:'absolute',top:-50,left:'50%',transform:'translateX(-50%)',width:280,height:280,borderRadius:'50%',background:'radial-gradient(circle,rgba(34,197,94,0.3),transparent 70%)',pointerEvents:'none'}}/>
+            <div style={{position:'relative',padding:'34px 30px 28px',textAlign:'center'}}>
+              <div style={{fontSize:54,marginBottom:8}}>🙏</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.06em',color:'#22c55e',marginBottom:6,textShadow:'0 0 20px rgba(34,197,94,0.5)'}}>
+                THANK YOU!
+              </div>
+              <div style={{fontSize:11,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginBottom:24}}>
+                From {thanksPopup.from || 'Your Coach'}
+              </div>
+              {/* Class info */}
+              {thanksPopup.className && (
+                <div style={{display:'inline-flex',alignItems:'center',gap:10,padding:'10px 18px',background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.25)',borderRadius:50,marginBottom:20}}>
+                  <span style={{fontSize:18}}>🥊</span>
+                  <span style={{fontSize:13,fontWeight:800,letterSpacing:'0.06em',color:'#22c55e'}}>{thanksPopup.className}</span>
+                </div>
+              )}
+              <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:24,padding:'0 8px'}}>
+                {thanksPopup.message || `Thanks for showing up! Great work — keep stepping into the ring.`}
+              </div>
+              <button onClick={()=>setThanksPopup(null)}
+                style={{width:'100%',background:'linear-gradient(135deg,#22c55e,#16a34a)',color:'#fff',border:'none',borderRadius:50,padding:'14px',fontSize:13,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',boxShadow:'0 6px 20px rgba(34,197,94,0.5),inset 0 1px 0 rgba(255,255,255,0.2)',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow='0 10px 30px rgba(34,197,94,0.7),inset 0 1px 0 rgba(255,255,255,0.25)'}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 6px 20px rgba(34,197,94,0.5),inset 0 1px 0 rgba(255,255,255,0.2)'}}>
+                🥊 SEE YOU NEXT CLASS!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  CLEAR ALL FEEDBACK — confirmation                    */}
+      {/* ════════════════════════════════════════════════════ */}
+      {clearFbConfirm && (
+        <div onClick={()=>!clearingFb && setClearFbConfirm(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(232,74,47,0.25)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
+            <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(232,74,47,0.5)'}}>🧹</div>
+                <div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#e84a2f'}}>CLEAR ALL FEEDBACK?</div>
+                  <div style={{fontSize:9,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action is permanent</div>
+                </div>
+              </div>
+              <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.6}}>
+                All <strong style={{color:'#e84a2f'}}>{coachFeedback.length}</strong> coach feedback entries will be permanently deleted from your view. Make sure you've read them — your coach won't be notified.
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setClearFbConfirm(false)} disabled={clearingFb}
+                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingFb?'not-allowed':'pointer',opacity:clearingFb?0.5:1}}>
+                  KEEP THEM
+                </button>
+                <button onClick={clearAllFeedback} disabled={clearingFb}
+                  style={{flex:1.3,background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingFb?'not-allowed':'pointer',boxShadow:'0 4px 14px rgba(232,74,47,0.4)',opacity:clearingFb?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                  {clearingFb ? (<>
+                    <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+                    CLEARING...
+                  </>) : `🧹 CLEAR ${coachFeedback.length}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  CANCEL BOOKING — Confirmation Modal (Improvement 1) */}
+      {/* ════════════════════════════════════════════════════ */}
+      {cancelConfirm && (
+        <div onClick={() => setCancelConfirm(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'1px solid rgba(232,74,47,0.3)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(232,74,47,0.15)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
+            <div style={{padding:'30px 32px',textAlign:'center'}}>
+              <div style={{width:64,height:64,margin:'0 auto 16px',borderRadius:'50%',background:'linear-gradient(135deg,rgba(232,74,47,0.2),rgba(232,74,47,0.05))',border:'2px solid rgba(232,74,47,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,boxShadow:'0 6px 20px rgba(232,74,47,0.3)'}}>🥊</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#e84a2f',letterSpacing:'0.04em',marginBottom:6}}>CANCEL BOOKING?</div>
+              <div style={{fontSize:9,color:'#666',letterSpacing:'0.18em',textTransform:'uppercase',fontWeight:700,marginBottom:16}}>This action will free up your spot</div>
+              {/* Class info card */}
+              <div style={{background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,padding:'14px 16px',marginBottom:18,textAlign:'left',display:'flex',gap:12,alignItems:'center'}}>
+                <div style={{width:46,height:46,borderRadius:11,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#fff',flexShrink:0,boxShadow:'0 4px 12px rgba(232,74,47,0.4)'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,lineHeight:1}}>{(cancelConfirm.classData.day||'').slice(0,3).toUpperCase()}</div>
+                  <div style={{fontSize:7,fontWeight:800,letterSpacing:'0.06em',marginTop:2,opacity:0.85}}>{cancelConfirm.classData.time}</div>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:700,color:'#f0ece8',marginBottom:3}}>{cancelConfirm.classData.name}</div>
+                  <div style={{fontSize:10,color:'#888'}}>👨‍🏫 {cancelConfirm.classData.coach||'Coach'}</div>
+                </div>
+              </div>
+              <div style={{fontSize:11,color:'#888',lineHeight:1.7,marginBottom:22}}>
+                Are you sure you want to cancel? Someone else may grab your spot — first come, first served.
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={() => setCancelConfirm(null)}
+                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#888',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',transition:'all 0.2s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.08)';e.currentTarget.style.color='#f0ece8'}}
+                  onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)';e.currentTarget.style.color='#888'}}>
+                  KEEP MY SPOT
+                </button>
+                <button onClick={() => { cancelBooking(cancelConfirm.classData); setCancelConfirm(null) }}
+                  style={{flex:1,background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',boxShadow:'0 4px 14px rgba(232,74,47,0.4)',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow='0 8px 22px rgba(232,74,47,0.55)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 4px 14px rgba(232,74,47,0.4)'}}>
+                  ✕ CANCEL BOOKING
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  ADAPTIVE COACH — "Why these decisions?" modal       */}
+      {/*  Capstone defense gold: shows the rule engine's      */}
+      {/*  reasoning, audit log, and explainability layer.     */}
+      {/* ════════════════════════════════════════════════════ */}
+      {adaptiveOpen && (
+        <div onClick={() => setAdaptiveOpen(false)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'1px solid rgba(192,132,252,0.3)',maxWidth:680,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(192,132,252,0.15)'}}>
+            {/* Left accent stripe */}
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#c084fc,#42a5f5)'}}/>
+            {/* Header */}
+            <div style={{padding:'20px 28px',borderBottom:'1px solid rgba(192,132,252,0.15)',background:'linear-gradient(135deg,rgba(192,132,252,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,#c084fc,#7b1fa2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,boxShadow:'0 4px 14px rgba(192,132,252,0.4)'}}>🧠</div>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>ADAPTIVE COACH — REASONING</div>
+                <div style={{fontSize:9,color:'#9d8ec0',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Rule-based decisions · Fully auditable</div>
+              </div>
+              <button onClick={() => setAdaptiveOpen(false)}
+                style={{width:32,height:32,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:9,color:'#888',fontSize:16,cursor:'pointer'}}>✕</button>
+            </div>
+
+            {/* Body — scrollable */}
+            <div style={{padding:'22px 28px',overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:20}}>
+
+              {/* Current state snapshot */}
+              <div>
+                <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
+                  Current State
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+                  {[
+                    {label:'Streak', val:`${streak}d`, color:streak>=14?'#f5c842':'#42a5f5'},
+                    {label:'Weekly', val:`${weeklyPct}%`, color:weeklyPct>=80?'#22c55e':weeklyPct>=40?'#f5c842':'#e84a2f'},
+                    {label:'Difficulty', val:adaptiveDifficulty, color:'#c084fc'},
+                    {label:'Total', val:totalWorkouts, color:'#42a5f5'},
+                  ].map((s,i) => (
+                    <div key={i} style={{padding:'10px 12px',background:`${s.color}10`,border:`1px solid ${s.color}25`,borderRadius:10}}>
+                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:s.color,lineHeight:1}}>{s.val}</div>
+                      <div style={{fontSize:8,color:'#666',fontWeight:700,letterSpacing:'0.12em',marginTop:3}}>{s.label.toUpperCase()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Active rules */}
+              <div>
+                <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
+                  Rules Fired This Session ({adaptiveDecisions.length})
+                </div>
+                {adaptiveDecisions.length === 0 ? (
+                  <div style={{padding:'20px',textAlign:'center',background:'rgba(255,255,255,0.02)',borderRadius:10,border:'1px dashed rgba(255,255,255,0.06)',fontSize:11,color:'#666'}}>
+                    No rules fired — engine is observing.
+                  </div>
+                ) : (
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {adaptiveDecisions.map((d, i) => {
+                      const sevColor = d.severity === 'celebrate' ? '#f5c842'
+                                     : d.severity === 'positive'  ? '#22c55e'
+                                     : d.severity === 'warning'   ? '#e84a2f'
+                                     :                              '#42a5f5'
+                      return (
+                        <div key={i} style={{padding:'12px 14px',background:`${sevColor}10`,border:`1px solid ${sevColor}25`,borderRadius:11}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
+                            <span style={{fontSize:8,fontWeight:800,padding:'3px 8px',borderRadius:50,background:`${sevColor}22`,color:sevColor,letterSpacing:'0.1em',fontFamily:'monospace'}}>{d.rule}</span>
+                            <span style={{fontSize:11,fontWeight:700,color:sevColor}}>{d.title}</span>
+                          </div>
+                          <div style={{fontSize:11,color:'#a8a29e',lineHeight:1.6,marginBottom:8}}>{d.message}</div>
+                          {d.dataUsed && (
+                            <div style={{fontSize:9,color:'#666',fontFamily:'monospace',background:'rgba(0,0,0,0.4)',padding:'6px 9px',borderRadius:6,wordBreak:'break-word'}}>
+                              <span style={{color:sevColor,fontWeight:700}}>data:</span> {JSON.stringify(d.dataUsed)}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Audit log */}
+              {adaptiveLog.length > 0 && (
+                <div>
+                  <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
+                    Audit Log — Last {adaptiveLog.length} Decisions
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:200,overflowY:'auto'}}>
+                    {adaptiveLog.map((log) => {
+                      const sevColor = log.severity === 'celebrate' ? '#f5c842'
+                                     : log.severity === 'positive'  ? '#22c55e'
+                                     : log.severity === 'warning'   ? '#e84a2f'
+                                     :                                '#42a5f5'
+                      const ts = log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000) : null
+                      return (
+                        <div key={log.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,0.02)',borderRadius:8,borderLeft:`2px solid ${sevColor}`}}>
+                          <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:`${sevColor}22`,color:sevColor,letterSpacing:'0.08em',fontFamily:'monospace',flexShrink:0}}>{log.rule}</span>
+                          <span style={{flex:1,fontSize:10,color:'#888',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{log.title}</span>
+                          <span style={{fontSize:9,color:'#555',flexShrink:0}}>{ts ? ts.toLocaleString() : '—'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Footer note for academic defense */}
+              <div style={{padding:'12px 14px',background:'rgba(192,132,252,0.06)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:10,fontSize:10,color:'#9d8ec0',lineHeight:1.6}}>
+                <strong style={{color:'#c084fc'}}>How it works:</strong> The engine evaluates your performance against 7 explicit rules every session. Every decision is logged with the data that triggered it — making the system explainable, auditable, and academically defensible.
+              </div>
             </div>
           </div>
         </div>
@@ -465,6 +1161,71 @@ export default function Home() {
 
           {/* TODAY'S WORKOUT */}
           <div style={{...glass(),padding:'22px 24px',display:'flex',flexDirection:'column',gap:12}}>
+            {/* ════════════════════════════════════════════════ */}
+            {/*  🧠 ADAPTIVE COACH widget (Issue 3 — Step 3)    */}
+            {/*  Visible proof that the rule-based AI is active. */}
+            {/* ════════════════════════════════════════════════ */}
+            <div style={{position:'relative',overflow:'hidden',borderRadius:14,
+              background:'linear-gradient(135deg,rgba(192,132,252,0.10),rgba(66,165,245,0.06) 60%,rgba(20,15,15,0.4))',
+              border:'1px solid rgba(192,132,252,0.25)',
+              padding:'14px 16px',display:'flex',flexDirection:'column',gap:10,
+              boxShadow:'0 8px 24px rgba(0,0,0,0.3),inset 0 1px 0 rgba(192,132,252,0.15)'}}>
+              {/* Left accent stripe */}
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:'linear-gradient(180deg,#c084fc,#42a5f5)'}}/>
+
+              {/* Header */}
+              <div style={{display:'flex',alignItems:'center',gap:10,paddingLeft:6}}>
+                <div style={{width:32,height:32,borderRadius:9,background:'linear-gradient(135deg,#c084fc,#7b1fa2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,boxShadow:'0 4px 12px rgba(192,132,252,0.4)'}}>🧠</div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>ADAPTIVE COACH</div>
+                    <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,fontWeight:800,color:'#22c55e',letterSpacing:'0.08em'}}>
+                      <span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulseDot 1.6s ease-in-out infinite'}}/>
+                      ACTIVE
+                    </div>
+                  </div>
+                  <div style={{fontSize:9,color:'#9d8ec0',letterSpacing:'0.08em',fontWeight:600,marginTop:1}}>Rule-based · {adaptiveDecisions.length} {adaptiveDecisions.length===1?'decision':'decisions'} this session</div>
+                </div>
+                <div style={{textAlign:'right',padding:'4px 10px',borderRadius:8,background:'rgba(0,0,0,0.25)',border:'1px solid rgba(192,132,252,0.2)'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#c084fc',lineHeight:1}}>{adaptiveDifficulty}</div>
+                  <div style={{fontSize:7,color:'#9d8ec0',letterSpacing:'0.12em',fontWeight:700}}>DIFFICULTY</div>
+                </div>
+              </div>
+
+              {/* Decisions list (or empty state) */}
+              {adaptiveDecisions.length === 0 ? (
+                <div style={{paddingLeft:6,fontSize:11,color:'#9d8ec0',fontStyle:'italic'}}>
+                  Engine analyzing your habits — keep training to unlock insights.
+                </div>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:6,paddingLeft:6}}>
+                  {adaptiveDecisions.slice(0, 3).map((d, i) => {
+                    const sevColor = d.severity === 'celebrate' ? '#f5c842'
+                                   : d.severity === 'positive'  ? '#22c55e'
+                                   : d.severity === 'warning'   ? '#e84a2f'
+                                   :                              '#42a5f5'
+                    return (
+                      <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'7px 10px',background:`${sevColor}10`,border:`1px solid ${sevColor}25`,borderRadius:9}}>
+                        <div style={{width:5,height:5,borderRadius:'50%',background:sevColor,marginTop:7,flexShrink:0,boxShadow:`0 0 8px ${sevColor}`}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:11,fontWeight:700,color:sevColor,letterSpacing:'0.02em'}}>{d.title}</div>
+                          <div style={{fontSize:10,color:'#a8a29e',lineHeight:1.5,marginTop:2}}>{d.message}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Why these decisions? */}
+              <button onClick={() => setAdaptiveOpen(true)}
+                style={{alignSelf:'flex-start',marginLeft:6,background:'transparent',border:'1px solid rgba(192,132,252,0.35)',borderRadius:50,padding:'6px 14px',fontSize:10,fontWeight:700,color:'#c084fc',cursor:'pointer',letterSpacing:'0.05em',transition:'all 0.2s'}}
+                onMouseEnter={e=>{e.currentTarget.style.background='rgba(192,132,252,0.1)';e.currentTarget.style.transform='translateX(2px)'}}
+                onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.transform='translateX(0)'}}>
+                Why these decisions? →
+              </button>
+            </div>
+
             {/* 28-day strip */}
             <div style={{overflowX:'auto',paddingBottom:4}}>
               <div style={{display:'flex',gap:0,minWidth:'max-content'}}>
@@ -513,38 +1274,150 @@ export default function Home() {
 
             {workout ? (
               <>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                  <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.1em',color:workout.type==='generated'?'#c084fc':'#e84a2f',background:workout.type==='generated'?'rgba(192,132,252,0.1)':'rgba(232,74,47,0.1)',padding:'4px 12px',borderRadius:50}}>
-                    {workout.type==='generated'?'🎲 RANDOM':'WORKOUT'}
+                {/* ════════════════════════════════════════════════ */}
+                {/*  WORKOUT HEADER — Smart Title + Rich Metadata    */}
+                {/* ════════════════════════════════════════════════ */}
+                <div style={{position:'relative',overflow:'hidden',padding:'4px 0 6px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                    <div style={{fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:workout.type==='generated'?'#c084fc':'#e84a2f',background:workout.type==='generated'?'rgba(192,132,252,0.12)':'rgba(232,74,47,0.12)',padding:'3px 9px',borderRadius:50,border:`1px solid ${workout.type==='generated'?'rgba(192,132,252,0.25)':'rgba(232,74,47,0.25)'}`}}>
+                      {workout.type==='generated'?'🎲 RANDOM':'🥊 WORKOUT'}
+                    </div>
+                    {workout.goal && (
+                      <div style={{fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:'#f5c842',background:'rgba(245,200,66,0.12)',padding:'3px 9px',borderRadius:50,border:'1px solid rgba(245,200,66,0.25)'}}>
+                        🎯 {workout.goal.toUpperCase()}
+                      </div>
+                    )}
+                    {workout.difficulty && (
+                      <div style={{fontSize:9,fontWeight:800,letterSpacing:'0.12em',color:'#42a5f5',background:'rgba(66,165,245,0.12)',padding:'3px 9px',borderRadius:50,border:'1px solid rgba(66,165,245,0.25)'}}>
+                        ⚡ {workout.difficulty.toUpperCase()}
+                      </div>
+                    )}
                   </div>
-                  <div style={{fontSize:12,color:'#7a7570',fontWeight:600}}>⏱ {workout.duration}</div>
+                  {/* Smart auto-title (POWER DAY / CARDIO BURN / etc.) */}
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'0.05em',color:'#f0ece8',lineHeight:1,textShadow:'0 0 18px rgba(232,74,47,0.4)',marginBottom:6}}>
+                    {workout.title}
+                  </div>
+                  {/* Subtitle: date · duration · calories · session focus */}
+                  <div style={{display:'flex',alignItems:'center',gap:8,fontSize:10,color:'#888',flexWrap:'wrap'}}>
+                    <span style={{fontWeight:700,color:'#aaa'}}>{selDayData?.dayName}, {selDayData?.dateStr}</span>
+                    <span style={{color:'#444'}}>·</span>
+                    <span style={{color:'#f5c842',fontWeight:700}}>⏱ {workout.duration}</span>
+                    {workout.totalCalories>0 && (<>
+                      <span style={{color:'#444'}}>·</span>
+                      <span style={{color:'#e84a2f',fontWeight:700}}>🔥 ~{workout.totalCalories} cal</span>
+                    </>)}
+                    {workout.subtitle && (<>
+                      <span style={{color:'#444'}}>·</span>
+                      <span style={{color:'#888',fontStyle:'italic'}}>{workout.subtitle}</span>
+                    </>)}
+                  </div>
                 </div>
-                <div style={{fontSize:16,fontWeight:700,color:'#f0ece8'}}>{workout.title}</div>
+                {/* 🔒 LOCKED DAY BANNER (Issue 3 — Step 1) */}
+                {selDay > 0 && (
+                  <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderRadius:12,background:'linear-gradient(135deg,rgba(120,113,108,0.1),rgba(80,75,70,0.06))',border:'1px solid rgba(120,113,108,0.25)'}}>
+                    <div style={{fontSize:24}}>🔒</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,fontWeight:800,color:'#a8a29e',letterSpacing:'0.08em',textTransform:'uppercase'}}>Locked · Unlocks {selDayData?.dateStr}</div>
+                      <div style={{fontSize:10,color:'#78716c',marginTop:2}}>Future workouts can't be checked early — come back on the scheduled day. The Adaptive Coach watches for missed days.</div>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div style={{height:5,background:'#2a2424',borderRadius:50,overflow:'hidden',marginBottom:4}}>
                     <div style={{height:'100%',borderRadius:50,background:workoutDone?'linear-gradient(90deg,#4ade80,#22c55e)':'linear-gradient(90deg,#e84a2f,#f5c842)',width:`${allExercises.length>0?(completedCount/allExercises.length)*100:0}%`,transition:'width 0.4s ease'}}/>
                   </div>
-                  <div style={{fontSize:10,color:workoutDone?'#4ade80':'#7a7570',fontWeight:600}}>{workoutDone?'✅ Workout Complete!`':`${completedCount}/${allExercises.length} done`}</div>
+                  <div style={{fontSize:10,color:workoutDone?'#4ade80':'#7a7570',fontWeight:600}}>{workoutDone?'✅ Workout Complete!':selDay>0?`${allExercises.length} exercises planned`:`${completedCount}/${allExercises.length} done`}</div>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:8,flex:1}}>
-                  {allExercises.map((ex,i) => (
-                    <div key={i} onClick={() => toggleEx(selDay,i)}
-                      style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:11,cursor:'pointer',
-                        background:checked[i]?'rgba(74,222,128,0.05)':extraExercises.includes(ex)?'rgba(66,165,245,0.04)':'rgba(255,255,255,0.02)',
-                        border:`1px solid ${checked[i]?'rgba(74,222,128,0.15)':extraExercises.includes(ex)?'rgba(66,165,245,0.15)':'rgba(255,255,255,0.04)'}`,
-                        transition:'all 0.2s'}}>
-                      <div style={{width:26,height:26,borderRadius:'50%',background:checked[i]?'#4ade80':'#2a2424',border:checked[i]?'none':'2px solid #444',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:checked[i]?'#fff':'#555',flexShrink:0,transform:checked[i]?'scale(1.1)':'scale(1)',transition:'all 0.2s'}}>
-                        {checked[i]?'✓':i+1}
+                  {allExercises.map((ex,i) => {
+                    const isLocked = selDay > 0
+                    const isRich = isRichExercise(ex)
+                    const exName = exerciseName(ex)
+                    const isExtra = extraExercises.includes(ex)
+                    // Type color mapping (for rich exercises)
+                    const TYPE_COLOR = {
+                      warmup:       '#fb923c', // orange — warmup
+                      striking:     '#e84a2f', // red — main striking
+                      technique:    '#42a5f5', // blue — technique
+                      conditioning: '#22c55e', // green — cardio
+                      strength:     '#c084fc', // purple — strength
+                      recovery:     '#78716c', // gray — recovery
+                    }
+                    const typeColor = isRich ? (TYPE_COLOR[ex.type] || '#888') : '#42a5f5'
+                    return (
+                    <div key={i} onClick={() => isLocked ? null : toggleEx(selDay,i)}
+                      style={{display:'flex',gap:11,padding:isRich?'12px 13px':'10px 12px',borderRadius:11,cursor:isLocked?'not-allowed':'pointer',
+                        background:isLocked?'rgba(255,255,255,0.015)':checked[i]?'rgba(74,222,128,0.05)':isExtra?'rgba(66,165,245,0.04)':'rgba(255,255,255,0.02)',
+                        border:`1px solid ${isLocked?'rgba(255,255,255,0.04)':checked[i]?'rgba(74,222,128,0.18)':isExtra?'rgba(66,165,245,0.15)':isRich?typeColor+'18':'rgba(255,255,255,0.04)'}`,
+                        opacity:isLocked?0.55:1,
+                        transition:'all 0.25s',
+                        position:'relative',
+                        overflow:'hidden'}}>
+                      {/* Left checkmark/index circle */}
+                      <div style={{width:28,height:28,borderRadius:'50%',background:isLocked?'#1a1818':checked[i]?'#4ade80':isRich?typeColor+'20':'#2a2424',border:isLocked?'2px dashed #555':checked[i]?'none':isRich?`2px solid ${typeColor}55`:'2px solid #444',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:isLocked?'#666':checked[i]?'#fff':isRich?typeColor:'#555',flexShrink:0,transform:checked[i]&&!isLocked?'scale(1.1)':'scale(1)',transition:'all 0.25s',marginTop:2}}>
+                        {isLocked?'🔒':checked[i]?'✓':i+1}
                       </div>
-                      <div style={{fontSize:13,fontWeight:500,flex:1,color:checked[i]?'#7a7570':'#f0ece8',textDecoration:checked[i]?'line-through':'none',transition:'all 0.25s'}}>{ex}</div>
-                      {extraExercises.includes(ex)&&!checked[i]&&<span style={{fontSize:9,background:'rgba(66,165,245,0.15)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.25)',borderRadius:50,padding:'2px 6px',fontWeight:700}}>BOOKED</span>}
-                      <div style={{fontSize:10,color:checked[i]?'#4ade80':'#555',fontWeight:600}}>{checked[i]?'done':'tap'}</div>
+                      {/* Body */}
+                      <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:isRich?5:0}}>
+                        {/* Name row */}
+                        <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
+                          <span style={{fontSize:13,fontWeight:isRich?700:500,color:isLocked?'#666':checked[i]?'#7a7570':'#f0ece8',textDecoration:checked[i]&&!isLocked?'line-through':'none',transition:'all 0.25s',letterSpacing:isRich?'0.01em':0}}>{exName}</span>
+                          {isRich && !checked[i] && !isLocked && (
+                            <span style={{fontSize:7,fontWeight:800,padding:'2px 7px',borderRadius:50,background:typeColor+'18',color:typeColor,border:`1px solid ${typeColor}30`,letterSpacing:'0.1em',textTransform:'uppercase'}}>{ex.type}</span>
+                          )}
+                          {isExtra&&!checked[i]&&!isLocked&&<span style={{fontSize:9,background:'rgba(66,165,245,0.15)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.25)',borderRadius:50,padding:'2px 6px',fontWeight:700}}>BOOKED</span>}
+                        </div>
+                        {/* Rich metadata — only for rich exercises */}
+                        {isRich && !checked[i] && !isLocked && (
+                          <>
+                            {/* Stats line */}
+                            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',fontSize:10,color:'#888'}}>
+                              {ex.rounds > 1 && (<>
+                                <span style={{color:typeColor,fontWeight:700}}>{ex.rounds} rounds × {fmtDuration(ex.duration_per_round)}</span>
+                              </>)}
+                              {ex.rounds === 1 && (
+                                <span style={{color:typeColor,fontWeight:700}}>{fmtDuration(ex.duration_per_round)}</span>
+                              )}
+                              {ex.rest_seconds > 0 && ex.rounds > 1 && (<>
+                                <span style={{color:'#444'}}>·</span>
+                                <span><span style={{color:'#666'}}>rest</span> <span style={{color:'#aaa',fontWeight:600}}>{fmtDuration(ex.rest_seconds)}</span></span>
+                              </>)}
+                              {ex.est_calories > 0 && (<>
+                                <span style={{color:'#444'}}>·</span>
+                                <span style={{color:'#e84a2f',fontWeight:600}}>🔥 ~{ex.est_calories} cal</span>
+                              </>)}
+                            </div>
+                            {/* Focus line */}
+                            {ex.focus && (
+                              <div style={{fontSize:10,color:'#999',lineHeight:1.5,fontStyle:'italic'}}>
+                                <span style={{color:typeColor,fontWeight:700,fontStyle:'normal'}}>Focus:</span> {ex.focus}
+                              </div>
+                            )}
+                            {/* Cues */}
+                            {ex.cues && ex.cues.length > 0 && (
+                              <div style={{display:'flex',flexDirection:'column',gap:2,marginTop:1}}>
+                                {ex.cues.map((cue, ci) => (
+                                  <div key={ci} style={{fontSize:9,color:'#888',display:'flex',gap:5,alignItems:'flex-start',lineHeight:1.5}}>
+                                    <span style={{color:typeColor,fontWeight:700,flexShrink:0}}>▸</span>
+                                    <span>{cue}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {/* Status text */}
+                      <div style={{fontSize:10,color:isLocked?'#444':checked[i]?'#4ade80':'#555',fontWeight:600,flexShrink:0,marginTop:2}}>{isLocked?'locked':checked[i]?'done':'tap'}</div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
-                <button style={{...s.accentBtn,background:workoutDone?'linear-gradient(135deg,#4ade80,#22c55e)':'linear-gradient(135deg,#e84a2f,#c93820)',boxShadow:workoutDone?'0 4px 16px rgba(74,222,128,0.35)':'0 4px 16px rgba(232,74,47,0.35)'}}>
-                  {workoutDone?'🎉 Workout Complete!':'Continue Training →'}
-                </button>
+                {selDay === 0 && (
+                  <button style={{...s.accentBtn,background:workoutDone?'linear-gradient(135deg,#4ade80,#22c55e)':'linear-gradient(135deg,#e84a2f,#c93820)',boxShadow:workoutDone?'0 4px 16px rgba(74,222,128,0.35)':'0 4px 16px rgba(232,74,47,0.35)'}}>
+                    {workoutDone?'🎉 Workout Complete!':'Continue Training →'}
+                  </button>
+                )}
               </>
             ) : (
               <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'16px 0'}}>
@@ -562,190 +1435,342 @@ export default function Home() {
             )}
           </div>
 
-          {/* ACHIEVEMENT */}
-          <div style={{...glass(),padding:'22px',display:'flex',flexDirection:'column',alignItems:'center',gap:12,textAlign:'center'}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.12em',color:'#f5c842',background:'rgba(245,200,66,0.1)',padding:'4px 12px',borderRadius:50}}>
-              {totalWorkouts>=10?'🎉 UNLOCKED!':'MILESTONE BADGE'}
-            </div>
-            <div style={{fontSize:44}}>🏅</div>
-            <div style={{fontSize:14,fontWeight:700,color:'#f0ece8'}}>10 Workout Badge</div>
-            <div style={{width:'100%'}}>
-              <div style={{height:8,background:'#2a2424',borderRadius:50,overflow:'hidden',marginBottom:5}}>
-                <div style={{height:'100%',background:'linear-gradient(90deg,#f5c842,#e84a2f)',borderRadius:50,width:`${Math.min((totalWorkouts/10)*100,100)}%`,transition:'width 0.6s ease'}}/>
-              </div>
-              <div style={{fontSize:12,textAlign:'right'}}><span style={{color:'#f5c842',fontWeight:700}}>{Math.min(totalWorkouts,10)}</span><span style={{color:'#555'}}>/10</span></div>
-            </div>
-            <div style={{fontSize:11,color:'#7a7570'}}>{totalWorkouts>=10?'Next badge at 20 workouts!':`${10-totalWorkouts} more workout${10-totalWorkouts!==1?'s':''} to go!`}</div>
-            <div style={{width:'100%',background:'rgba(255,255,255,0.02)',borderRadius:10,padding:'10px',display:'flex',flexDirection:'column',gap:6}}>
-              <div style={{fontSize:10,color:'#555',fontWeight:700,letterSpacing:'0.06em',textAlign:'left',marginBottom:2}}>MILESTONES</div>
-              {MILESTONE_BADGES.slice(0,4).map((m,i) => (
-                <div key={i} style={{display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:18,height:18,borderRadius:'50%',background:totalWorkouts>=m?'#4ade80':'#2a2424',border:`1.5px solid ${totalWorkouts>=m?'#4ade80':'#444'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:totalWorkouts>=m?'#fff':'#555',fontWeight:700,flexShrink:0}}>{totalWorkouts>=m?'✓':''}</div>
-                  <div style={{flex:1,height:4,background:'#2a2424',borderRadius:50,overflow:'hidden'}}>
-                    <div style={{height:'100%',background:totalWorkouts>=m?'#4ade80':'#f5c842',borderRadius:50,width:`${Math.min((totalWorkouts/m)*100,100)}%`,transition:'width 0.5s ease'}}/>
+          {/* ════════════════════════════════════════════════ */}
+          {/*  🏅 BADGES — Cinematic Trophy Showcase           */}
+          {/* ════════════════════════════════════════════════ */}
+          {(() => {
+            const earnedBadges = MILESTONE_BADGES.filter(m => totalWorkouts >= m)
+            const earnedCount = earnedBadges.length
+            const latestEarned = earnedBadges[earnedBadges.length-1]
+            const nextMilestone = MILESTONE_BADGES.find(m => totalWorkouts < m) || MILESTONE_BADGES[MILESTONE_BADGES.length-1]
+            const prevMilestone = MILESTONE_BADGES[MILESTONE_BADGES.indexOf(nextMilestone) - 1] || 0
+            const range = nextMilestone - prevMilestone
+            const progress = totalWorkouts - prevMilestone
+            const pct = range > 0 ? Math.min((progress/range)*100, 100) : 100
+            const featuredVal = latestEarned || nextMilestone
+            const featuredEarned = !!latestEarned
+            // Tier system based on total workouts — gives the widget identity
+            const TIER_TABLE = [
+              {min:0,   max:9,   name:'ROOKIE',     color:'#888888', icon:'🥊'},
+              {min:10,  max:19,  name:'CONTENDER',  color:'#fb923c', icon:'🥊'},
+              {min:20,  max:29,  name:'PROSPECT',   color:'#22c55e', icon:'⚡'},
+              {min:30,  max:39,  name:'WARRIOR',    color:'#42a5f5', icon:'🔥'},
+              {min:40,  max:49,  name:'CHAMPION',   color:'#c084fc', icon:'🏆'},
+              {min:50,  max:99,  name:'LEGEND',     color:'#f5c842', icon:'👑'},
+              {min:100, max:Infinity, name:'IMMORTAL', color:'#e84a2f', icon:'💎'},
+            ]
+            const tier = TIER_TABLE.find(t => totalWorkouts >= t.min && totalWorkouts <= t.max) || TIER_TABLE[0]
+            // Per-milestone tier color (each badge gets its own glow color)
+            const MILESTONE_COLOR = {
+              10:'#fb923c', 20:'#22c55e', 30:'#42a5f5',
+              40:'#c084fc', 50:'#f5c842', 60:'#e84a2f',
+            }
+            return (
+              <div style={{position:'relative',overflow:'hidden',borderRadius:20,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:`1.5px solid ${tier.color}30`,padding:'20px 22px',display:'flex',flexDirection:'column',gap:14,boxShadow:`0 12px 40px rgba(0,0,0,0.5),0 0 30px ${tier.color}15`}}>
+                {/* Animated radial glow background */}
+                <div style={{position:'absolute',top:-60,right:-60,width:240,height:240,borderRadius:'50%',background:`radial-gradient(circle,${tier.color}20,transparent 65%)`,pointerEvents:'none',animation:'badgeGlowPulse 3.5s ease-in-out infinite'}}/>
+                <div style={{position:'absolute',bottom:-80,left:-80,width:200,height:200,borderRadius:'50%',background:`radial-gradient(circle,${tier.color}15,transparent 70%)`,pointerEvents:'none',opacity:0.6}}/>
+                {/* Left accent stripe */}
+                <div style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:`linear-gradient(180deg,${tier.color},${tier.color}66)`}}/>
+
+                {/* Header — TIER PILL + CTA */}
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:1,gap:8}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,padding:'4px 10px',borderRadius:50,background:`${tier.color}15`,border:`1px solid ${tier.color}40`,boxShadow:`0 0 12px ${tier.color}30`}}>
+                    <span style={{fontSize:13}}>{tier.icon}</span>
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,letterSpacing:'0.12em',color:tier.color,textShadow:`0 0 8px ${tier.color}88`}}>{tier.name}</span>
                   </div>
-                  <div style={{fontSize:10,color:totalWorkouts>=m?'#4ade80':'#7a7570',fontWeight:700,width:32,textAlign:'right'}}>{m}🥊</div>
+                  <button style={{background:'transparent',color:'#888',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'4px 10px',fontSize:9,fontWeight:800,cursor:'pointer',letterSpacing:'0.05em',transition:'all 0.2s',whiteSpace:'nowrap'}}
+                    onClick={() => navigate('/achievements')}
+                    onMouseEnter={e=>{e.currentTarget.style.color=tier.color;e.currentTarget.style.borderColor=tier.color+'55';e.currentTarget.style.transform='translateX(2px)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)';e.currentTarget.style.transform='translateX(0)'}}>
+                    HALL →
+                  </button>
                 </div>
-              ))}
-            </div>
-            <button style={{...s.ghostBtn,color:'#f5c842',borderColor:'rgba(245,200,66,0.3)',width:'100%'}} onClick={() => navigate('/achievements')}>View All Badges</button>
-          </div>
+
+                {/* FEATURED TROPHY — big icon with glow burst */}
+                <div style={{display:'flex',alignItems:'center',gap:14,position:'relative',zIndex:1}}>
+                  <div style={{position:'relative',flexShrink:0}}>
+                    {featuredEarned && (
+                      <div style={{position:'absolute',inset:-8,borderRadius:'50%',background:`radial-gradient(circle,${MILESTONE_COLOR[featuredVal]},transparent 70%)`,opacity:0.5,animation:'pulseTrophy 2.5s ease-in-out infinite',pointerEvents:'none'}}/>
+                    )}
+                    <div style={{position:'relative',width:60,height:60,borderRadius:16,background:featuredEarned?`linear-gradient(135deg,${MILESTONE_COLOR[featuredVal]},${MILESTONE_COLOR[featuredVal]}88)`:'rgba(40,35,32,0.7)',border:`2px solid ${featuredEarned?MILESTONE_COLOR[featuredVal]:'rgba(255,255,255,0.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,boxShadow:featuredEarned?`0 6px 18px ${MILESTONE_COLOR[featuredVal]}55,inset 0 2px 6px rgba(255,255,255,0.2)`:'none',filter:featuredEarned?'none':'grayscale(0.7) brightness(0.55)'}}>
+                      🏅
+                      {!featuredEarned && (
+                        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.45)',borderRadius:16}}>
+                          <span style={{fontSize:18}}>🔒</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:8,color:featuredEarned?MILESTONE_COLOR[featuredVal]:'#666',letterSpacing:'0.14em',fontWeight:800,textTransform:'uppercase',marginBottom:3}}>
+                      {featuredEarned?'✓ Latest Earned':'🎯 Next Target'}
+                    </div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:featuredEarned?MILESTONE_COLOR[featuredVal]:'#aaa',letterSpacing:'0.04em',lineHeight:1.1,textShadow:featuredEarned?`0 0 12px ${MILESTONE_COLOR[featuredVal]}66`:'none'}}>
+                      {featuredVal} WORKOUT BADGE
+                    </div>
+                    <div style={{fontSize:9,color:'#777',marginTop:3,letterSpacing:'0.04em'}}>
+                      {earnedCount} of {MILESTONE_BADGES.length} unlocked
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress to next */}
+                <div style={{position:'relative',zIndex:1}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}>
+                    <span style={{fontSize:8,color:'#666',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase'}}>
+                      {pct>=100 && totalWorkouts>=60?'All earned!':`To ${nextMilestone}`}
+                    </span>
+                    <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:tier.color}}>
+                      {totalWorkouts}<span style={{color:'#444',fontSize:10}}>/{nextMilestone}</span>
+                    </span>
+                  </div>
+                  <div style={{position:'relative',height:7,background:'rgba(255,255,255,0.04)',borderRadius:50,overflow:'hidden',border:'1px solid rgba(255,255,255,0.05)'}}>
+                    <div style={{height:'100%',background:`linear-gradient(90deg,${tier.color},${tier.color}cc)`,borderRadius:50,width:`${pct}%`,transition:'width 0.8s ease',boxShadow:`0 0 10px ${tier.color}aa`}}/>
+                    {pct > 0 && pct < 100 && (
+                      <div style={{position:'absolute',top:0,bottom:0,width:30,background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)',animation:'shine 2.5s ease-in-out infinite',left:`calc(${pct}% - 30px)`}}/>
+                    )}
+                  </div>
+                </div>
+
+                {/* TROPHY LADDER — 6 tier-colored milestones */}
+                <div style={{display:'flex',gap:5,alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:1}}>
+                  {MILESTONE_BADGES.slice(0,6).map((m,i) => {
+                    const earned = totalWorkouts >= m
+                    const c = MILESTONE_COLOR[m] || '#888'
+                    const isNext = !earned && m === nextMilestone
+                    return (
+                      <div key={i} title={`${m} workouts${earned?' — earned':isNext?' — next!':''}`}
+                        style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4,cursor:'default',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
+                        onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px) scale(1.08)'}}
+                        onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)'}}>
+                        <div style={{position:'relative'}}>
+                          {earned && (
+                            <div style={{position:'absolute',inset:-4,borderRadius:'50%',background:`radial-gradient(circle,${c}55,transparent 70%)`,pointerEvents:'none'}}/>
+                          )}
+                          <div style={{position:'relative',width:30,height:30,borderRadius:'50%',background:earned?`linear-gradient(135deg,${c},${c}aa)`:isNext?'rgba(245,200,66,0.08)':'rgba(255,255,255,0.04)',border:`2px solid ${earned?c:isNext?'rgba(245,200,66,0.4)':'rgba(255,255,255,0.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:earned?'#0a0808':isNext?'#f5c842':'#444',fontWeight:800,boxShadow:earned?`0 0 12px ${c}88,inset 0 1px 4px rgba(255,255,255,0.2)`:isNext?'0 0 8px rgba(245,200,66,0.3)':'none',animation:isNext?'pulseTrophy 2s ease-in-out infinite':'none'}}>
+                            {earned?'✓':isNext?'🎯':m}
+                          </div>
+                        </div>
+                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:9,color:earned?c:isNext?'#f5c842':'#444',letterSpacing:'0.06em',textShadow:earned?`0 0 6px ${c}66`:'none'}}>{m}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {/* BOTTOM GRID */}
         <div style={s.bottomGrid}>
 
-          {/* UPCOMING CLASSES — from Firestore */}
-          <div style={glass()}>
-            <div style={{fontSize:14,fontWeight:700,padding:'16px 18px 12px',borderBottom:'1px solid rgba(245,200,66,0.08)'}}>Upcoming Classes</div>
+          {/* ════════════════════════════════════════════════ */}
+          {/*  UPCOMING CLASSES — Cinematic boxing fight cards */}
+          {/* ════════════════════════════════════════════════ */}
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.12)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#f5c842)'}}/>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.06em',color:'#f0ece8'}}>📋 UPCOMING CLASSES</div>
+                {classes.length>0&&<span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{classes.length}</span>}
+              </div>
+              {classStatuses.filter(s=>s==='booked').length>0&&(
+                <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,fontWeight:700,color:'#22c55e'}}>
+                  <span style={{display:'inline-block',width:5,height:5,borderRadius:'50%',background:'#22c55e',animation:'pulseDot 1.6s ease-in-out infinite'}}/>
+                  {classStatuses.filter(s=>s==='booked').length} BOOKED
+                </div>
+              )}
+            </div>
             {loadingClasses ? (
-              <div style={{padding:24,textAlign:'center',color:'#555',fontSize:12}}>Loading classes...</div>
+              <div style={{padding:30,textAlign:'center',color:'#555',fontSize:11}}>Loading…</div>
             ) : classes.length === 0 ? (
-              <div style={{padding:24,textAlign:'center',color:'#555',fontSize:12}}>No classes scheduled yet. Check back soon!</div>
+              <div style={{padding:'30px 20px',textAlign:'center'}}>
+                <div style={{fontSize:34,marginBottom:8,opacity:0.4}}>📋</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:'#888',letterSpacing:'0.06em',marginBottom:4}}>NO CLASSES SCHEDULED</div>
+                <div style={{fontSize:10,color:'#555'}}>Check back soon — your coach is planning sessions 🥊</div>
+              </div>
             ) : (
               <div style={{padding:'10px',display:'flex',flexDirection:'column',gap:8}}>
-                {classes.map((c,i) => (
-                  <div key={c.id} style={{display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,0.03)',borderRadius:12,padding:'12px 13px',border:`1px solid ${classStatuses[i]==='booked'?'rgba(74,222,128,0.2)':'rgba(245,200,66,0.06)'}`,transition:'border-color 0.3s'}}>
-                    <div style={{flex:1,display:'flex',flexDirection:'column',gap:3}}>
-                      <div style={{fontSize:13,fontWeight:700,color:'#f0ece8'}}>{c.name}</div>
-                      <div style={{display:'flex',gap:6,fontSize:11,alignItems:'center',flexWrap:'wrap'}}>
-                        <span style={{color:'#e84a2f',fontWeight:600}}>{c.coach}</span>
-                        <span style={{color:'#555'}}>·</span>
-                        <span style={{color:'#b0ada8'}}>{c.day}</span>
-                        <span style={{color:'#555'}}>·</span>
-                        <span style={{color:'#f5c842',fontWeight:600}}>{c.time}</span>
+                {classes.map((c,i) => {
+                  const isBooked = classStatuses[i]==='booked'
+                  const spotsLeft = c.spots ? c.spots - (c.enrolled||0) : null
+                  const lc = LEVEL_COLOR[c.level]||'#f5c842'
+                  const dayShort = (c.day||'').slice(0,3).toUpperCase()
+                  return (
+                    <div key={c.id}
+                      style={{position:'relative',display:'flex',alignItems:'center',gap:12,background:isBooked?'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(20,15,14,0.7))':'linear-gradient(135deg,rgba(40,30,28,0.5),rgba(20,15,14,0.7))',borderRadius:14,padding:'12px 14px',border:`1px solid ${isBooked?'rgba(34,197,94,0.3)':'rgba(255,255,255,0.06)'}`,transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',cursor:'default'}}
+                      onMouseEnter={e=>{e.currentTarget.style.transform='translateX(3px)';e.currentTarget.style.borderColor=isBooked?'rgba(34,197,94,0.5)':`${lc}55`;e.currentTarget.style.boxShadow=`0 6px 20px ${isBooked?'rgba(34,197,94,0.2)':lc+'22'}`}}
+                      onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=isBooked?'rgba(34,197,94,0.3)':'rgba(255,255,255,0.06)';e.currentTarget.style.boxShadow='none'}}>
+                      {/* Left accent stripe for booked */}
+                      {isBooked&&<div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'linear-gradient(180deg,#22c55e,transparent)',borderRadius:'14px 0 0 14px'}}/>}
+                      {/* Day badge */}
+                      <div style={{width:48,height:48,borderRadius:11,background:isBooked?'linear-gradient(135deg,#22c55e,#15803d)':`linear-gradient(135deg,${lc},${lc}aa)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:isBooked?'#fff':'#000',flexShrink:0,boxShadow:isBooked?'0 4px 12px rgba(34,197,94,0.4)':`0 4px 12px ${lc}40`,border:`2px solid ${isBooked?'rgba(34,197,94,0.5)':lc+'66'}`}}>
+                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,lineHeight:1}}>{dayShort}</div>
+                        <div style={{fontSize:7,fontWeight:800,letterSpacing:'0.08em',marginTop:2,opacity:0.85}}>{c.time}</div>
                       </div>
-                      {c.spots && (c.spots - (c.enrolled||0)) <= 3 && classStatuses[i]==='open' && (
-                        <div style={{fontSize:10,color:'#f5c842',fontWeight:700}}>⚠️ Only {c.spots-(c.enrolled||0)} spots left!</div>
-                      )}
-                      {classStatuses[i]==='booked' && <div style={{fontSize:10,color:'#4ade80',fontWeight:700}}>✅ You are registered</div>}
+                      {/* Info */}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,flexWrap:'wrap'}}>
+                          <span style={{fontSize:13,fontWeight:700,color:isBooked?'#22c55e':'#f0ece8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
+                          {isBooked&&<span style={{fontSize:7,fontWeight:800,padding:'2px 6px',borderRadius:50,background:'rgba(34,197,94,0.2)',color:'#22c55e',letterSpacing:'0.1em',flexShrink:0}}>BOOKED</span>}
+                        </div>
+                        <div style={{display:'flex',gap:5,fontSize:10,alignItems:'center',flexWrap:'wrap',color:'#888'}}>
+                          {c.coach&&<><span style={{color:'#e84a2f',fontWeight:700}}>👨‍🏫 {c.coach}</span><span style={{color:'#444'}}>·</span></>}
+                          <span style={{fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:50,background:`${lc}15`,color:lc,letterSpacing:'0.06em',textTransform:'uppercase'}}>{c.level||'Beginner'}</span>
+                        </div>
+                        {!isBooked && spotsLeft !== null && spotsLeft <= 3 && spotsLeft > 0 && (
+                          <div style={{fontSize:9,color:'#f5c842',fontWeight:700,marginTop:4,letterSpacing:'0.04em'}}>⚠️ Only {spotsLeft} spot{spotsLeft===1?'':'s'} left!</div>
+                        )}
+                        {!isBooked && spotsLeft === 0 && (
+                          <div style={{fontSize:9,color:'#e84a2f',fontWeight:700,marginTop:4,letterSpacing:'0.04em'}}>🚫 Class full</div>
+                        )}
+                      </div>
+                      {/* Action button */}
+                      <button onClick={() => handleBook(i)}
+                        disabled={!isBooked && spotsLeft === 0}
+                        style={{
+                          background:isBooked?'rgba(34,197,94,0.12)':spotsLeft===0?'rgba(255,255,255,0.04)':'linear-gradient(135deg,#e84a2f,#c93820)',
+                          color:isBooked?'#22c55e':spotsLeft===0?'#444':'#fff',
+                          border:isBooked?'1px solid rgba(34,197,94,0.3)':'none',
+                          borderRadius:50,padding:'8px 14px',fontSize:10,fontWeight:800,letterSpacing:'0.05em',
+                          cursor:(!isBooked&&spotsLeft===0)?'not-allowed':'pointer',
+                          whiteSpace:'nowrap',
+                          boxShadow:!isBooked&&spotsLeft!==0?'0 4px 14px rgba(232,74,47,0.35)':'none',
+                          transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+                          flexShrink:0,
+                        }}
+                        onMouseEnter={e=>{
+                          if(isBooked){e.currentTarget.style.background='rgba(232,74,47,0.15)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.35)';e.currentTarget.style.transform='scale(1.04)'}
+                          else if(spotsLeft!==0){e.currentTarget.style.transform='translateY(-2px) scale(1.04)';e.currentTarget.style.boxShadow='0 6px 18px rgba(232,74,47,0.5)'}
+                        }}
+                        onMouseLeave={e=>{
+                          if(isBooked){e.currentTarget.style.background='rgba(34,197,94,0.12)';e.currentTarget.style.color='#22c55e';e.currentTarget.style.borderColor='rgba(34,197,94,0.3)';e.currentTarget.style.transform='scale(1)'}
+                          else if(spotsLeft!==0){e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 4px 14px rgba(232,74,47,0.35)'}
+                        }}>
+                        {isBooked?'✓ BOOKED':spotsLeft===0?'FULL':'🥊 BOOK'}
+                      </button>
                     </div>
-                    <button onClick={() => handleBook(i)}
-                      style={{background:classStatuses[i]==='booked'?'rgba(74,222,128,0.12)':'#e84a2f',color:classStatuses[i]==='booked'?'#4ade80':'#fff',border:classStatuses[i]==='booked'?'1px solid rgba(74,222,128,0.3)':'none',borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',transition:'all 0.2s'}}>
-                      {classStatuses[i]==='booked'?'✓ Booked':'Book'}
-                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* WEEKLY PROGRESS RING removed — data already in hero card stats */}
+        </div>
+
+        {/* ════════════════════════════════════════════════ */}
+        {/*  COACH FEEDBACK + GYM ANNOUNCEMENTS — side-by-side */}
+        {/* ════════════════════════════════════════════════ */}
+        <div style={{display:'grid',gridTemplateColumns:announcements.length>0?'1fr 1fr':'1fr',gap:16}}>
+
+          {/* COACH FEEDBACK */}
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(232,74,47,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:30,height:30,borderRadius:9,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,boxShadow:'0 4px 12px rgba(232,74,47,0.3)'}}>💬</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>COACH FEEDBACK</div>
+                {coachFeedback.length>0&&<span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(232,74,47,0.15)',color:'#e84a2f',letterSpacing:'0.08em'}}>{coachFeedback.length}</span>}
+              </div>
+              {coachFeedback.length >= 2 && (
+                <button onClick={()=>setClearFbConfirm(true)} title="Clear all feedback"
+                  style={{background:'rgba(232,74,47,0.08)',color:'#e84a2f',border:'1px solid rgba(232,74,47,0.25)',borderRadius:50,padding:'5px 11px',fontSize:9,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',display:'flex',alignItems:'center',gap:4,transition:'all 0.2s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.18)';e.currentTarget.style.transform='translateY(-1px)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.08)';e.currentTarget.style.transform='translateY(0)'}}>
+                  🧹 CLEAR ALL
+                </button>
+              )}
+            </div>
+            {coachFeedback.length===0?(
+              <div style={{padding:'30px 16px',textAlign:'center'}}>
+                <div style={{fontSize:28,marginBottom:6,opacity:0.4}}>📭</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:'#888',letterSpacing:'0.06em',marginBottom:3}}>NO FEEDBACK YET</div>
+                <div style={{fontSize:9,color:'#555',letterSpacing:'0.04em'}}>Keep training — your coach will leave notes here</div>
+              </div>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',maxHeight:280,overflowY:'auto'}}>
+                {coachFeedback.map((fb,i)=>(
+                  <div key={fb.id||i} style={{position:'relative',padding:'12px 16px',borderBottom:i<coachFeedback.length-1?'1px solid rgba(255,255,255,0.04)':'none',transition:'background 0.2s'}}
+                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.04)';const btn=e.currentTarget.querySelector('.fb-del');if(btn)btn.style.opacity='1'}}
+                    onMouseLeave={e=>{e.currentTarget.style.background='transparent';const btn=e.currentTarget.querySelector('.fb-del');if(btn)btn.style.opacity='0'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{width:26,height:26,borderRadius:'50%',background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'1.5px solid rgba(232,74,47,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>🥊</div>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.02em'}}>{fb.coachName||'Coach'}</div>
+                          <div style={{fontSize:8,color:'#555',letterSpacing:'0.05em'}}>{fb.createdAt?.seconds?new Date(fb.createdAt.seconds*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{display:'flex',gap:1}}>
+                          {Array.from({length:5},(_,j)=>(
+                            <span key={j} style={{color:j<(fb.rating||0)?'#f5c842':'#2a2424',fontSize:11,filter:j<(fb.rating||0)?'drop-shadow(0 0 3px rgba(245,200,66,0.6))':'none'}}>★</span>
+                          ))}
+                        </div>
+                        <button className="fb-del"
+                          onClick={()=>deleteFeedback(fb.id)}
+                          title="Delete this feedback"
+                          style={{opacity:0,width:22,height:22,background:'rgba(120,113,108,0.12)',color:'#a8a29e',border:'1px solid rgba(120,113,108,0.3)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,cursor:'pointer',transition:'all 0.2s ease',padding:0,flexShrink:0}}
+                          onMouseEnter={e=>{e.stopPropagation();e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.4)';e.currentTarget.style.transform='scale(1.12)'}}
+                          onMouseLeave={e=>{e.stopPropagation();e.currentTarget.style.background='rgba(120,113,108,0.12)';e.currentTarget.style.color='#a8a29e';e.currentTarget.style.borderColor='rgba(120,113,108,0.3)';e.currentTarget.style.transform='scale(1)'}}>🗑</button>
+                      </div>
+                    </div>
+                    <div style={{fontSize:11,color:'#b0ada8',lineHeight:1.6,paddingLeft:34,fontStyle:'italic'}}>&ldquo;{fb.text}&rdquo;</div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* WEEKLY PROGRESS RING */}
-          <div style={{...glass(),display:'flex',flexDirection:'column',alignItems:'center',padding:'22px 18px',gap:14}}>
-            <div style={{fontSize:13,fontWeight:700,alignSelf:'flex-start'}}>Weekly Progress</div>
-            <div style={{position:'relative',width:140,height:140}}>
-              <svg style={{transform:'rotate(-90deg)'}} width="140" height="140" viewBox="0 0 140 140">
-                <circle fill="none" stroke="#2a2424" strokeWidth="14" cx="70" cy="70" r="54"/>
-                <circle ref={ringRef} fill="none" stroke="#f5c842" strokeWidth="14" strokeLinecap="round" cx="70" cy="70" r="54" strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE} style={{transition:'stroke-dashoffset 0.7s cubic-bezier(0.4,0,0.2,1)'}}/>
-              </svg>
-              <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:34,color:'#f5c842',lineHeight:1}}>{displayPct}%</div>
-                <div style={{fontSize:10,color:'#7a7570',fontWeight:600}}>Done</div>
+          {/* GYM ANNOUNCEMENTS — only if announcements exist */}
+          {announcements.length > 0 && (
+            <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
+              <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(245,200,66,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:30,height:30,borderRadius:9,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,boxShadow:'0 4px 12px rgba(245,200,66,0.3)'}}>📢</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>GYM ANNOUNCEMENTS</div>
+                  <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{announcements.length}</span>
+                </div>
               </div>
-            </div>
-            <div style={{fontSize:11,color:'#555',textAlign:'center',lineHeight:1.6}}>Check off exercises to update this ring</div>
-            <div style={{width:'100%',display:'flex',flexDirection:'column',gap:8}}>
-              {[
-                {icon:'🔥',label:'Streak',        val:`${streak} day${streak!==1?'s':''}`,  color:'#e84a2f'},
-                {icon:'🥊',label:'Total Workouts', val:totalWorkouts,                          color:'#f5c842'},
-                {icon:'📅',label:'Done This Week', val:`${completedThisWeek}/7`,               color:'#4ade80'},
-                {icon:'⭐',label:'Level',          val:currentLevel,                           color:lc},
-              ].map((st,i) => (
-                <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:'rgba(255,255,255,0.02)',borderRadius:10,border:'1px solid rgba(255,255,255,0.04)'}}>
-                  <span style={{fontSize:18}}>{st.icon}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:9,color:'#555',fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase'}}>{st.label}</div>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:st.color,letterSpacing:'0.04em'}}>{st.val}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* COACH FEEDBACK — always visible */}
-        <div style={glass()}>
-          <div style={{padding:'14px 20px',borderBottom:'1px solid rgba(245,200,66,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div style={{fontSize:13,fontWeight:700}}>💬 Coach Feedback</div>
-            {coachFeedback.length>0&&<div style={{fontSize:10,color:'#e84a2f',fontWeight:700,background:'rgba(232,74,47,0.1)',borderRadius:50,padding:'3px 10px',border:'1px solid rgba(232,74,47,0.2)'}}>{coachFeedback.length} note{coachFeedback.length!==1?'s':''}</div>}
-          </div>
-          {coachFeedback.length===0?(
-            <div style={{padding:'28px 20px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
-              <div style={{fontSize:32,opacity:0.4}}>📭</div>
-              <div style={{fontSize:12,color:'#555',lineHeight:1.7}}>No feedback yet from your coach.<br/>Keep training — your coach will leave notes here!</div>
-            </div>
-          ):(
-            <div style={{display:'flex',flexDirection:'column',gap:0,maxHeight:300,overflowY:'auto'}}>
-              {coachFeedback.map((fb,i)=>(
-                <div key={fb.id||i} style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',flexDirection:'column',gap:8}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <div style={{width:30,height:30,borderRadius:'50%',background:'rgba(232,74,47,0.15)',border:'1.5px solid rgba(232,74,47,0.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13}}>🥊</div>
-                      <div>
-                        <div style={{fontSize:12,fontWeight:700,color:'#e84a2f'}}>{fb.coachName||'Coach'}</div>
-                        <div style={{fontSize:9,color:'#555'}}>{fb.createdAt?.seconds?new Date(fb.createdAt.seconds*1000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}</div>
-                      </div>
-                    </div>
-                    <div style={{display:'flex',gap:2}}>
-                      {Array.from({length:5},(_,j)=>(
-                        <span key={j} style={{color:j<(fb.rating||0)?'#f5c842':'#2a2424',fontSize:13}}>★</span>
-                      ))}
+              <div style={{display:'flex',flexDirection:'column',maxHeight:280,overflowY:'auto'}}>
+                {announcements.map((n,i)=>(
+                  <div key={n.id} style={{padding:'12px 16px',borderBottom:i<announcements.length-1?'1px solid rgba(255,255,255,0.04)':'none',display:'flex',gap:10,alignItems:'flex-start',transition:'background 0.2s'}}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(245,200,66,0.04)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{width:26,height:26,borderRadius:8,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0,boxShadow:'0 3px 10px rgba(245,200,66,0.3)'}}>📢</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,fontWeight:700,color:'#f0ece8',marginBottom:3,letterSpacing:'0.01em'}}>{n.title}</div>
+                      <div style={{fontSize:10,color:'#888',lineHeight:1.55,marginBottom:4}}>{n.message}</div>
+                      <div style={{fontSize:8,color:'#555',letterSpacing:'0.05em'}}>From <strong style={{color:'#777'}}>{n.from}</strong></div>
                     </div>
                   </div>
-                  <div style={{fontSize:12,color:'#b0ada8',lineHeight:1.7,background:'rgba(255,255,255,0.02)',borderRadius:10,padding:'10px 14px',border:'1px solid rgba(255,255,255,0.05)',fontStyle:'italic'}}>&ldquo;{fb.text}&rdquo;</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        {/* ANNOUNCEMENTS */}
-        {announcements.length > 0 && (
-          <div style={{...glass({borderRadius:14}),border:'1px solid rgba(245,200,66,0.15)'}}>
-            <div style={{padding:'12px 18px',borderBottom:'1px solid rgba(245,200,66,0.08)',display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:16}}>📢</span>
-              <div style={{fontSize:13,fontWeight:700,color:'#f5c842'}}>Gym Announcements</div>
-              <div style={{fontSize:10,background:'rgba(245,200,66,0.1)',color:'#f5c842',border:'1px solid rgba(245,200,66,0.2)',borderRadius:50,padding:'2px 8px',fontWeight:700}}>{announcements.length}</div>
-            </div>
-            <div style={{display:'flex',flexDirection:'column',gap:0}}>
-              {announcements.map((n,i)=>(
-                <div key={n.id} style={{padding:'12px 18px',borderBottom:i<announcements.length-1?'1px solid rgba(255,255,255,0.04)':'none',display:'flex',gap:10,alignItems:'flex-start'}}>
-                  <div style={{width:28,height:28,borderRadius:8,background:'rgba(245,200,66,0.12)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>📢</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:12,fontWeight:700,color:'#f0ece8',marginBottom:3}}>{n.title}</div>
-                    <div style={{fontSize:11,color:'#7a7570',lineHeight:1.6}}>{n.message}</div>
-                    <div style={{fontSize:9,color:'#444',marginTop:4}}>From: {n.from}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TIPS */}
+        {/* TIPS — Compact strip */}
         {tipVisible && (
-          <div style={{...glass({borderRadius:16}),padding:'18px 22px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:20}}>
-            <div style={{display:'flex',gap:14,alignItems:'center',flex:1}}>
-              <div style={{width:44,height:44,borderRadius:12,background:'rgba(245,200,66,0.1)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                <span style={{fontSize:22}}>{tip.icon}</span>
-              </div>
-              <div style={{flex:1}}>
-                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:5}}>
-                  <span style={{fontSize:10,fontWeight:700,letterSpacing:'0.1em',color:'#f5c842'}}>💡 BOXING TIP · {tip.category}</span>
-                  <span style={{fontSize:10,color:'#555',fontWeight:600}}>{tipIdx+1}/{TIPS.length}</span>
-                </div>
-                <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7}}>{tip.text}</div>
-              </div>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'linear-gradient(135deg,rgba(245,200,66,0.06),rgba(20,15,15,0.5))',border:'1px solid rgba(245,200,66,0.18)',padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
+            <div style={{width:34,height:34,borderRadius:9,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,boxShadow:'0 3px 10px rgba(245,200,66,0.35)'}}>
+              <span>{tip.icon}</span>
             </div>
-            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,flexShrink:0}}>
-              <div style={{display:'flex',gap:6}}>
-                <button style={s.navBtn} onClick={() => setTipIdx(i => (i-1+TIPS.length)%TIPS.length)}>‹</button>
-                <button style={s.navBtn} onClick={() => setTipIdx(i => (i+1)%TIPS.length)}>›</button>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
+                <span style={{fontSize:9,fontWeight:800,letterSpacing:'0.15em',color:'#f5c842'}}>💡 {tip.category.toUpperCase()}</span>
+                <span style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'0.08em'}}>{tipIdx+1}/{TIPS.length}</span>
               </div>
-              <div style={{display:'flex',gap:5}}>
-                {TIPS.map((_,i) => <div key={i} style={{width:6,height:6,borderRadius:'50%',background:i===tipIdx?'#f5c842':'#333',cursor:'pointer',transition:'all 0.2s'}} onClick={() => setTipIdx(i)}/>)}
-              </div>
-              <button style={{fontSize:11,color:'#555',background:'none',border:'none',cursor:'pointer',fontWeight:600}} onClick={() => setTipVisible(false)}>✕ Dismiss</button>
+              <div style={{fontSize:12,color:'#b0ada8',lineHeight:1.55}}>{tip.text}</div>
+            </div>
+            <div style={{display:'flex',gap:5,flexShrink:0}}>
+              <button style={{...s.navBtn,width:26,height:26,fontSize:14}} onClick={() => setTipIdx(i => (i-1+TIPS.length)%TIPS.length)}>‹</button>
+              <button style={{...s.navBtn,width:26,height:26,fontSize:14}} onClick={() => setTipIdx(i => (i+1)%TIPS.length)}>›</button>
+              <button title="Dismiss" style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'#555',fontSize:11,cursor:'pointer',fontWeight:700}} onClick={() => setTipVisible(false)}>✕</button>
             </div>
           </div>
         )}
@@ -756,14 +1781,20 @@ export default function Home() {
         )}
 
       </div>
-      <style>{`@keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}`}</style>
+      <style>{`
+        @keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+        @keyframes pulseDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:0.6}}
+        @keyframes badgeGlowPulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.15);opacity:1}}
+        @keyframes pulseTrophy{0%,100%{transform:scale(1);opacity:0.6}50%{transform:scale(1.15);opacity:0.9}}
+        @keyframes shine{0%{transform:translateX(-100%);opacity:0}50%{opacity:1}100%{transform:translateX(200%);opacity:0}}
+      `}</style>
     </>
   )
 }
 
 const s = {
   heroRow:   {display:'grid',gridTemplateColumns:'1fr 1.5fr 0.9fr',gap:16},
-  bottomGrid:{display:'grid',gridTemplateColumns:'1.2fr 0.8fr',gap:16},
+  bottomGrid:{display:'grid',gridTemplateColumns:'1fr',gap:16},
   heroAvatar:{width:52,height:52,borderRadius:'50%',border:'2.5px solid #e84a2f',background:'linear-gradient(135deg,#2a2020,#3a2828)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#e84a2f',fontFamily:"'Bebas Neue',sans-serif",flexShrink:0,boxShadow:'0 0 16px rgba(232,74,47,0.3)'},
   accentBtn: {background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'10px 22px',fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'},
   ghostBtn:  {background:'transparent',color:'#7a7570',border:'1.5px solid rgba(255,255,255,0.12)',borderRadius:50,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'},

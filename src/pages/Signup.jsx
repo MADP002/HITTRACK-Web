@@ -21,13 +21,73 @@ function CornerChevs({ pos }) {
   )
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PHONE_RE = /^(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}$/
+
+function getPasswordStrength(pw) {
+  if (!pw) return { score: 0, label: '', color: 'transparent' }
+  let score = 0
+  if (pw.length >= 6) score++
+  if (pw.length >= 10) score++
+  if (/[A-Z]/.test(pw)) score++
+  if (/[0-9]/.test(pw)) score++
+  if (/[^A-Za-z0-9]/.test(pw)) score++
+
+  if (score <= 1) return { score: 1, label: 'Weak', color: '#e84a2f' }
+  if (score === 2) return { score: 2, label: 'Fair', color: '#f5a623' }
+  if (score === 3) return { score: 3, label: 'Good', color: '#f5c842' }
+  if (score >= 4) return { score: Math.min(score, 5), label: 'Strong', color: '#22c55e' }
+  return { score: 0, label: '', color: 'transparent' }
+}
+
+function firebaseErrorMessage(code) {
+  const map = {
+    'auth/email-already-in-use': 'This email is already registered. Try signing in instead.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/weak-password': 'Password is too weak. Use at least 6 characters with a mix of letters and numbers.',
+    'auth/operation-not-allowed': 'Email/password signup is currently disabled. Contact the gym admin.',
+    'auth/too-many-requests': 'Too many attempts. Please wait a few minutes and try again.',
+    'auth/network-request-failed': 'Network error. Check your internet connection and try again.',
+  }
+  return map[code] || 'Signup failed. Please try again.'
+}
+
 export default function Signup() {
   const navigate  = useNavigate()
   const canvasRef = useRef(null)
-  const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'' })
+  const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'', phone:'', dob:'' })
   const [role, setRole]       = useState('member')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [touched, setTouched] = useState({})
+
+  // ════════════════════════════════════════════════════════
+  //  AGE GATE — Min 13, Max 100. Aligns with Philippine DPA
+  //  2012 (RA 10173) which requires parental consent for minors.
+  //  Members aged 13-17 see a parental-consent reminder.
+  // ════════════════════════════════════════════════════════
+  const MIN_AGE = 13
+  const MAX_AGE = 100
+  // Compute date input bounds from MIN/MAX age
+  const today    = new Date()
+  const maxDOB   = new Date(today.getFullYear() - MIN_AGE, today.getMonth(), today.getDate())  // latest birthdate allowed
+  const minDOB   = new Date(today.getFullYear() - MAX_AGE, today.getMonth(), today.getDate())  // earliest birthdate allowed
+  const fmtDate  = (d) => d.toISOString().split('T')[0]
+  const maxDOBStr = fmtDate(maxDOB)
+  const minDOBStr = fmtDate(minDOB)
+
+  function computeAge(dobStr) {
+    if (!dobStr) return null
+    const dob = new Date(dobStr)
+    if (isNaN(dob.getTime())) return null
+    let age = today.getFullYear() - dob.getFullYear()
+    const m = today.getMonth() - dob.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+    return age
+  }
+  const currentAge = computeAge(form.dob)
+  const isMinor    = currentAge !== null && currentAge >= MIN_AGE && currentAge < 18
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
@@ -48,44 +108,129 @@ export default function Signup() {
     draw(); return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize)}
   },[])
 
-  function update(field, val) { setForm(f=>({...f,[field]:val})) }
+  function update(field, val) {
+    setForm(f=>({...f,[field]:val}))
+    if (fieldErrors[field]) setFieldErrors(fe => ({ ...fe, [field]: '' }))
+  }
+
+  function handleBlur(field) {
+    setTouched(t => ({ ...t, [field]: true }))
+    validateField(field, form[field])
+  }
+
+  function validateField(field, value) {
+    let err = ''
+    switch (field) {
+      case 'name':
+        if (touched.name && !value.trim()) err = 'Full name is required.'
+        break
+      case 'email':
+        if (!value.trim()) err = 'Email is required.'
+        else if (!EMAIL_RE.test(value.trim())) err = 'Enter a valid email (e.g. you@example.com).'
+        break
+      case 'phone':
+        if (value.trim() && !PHONE_RE.test(value.trim())) err = 'Enter a valid phone number (e.g. 09171234567).'
+        break
+      case 'dob': {
+        if (!value) {
+          err = 'Date of birth is required.'
+        } else {
+          const age = computeAge(value)
+          if (age === null) err = 'Enter a valid date.'
+          else if (age < MIN_AGE) err = `You must be at least ${MIN_AGE} years old to register.`
+          else if (age > MAX_AGE) err = 'Please enter a realistic birthdate.'
+        }
+        break
+      }
+      case 'password':
+        if (value && value.length < 6) err = 'Must be at least 6 characters.'
+        if (form.confirm && value !== form.confirm) {
+          setFieldErrors(fe => ({ ...fe, confirm: 'Passwords do not match.' }))
+        } else if (form.confirm) {
+          setFieldErrors(fe => ({ ...fe, confirm: '' }))
+        }
+        break
+      case 'confirm':
+        if (value && value !== form.password) err = 'Passwords do not match.'
+        break
+      default: break
+    }
+    setFieldErrors(fe => ({ ...fe, [field]: err }))
+    return err
+  }
+
+  function validateAll() {
+    const errs = {}
+    if (!form.name.trim()) errs.name = 'Full name is required.'
+    if (!form.email.trim()) errs.email = 'Email is required.'
+    else if (!EMAIL_RE.test(form.email.trim())) errs.email = 'Enter a valid email (e.g. you@example.com).'
+    // ── DOB age gate ──
+    if (!form.dob) {
+      errs.dob = 'Date of birth is required.'
+    } else {
+      const age = computeAge(form.dob)
+      if (age === null) errs.dob = 'Enter a valid date.'
+      else if (age < MIN_AGE) errs.dob = `You must be at least ${MIN_AGE} years old to register.`
+      else if (age > MAX_AGE) errs.dob = 'Please enter a realistic birthdate.'
+    }
+    if (form.phone.trim() && !PHONE_RE.test(form.phone.trim())) errs.phone = 'Enter a valid phone number.'
+    if (!form.password) errs.password = 'Password is required.'
+    else if (form.password.length < 6) errs.password = 'Must be at least 6 characters.'
+    if (!form.confirm) errs.confirm = 'Please confirm your password.'
+    else if (form.password !== form.confirm) errs.confirm = 'Passwords do not match.'
+    setFieldErrors(errs)
+    setTouched({ name:true, email:true, dob:true, phone:true, password:true, confirm:true })
+    return Object.values(errs).every(v => !v)
+  }
 
   async function handleSignup(e) {
     e.preventDefault()
-    if (!form.name||!form.email||!form.password) { setError('Please fill in all fields'); return }
-    if (form.password !== form.confirm) { setError('Passwords do not match'); return }
-    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return }
+    if (!validateAll()) return
     setLoading(true); setError('')
     try {
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password)
+      const normalizedEmail = form.email.trim().toLowerCase()
+      const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, form.password)
+
+      const userData = {
+        uid: cred.user.uid, name: form.name.trim(), email: normalizedEmail,
+        dob: form.dob,                              // YYYY-MM-DD string
+        ageAtSignup: computeAge(form.dob),          // snapshot — convenient for analytics
+        createdAt: serverTimestamp(),
+      }
+      if (form.phone.trim()) userData.phone = form.phone.trim()
 
       if (role === 'coach') {
-        // Coach signup — needs admin approval
         await setDoc(doc(db, 'users', cred.user.uid), {
-          uid: cred.user.uid, name: form.name.trim(), email: form.email.trim(),
-          role: 'coach_pending', // pending until admin approves
+          ...userData,
+          role: 'coach_pending',
           approved: false, programSetupDone: true,
-          createdAt: serverTimestamp(),
         })
         await auth.signOut()
         navigate('/login?pending=1')
       } else {
-        // Member signup
         await setDoc(doc(db, 'users', cred.user.uid), {
-          uid: cred.user.uid, name: form.name.trim(), email: form.email.trim(),
+          ...userData,
           role: 'member', status: 'active', programSetupDone: false,
-          createdAt: serverTimestamp(),
         })
         await auth.signOut()
         navigate('/login?registered=1')
       }
     } catch (err) {
-      if (err.code==='auth/email-already-in-use') setError('This email is already registered.')
-      else if (err.code==='auth/invalid-email') setError('Invalid email address.')
-      else setError('Signup failed. Please try again.')
+      setError(firebaseErrorMessage(err.code))
       setLoading(false)
     }
   }
+
+  const strength = getPasswordStrength(form.password)
+
+  const fields = [
+    { field:'name',     label:'Full Name',        type:'text',     ph:'e.g. Lowell Aguinaldo' },
+    { field:'email',    label:'Email Address',     type:'email',    ph:'your@email.com' },
+    { field:'dob',      label:'Date of Birth',     type:'date',     ph:'YYYY-MM-DD' },
+    { field:'phone',    label:'Phone Number',      type:'tel',      ph:'e.g. 09171234567', optional:true },
+    { field:'password', label:'Password',          type:'password', ph:'Min. 6 characters' },
+    { field:'confirm',  label:'Confirm Password',  type:'password', ph:'Repeat password' },
+  ]
 
   return (
     <div style={{minHeight:'100vh',background:'#0f0d0d',display:'flex',position:'relative',overflow:'hidden',fontFamily:"'Montserrat',sans-serif"}}>
@@ -108,7 +253,6 @@ export default function Signup() {
             <div style={{flex:1,height:1,background:'linear-gradient(90deg,rgba(232,74,47,0.6),transparent)'}}/>
           </div>
           <div style={{fontSize:11,color:'#555',letterSpacing:'0.14em',textTransform:'uppercase',marginBottom:28}}>Wild Bout Boxing Gym · Create Account</div>
-          {/* Perks */}
           <div style={{display:'flex',flexDirection:'column',gap:10,textAlign:'left',maxWidth:280,margin:'0 auto'}}>
             {['🏆 Personalized workout program','📊 Track your progress & stats','🥊 Real-time leaderboard','💬 Connect with your coach'].map((item,i)=>(
               <div key={i} style={{display:'flex',alignItems:'center',gap:10,fontSize:12,color:'#7a7570'}}>
@@ -152,22 +296,65 @@ export default function Signup() {
             {error && <div style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#e84a2f',fontWeight:600,marginBottom:16}}>⚠ {error}</div>}
 
             <form onSubmit={handleSignup} style={{display:'flex',flexDirection:'column',gap:14}}>
-              {[
-                {field:'name',    label:'Full Name',        type:'text',     ph:'e.g. Lowell Aguinaldo'},
-                {field:'email',   label:'Email Address',    type:'email',    ph:'your@email.com'},
-                {field:'password',label:'Password',         type:'password', ph:'Min. 6 characters'},
-                {field:'confirm', label:'Confirm Password', type:'password', ph:'Repeat password'},
-              ].map(f=>(
-                <div key={f.field}>
-                  <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>{f.label}</label>
-                  <div style={{display:'flex',alignItems:'center',background:'rgba(255,255,255,0.04)',border:'1.5px solid rgba(255,255,255,0.08)',borderRadius:10,padding:'11px 14px',transition:'border-color 0.2s',gap:8}}
-                    onFocus={e=>e.currentTarget.style.borderColor='#e84a2f'}
-                    onBlur={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>
-                    <input type={f.type} placeholder={f.ph} value={form[f.field]} onChange={e=>update(f.field,e.target.value)}
-                      style={{flex:1,background:'none',border:'none',outline:'none',color:'#f0ece8',fontSize:13,fontFamily:"'Montserrat',sans-serif"}}/>
+              {fields.map(f => {
+                const hasErr = touched[f.field] && fieldErrors[f.field]
+                const borderColor = hasErr ? '#e84a2f' : 'rgba(255,255,255,0.08)'
+                return (
+                  <div key={f.field}>
+                    <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                      {f.label}
+                      {f.optional && <span style={{fontSize:9,fontWeight:500,color:'#444',letterSpacing:'0.04em',textTransform:'none'}}>(optional)</span>}
+                    </label>
+                    <div style={{display:'flex',alignItems:'center',background:'rgba(255,255,255,0.04)',border:`1.5px solid ${borderColor}`,borderRadius:10,padding:'11px 14px',transition:'border-color 0.2s',gap:8}}
+                      onFocus={e => { if (!hasErr) e.currentTarget.style.borderColor='#e84a2f' }}
+                      onBlur={e => { e.currentTarget.style.borderColor = (touched[f.field] && fieldErrors[f.field]) ? '#e84a2f' : 'rgba(255,255,255,0.08)' }}>
+                      <input type={f.type} placeholder={f.ph} value={form[f.field]}
+                        {...(f.field === 'dob' ? { min: minDOBStr, max: maxDOBStr } : {})}
+                        onChange={e => update(f.field, e.target.value)}
+                        onBlur={() => handleBlur(f.field)}
+                        style={{flex:1,background:'none',border:'none',outline:'none',color:'#f0ece8',fontSize:13,fontFamily:"'Montserrat',sans-serif",colorScheme:'dark'}}/>
+                    </div>
+                    {hasErr && (
+                      <div style={{fontSize:11,color:'#e84a2f',marginTop:5,paddingLeft:2,display:'flex',alignItems:'center',gap:4}}>
+                        <span style={{fontSize:12}}>⚠</span> {fieldErrors[f.field]}
+                      </div>
+                    )}
+
+                    {/* Minor warning — shown when DOB is valid but member is 13-17 */}
+                    {f.field === 'dob' && isMinor && !hasErr && (
+                      <div style={{
+                        marginTop:8,padding:'10px 12px',
+                        background:'rgba(245,200,66,0.08)',
+                        border:'1px solid rgba(245,200,66,0.3)',
+                        borderRadius:8,fontSize:11,color:'#f5c842',lineHeight:1.55
+                      }}>
+                        <strong>⚠ You're {currentAge} — under 18.</strong> A parent
+                        or guardian must sign a consent waiver at the gym before
+                        your first training session.
+                      </div>
+                    )}
+
+                    {/* Password strength meter */}
+                    {f.field === 'password' && form.password && (
+                      <div style={{marginTop:8}}>
+                        <div style={{display:'flex',gap:4,marginBottom:4}}>
+                          {[1,2,3,4,5].map(i => (
+                            <div key={i} style={{
+                              flex:1, height:4, borderRadius:2,
+                              background: i <= strength.score ? strength.color : 'rgba(255,255,255,0.06)',
+                              transition:'background 0.3s ease',
+                            }}/>
+                          ))}
+                        </div>
+                        <div style={{fontSize:10,color:strength.color,fontWeight:600,letterSpacing:'0.06em',transition:'color 0.3s ease'}}>
+                          {strength.label}
+                          {strength.score <= 2 && <span style={{color:'#555',fontWeight:400,marginLeft:6}}>— try adding uppercase, numbers, or symbols</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               <button type="submit" disabled={loading}
                 style={{background:'#e84a2f',color:'#fff',border:'none',borderRadius:10,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em',boxShadow:'0 6px 24px rgba(232,74,47,0.4)',opacity:loading?0.7:1,transition:'all 0.2s',marginTop:6}}

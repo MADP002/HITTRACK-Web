@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, getDocs, doc, getDoc, addDoc, deleteDoc, setDoc, updateDoc, serverTimestamp, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, addDoc, deleteDoc, setDoc, updateDoc, serverTimestamp, query, where, orderBy, onSnapshot, writeBatch, arrayUnion } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { buildSchedule } from '../lib/scheduleBuilder'
+import { logActivity, ACTIVITY_TYPES } from '../lib/activityLog'
+import { isClassActive, isClassPassed, getClassStartTime, endClass, autoEndPastClasses } from '../lib/classLifecycle'
 import InboxView from '../components/InboxView'
 
 const glass=(e={})=>({background:'linear-gradient(135deg,rgba(22,20,20,0.97),rgba(14,12,12,0.99))',borderRadius:16,border:'1px solid rgba(255,255,255,0.07)',boxShadow:'0 4px 24px rgba(0,0,0,0.4)',...e})
@@ -165,7 +167,7 @@ function buildCoachWorkoutRows(wData, memberSchedule) {
 
 
 // ── MEMBER PANEL ──────────────────────────────────────
-function MemberPanel({ selMember, setSelMember, setMsgTarget, setMsgThread, coachWorkoutRows, selWorkoutDay, setSelWorkoutDay, fbText, setFbText, fbRating, setFbRating, postFeedback, feedbackMap, editingFb, setEditingFb, saveEditFeedback, deleteFeedback, setConfirm }) {
+function MemberPanel({ selMember, setSelMember, setMsgTarget, setMsgThread, coachWorkoutRows, selWorkoutDay, setSelWorkoutDay, fbText, setFbText, fbRating, setFbRating, postFeedback, feedbackMap, editingFb, setEditingFb, saveEditFeedback, deleteFeedback, setConfirm, setLevelTarget }) {
   const lc = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#22c55e' }[selMember.experience] || '#f5c842'
   const lvIcon = { Beginner:'🥊', Intermediate:'⚡', Advanced:'🔥' }[selMember.experience] || '🥊'
   const fbList = feedbackMap[selMember.uid] || []
@@ -229,6 +231,13 @@ function MemberPanel({ selMember, setSelMember, setMsgTarget, setMsgThread, coac
           </div>
           {/* Actions */}
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            <button onClick={() => setLevelTarget(selMember)}
+              title="Promote / Demote"
+              style={{background:'linear-gradient(135deg,rgba(192,132,252,0.2),rgba(192,132,252,0.08))',color:'#c084fc',border:'1px solid rgba(192,132,252,0.4)',borderRadius:10,padding:'7px 14px',fontSize:11,cursor:'pointer',fontWeight:700,whiteSpace:'nowrap',transition:'all 0.2s'}}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(192,132,252,0.3)'}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none'}}>
+              🎚 Level
+            </button>
             <button onClick={() => { setMsgTarget(selMember); setMsgThread([]) }}
               style={{background:'linear-gradient(135deg,rgba(66,165,245,0.2),rgba(66,165,245,0.08))',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.4)',borderRadius:10,padding:'7px 14px',fontSize:11,cursor:'pointer',fontWeight:700,whiteSpace:'nowrap',transition:'all 0.2s'}}
               onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(66,165,245,0.3)'}}
@@ -552,18 +561,157 @@ export default function CoachDashboard(){
   const [lbLevel,setLbLevel]=useState('All Levels')
   const [lbGoal,setLbGoal]=useState('All Goals')
   const [notifs,setNotifs]=useState([])
+  const [dismissedNotifs,setDismissedNotifs]=useState([])  // per-coach personal hides
+  const [activity,setActivity]=useState([])
+  const [notifSubTab,setNotifSubTab]=useState('announcements') // 'announcements' | 'activity'
   const [showNotif,setShowNotif]=useState(false)
   const [notifForm,setNotifForm]=useState({title:'',message:'',audience:'all'})
   const [msgTarget,setMsgTarget]=useState(null)
   const [msgThread,setMsgThread]=useState([])
+  const [levelTarget,setLevelTarget]=useState(null) // member object for Level Control modal
   const [msgText,setMsgText]=useState('')
   const [sendingMsg,setSendingMsg]=useState(false)
 
   function showToast(msg,type='success'){setToast({msg,type});setTimeout(()=>setToast({msg:'',type:'success'}),3000)}
 
+  // Relative time formatter for activity feed timestamps
+  function formatRelativeTime(date) {
+    const now = new Date()
+    const diff = (now - date) / 1000
+    if (diff < 60)     return 'just now'
+    if (diff < 3600)   return Math.floor(diff/60) + 'm ago'
+    if (diff < 86400)  return Math.floor(diff/3600) + 'h ago'
+    if (diff < 604800) return Math.floor(diff/86400) + 'd ago'
+    return date.toLocaleDateString('en-US', { month:'short', day:'numeric' })
+  }
+
+  // Delete a single activity event
+  async function deleteActivityEvent(eventId) {
+    try {
+      await deleteDoc(doc(db, 'activity', eventId))
+    } catch(e) {
+      console.error('Delete activity failed:', e)
+      showToast('❌ Failed: ' + (e.message||'unknown'), 'error')
+    }
+  }
+
+  // Clear ALL activity — batched delete
+  const [clearActivityConfirm, setClearActivityConfirm] = useState(false)
+  const [clearingActivity, setClearingActivity] = useState(false)
+  async function clearAllActivity() {
+    if (activity.length === 0) return
+    setClearingActivity(true)
+    try {
+      const chunks = []
+      for (let i = 0; i < activity.length; i += 500) chunks.push(activity.slice(i, i+500))
+      for (const chunk of chunks) {
+        const batch = writeBatch(db)
+        chunk.forEach(ev => batch.delete(doc(db, 'activity', ev.id)))
+        await batch.commit()
+      }
+      showToast(`🧹 Cleared ${activity.length} activity event${activity.length===1?'':'s'}`)
+      setClearActivityConfirm(false)
+    } catch(e) {
+      console.error('Clear activity failed:', e)
+      showToast('❌ Failed: ' + (e.message||'unknown'), 'error')
+    } finally {
+      setClearingActivity(false)
+    }
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  ANNOUNCEMENTS — Delete handlers (coach can only delete their own)
+  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════
+  //  ANNOUNCEMENTS — Filter out legacy system events
+  //
+  //  Older notifications were created with type='level_change',
+  //  'booking_created', etc. — those should NEVER appear in the
+  //  Announcements tab. They're now handled by the Activity Feed.
+  //  We filter them out at the render layer so legacy DB rows don't
+  //  pollute the UI, while still letting the member-side level
+  //  celebration popup read its targeted notification.
+  // ════════════════════════════════════════════════════════
+  const SYSTEM_EVENT_TYPES = [
+    'booking_created', 'booking_cancelled',
+    'class_created',   'class_deleted',   'class_ended',   'class_thanks',
+    'level_change',
+    'member_signup',   'member_deactivated', 'member_reactivated', 'member_deleted',
+  ]
+  // Real, manually-posted gym announcements only
+  const realAnnouncements = notifs.filter(n => !n.type || !SYSTEM_EVENT_TYPES.includes(n.type))
+
+  // ════════════════════════════════════════════════════════
+  //  ANNOUNCEMENTS — Per-user dismissal (Gmail Archive pattern)
+  //
+  //  Coaches don't globally delete announcements. They DISMISS from
+  //  THEIR OWN view by adding the notif ID to their user doc's
+  //  `dismissedNotifs` array. Other coaches/admin still see them.
+  //
+  //  This makes the gym a true multi-user environment where each
+  //  coach manages their own inbox without affecting anyone else.
+  // ════════════════════════════════════════════════════════
+
+  // Visible to THIS coach (excludes ones they've personally dismissed)
+  const visibleAnnouncements = realAnnouncements.filter(n => !dismissedNotifs.includes(n.id))
+
+  // True if THIS coach is the author (for the "YOURS" pill)
+  function isOwnAnnouncement(n) {
+    const myUid = auth.currentUser?.uid
+    return !!myUid && n.fromUid === myUid
+  }
+
+  // Dismiss ONE announcement from THIS coach's view (not global)
+  async function dismissAnnouncement(notifId) {
+    const me = auth.currentUser
+    if (!me) return
+    try {
+      await updateDoc(doc(db, 'users', me.uid), {
+        dismissedNotifs: arrayUnion(notifId),
+      })
+      showToast('👁 Hidden from your view')
+    } catch(e) {
+      console.error('Dismiss announcement failed:', e)
+      showToast('❌ Failed: ' + (e.message||'unknown'), 'error')
+    }
+  }
+
+  // "Clear All" — dismiss all currently-visible announcements from THIS coach's view
+  const [clearMyPostsConfirm, setClearMyPostsConfirm] = useState(false)
+  const [clearingMyPosts, setClearingMyPosts] = useState(false)
+  async function dismissAllVisible() {
+    const me = auth.currentUser
+    if (!me) return
+    if (visibleAnnouncements.length === 0) return
+    setClearingMyPosts(true)
+    try {
+      const ids = visibleAnnouncements.map(n => n.id)
+      // arrayUnion takes spread args, so cast the array
+      await updateDoc(doc(db, 'users', me.uid), {
+        dismissedNotifs: arrayUnion(...ids),
+      })
+      showToast(`👁 Hidden ${ids.length} announcement${ids.length===1?'':'s'} from your view`)
+      setClearMyPostsConfirm(false)
+    } catch(e) {
+      console.error('Clear announcements failed:', e)
+      showToast('❌ Failed: ' + (e.message||'unknown'), 'error')
+    } finally {
+      setClearingMyPosts(false)
+    }
+  }
+
   useEffect(()=>{
     const user=auth.currentUser
-    if(user)getDoc(doc(db,'users',user.uid)).then(s=>{if(s.exists())setCoachProfile(s.data())}).catch(()=>{})
+    if(!user)return
+    // Subscribe to own user doc — gets dismissedNotifs in real time
+    // (so dismissals sync across tabs/devices for the same coach)
+    const unsub = onSnapshot(doc(db,'users',user.uid), (s)=>{
+      if(!s.exists())return
+      const d = s.data()
+      setCoachProfile(d)
+      setDismissedNotifs(Array.isArray(d.dismissedNotifs) ? d.dismissedNotifs : [])
+    }, (e)=>console.error('User doc listener:', e))
+    return () => unsub()
   },[])
 
   // Load notifications real-time
@@ -572,6 +720,15 @@ export default function CoachDashboard(){
       const ns=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
       setNotifs(ns)
     },(e)=>console.error(e))
+    return()=>unsub()
+  },[])
+
+  // Load activity feed real-time (system event log)
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'activity'),(snap)=>{
+      const items=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
+      setActivity(items)
+    },(e)=>console.error('Activity listener:',e))
     return()=>unsub()
   },[])
 
@@ -610,9 +767,54 @@ export default function CoachDashboard(){
   async function loadClasses(){
     try{
       const snap=await getDocs(collection(db,'classes'))
-      setClasses(snap.docs.map(d=>({id:d.id,...d.data()})))
+      const all = snap.docs.map(d=>({id:d.id,...d.data()}))
+      setClasses(all)
+      // Background: auto-end any class whose time has passed.
+      // Fire-and-forget — non-blocking, throttled to 5min per session.
+      autoEndPastClasses(all).catch(e=>console.warn('Auto-end scan failed:',e.message))
     }catch(e){console.error(e)}
   }
+
+  // ════════════════════════════════════════════════════════
+  //  CLASS LIFECYCLE — Manual "Mark as Done" handler
+  //
+  //  Triggered by the coach clicking ✓ MARK AS DONE on a class card.
+  //  Ends the class, thanks all participants, fires activity event.
+  // ════════════════════════════════════════════════════════
+  const [endClassTarget, setEndClassTarget] = useState(null)  // class object to confirm ending
+  const [endingClass, setEndingClass] = useState(false)
+  async function confirmEndClass(){
+    if (!endClassTarget || endingClass) return
+    setEndingClass(true)
+    try {
+      const r = await endClass(endClassTarget, { isAuto: false, actorName: coachProfile.name || 'Coach' })
+      if (r.ended) {
+        showToast(`🏁 Class ended · ${r.notified} member${r.notified===1?'':'s'} thanked`)
+      } else {
+        showToast('⚠ Class was already ended', 'error')
+      }
+      setEndClassTarget(null)
+      loadClasses()
+    } catch(e) {
+      console.error('End class failed:', e)
+      showToast('❌ Failed: ' + (e.message||'unknown'), 'error')
+    } finally {
+      setEndingClass(false)
+    }
+  }
+
+  // Active = not ended AND not past scheduled time
+  const visibleClasses = classes.filter(isClassActive)
+
+  // Realtime bookings stream — used for accurate per-class enrollment count
+  // (self-healing: even if cls.enrolled gets out of sync, we recount from here)
+  const [bookings, setBookings] = useState([])
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,'bookings'), (snap)=>{
+      setBookings(snap.docs.map(d=>({id:d.id,...d.data()})))
+    }, (err)=>console.warn('Bookings stream:', err))
+    return ()=>unsub()
+  },[])
 
   const [memberWorkouts,setMemberWorkouts]=useState({}) // uid -> workout doc
   const [selWorkoutDay,setSelWorkoutDay]=useState(null)   // selected schedule index (same as member Home idx), or null = general
@@ -698,12 +900,80 @@ export default function CoachDashboard(){
     }catch(e){showToast('❌ Failed to post','error')}
   }
 
+  // ════════════════════════════════════════════════════════
+  //  CHANGE MEMBER LEVEL — Coach Level Control
+  //  Updates users/{uid}.experience and stats/{uid}.experience,
+  //  fires a notification to the member, and logs an audit trail
+  //  to levelChanges/{id}.
+  // ════════════════════════════════════════════════════════
+  async function changeMemberLevel(member, newLevel){
+    if (!member?.uid || !newLevel) return
+    const oldLevel = member.experience || 'Beginner'
+    if (oldLevel === newLevel) { showToast('Already at that level', 'error'); return }
+    try {
+      const me = auth.currentUser
+      // 1. Update users doc
+      await updateDoc(doc(db,'users',member.uid), { experience: newLevel })
+      // 2. Update stats doc (used by leaderboard for division filtering)
+      try {
+        await setDoc(doc(db,'stats',member.uid), { experience: newLevel }, { merge: true })
+      } catch(_) { /* stats may not exist yet — non-fatal */ }
+      // 3. Notify the member directly
+      await addDoc(collection(db,'notifications'), {
+        title: `🎚 Level Updated: ${newLevel}`,
+        message: `Coach ${coachProfile.name||'Rafael'} ${LEVELS.indexOf(newLevel) > LEVELS.indexOf(oldLevel) ? 'promoted' : 'moved'} you to ${newLevel}. Your training plan and leaderboard division have been updated.`,
+        audience: 'member',
+        targetUserId: member.uid,
+        type: 'level_change',
+        oldLevel,
+        newLevel,
+        from: coachProfile.name || 'Coach',
+        createdAt: serverTimestamp(),
+      })
+      // 4. Audit log entry
+      await addDoc(collection(db,'levelChanges'), {
+        memberId: member.uid,
+        memberName: member.name || 'Member',
+        oldLevel,
+        newLevel,
+        changedBy: me?.uid || '',
+        changedByName: coachProfile.name || 'Coach',
+        changedByRole: 'coach',
+        createdAt: serverTimestamp(),
+      })
+      // 5. Activity log (visible to coach/admin in their dashboard activity feed)
+      const isPromote = LEVELS.indexOf(newLevel) > LEVELS.indexOf(oldLevel)
+      logActivity({
+        type: 'level_change',
+        actorId: me?.uid || '',
+        actorName: coachProfile.name || 'Coach',
+        actorRole: 'coach',
+        payload: { memberId: member.uid, memberName: member.name || 'Member', oldLevel, newLevel, isPromote },
+      })
+      // 6. Update local UI state immediately (don't wait for snapshot)
+      setMembers(ms => ms.map(m => m.uid === member.uid ? { ...m, experience: newLevel } : m))
+      if (selMember?.uid === member.uid) setSelMember(s => ({ ...s, experience: newLevel }))
+      setLevelTarget(null)
+      showToast(`${isPromote?'⬆️ Promoted':'⬇️ Moved'} to ${newLevel}!`)
+    } catch(e) {
+      console.error('Level change failed:', e)
+      showToast('❌ ' + (e.message || 'Failed to change level'), 'error')
+    }
+  }
+
   async function createClass(){
     if(!newClass.name.trim()){showToast('❌ Enter a class name','error');return}
     try{
-      await addDoc(collection(db,'classes'),{
+      const ref = await addDoc(collection(db,'classes'),{
         ...newClass,spots:parseInt(newClass.spots)||12,enrolled:0,
         coach:coachProfile.name||'Coach',createdAt:serverTimestamp(),
+      })
+      logActivity({
+        type:'class_created',
+        actorId: auth.currentUser?.uid || '',
+        actorName: coachProfile.name || 'Coach',
+        actorRole: 'coach',
+        payload: { classId: ref.id, className: newClass.name.trim(), classDay: newClass.day, classTime: newClass.time, level: newClass.level },
       })
       setNewClass({name:'',day:'Monday',time:'6:00 AM',spots:'12',level:'Beginner'})
       setShowNewClass(false);loadClasses();showToast('✅ Class created!')
@@ -712,7 +982,21 @@ export default function CoachDashboard(){
 
   async function deleteClassConfirmed(){
     if(!deleteClassId)return
-    try{await deleteDoc(doc(db,'classes',deleteClassId));setDeleteClassId(null);loadClasses();showToast('🗑 Class deleted')}catch(e){}
+    // Look up class info BEFORE deleting (so we have the name for the log)
+    const cls = classes.find(c => c.id === deleteClassId)
+    try{
+      await deleteDoc(doc(db,'classes',deleteClassId))
+      if (cls) {
+        logActivity({
+          type:'class_deleted',
+          actorId: auth.currentUser?.uid || '',
+          actorName: coachProfile.name || 'Coach',
+          actorRole: 'coach',
+          payload: { classId: cls.id, className: cls.name, classDay: cls.day, classTime: cls.time },
+        })
+      }
+      setDeleteClassId(null);loadClasses();showToast('🗑 Class deleted')
+    }catch(e){}
   }
 
   async function postNotification(){
@@ -721,12 +1005,14 @@ export default function CoachDashboard(){
       const notifRef=doc(collection(db,'notifications'))
       await setDoc(notifRef,{
         id:notifRef.id,title:notifForm.title.trim(),message:notifForm.message.trim(),
-        audience:notifForm.audience,from:coachProfile.name||'Coach',
+        // Audience is locked to 'all' on the coach side — coaches cannot
+        // announce to other coaches. Admin retains audience control.
+        audience:'all',from:coachProfile.name||'Coach',
         fromUid:auth.currentUser?.uid||'',createdAt:serverTimestamp(),
       })
       setNotifForm({title:'',message:'',audience:'all'})
       setShowNotif(false)
-      showToast('📢 Announcement sent!')
+      showToast('📢 Announcement sent to members!')
     }catch(e){showToast('❌ Permission denied — check Firestore rules','error')}
   }
 
@@ -771,7 +1057,8 @@ export default function CoachDashboard(){
     return true
   }).sort((a,b)=>(b.totalWorkouts||0)-(a.totalWorkouts||0))
 
-  const scored=[...members].map(m=>({...m,score:calcScore(m)})).sort((a,b)=>b.score-a.score).map((m,i)=>({...m,rank:i+1}))
+  // Leaderboard scoring — exclude deactivated accounts (Issue 1 fix)
+  const scored=[...members].filter(m=>m.status!=='inactive').map(m=>({...m,score:calcScore(m)})).sort((a,b)=>b.score-a.score).map((m,i)=>({...m,rank:i+1}))
   const maxScore=scored[0]?.score||1
   const lbFiltered=scored.filter(m=>{
     if(lbLevel!=='All Levels'&&(m.experience||'Beginner')!==lbLevel)return false
@@ -791,8 +1078,157 @@ export default function CoachDashboard(){
       {toast.msg&&<div style={{position:'fixed',top:20,right:20,zIndex:3000,background:toast.type==='error'?'rgba(232,74,47,0.15)':'rgba(22,20,20,0.97)',border:`1px solid ${toast.type==='error'?'rgba(232,74,47,0.4)':'rgba(74,222,128,0.4)'}`,borderRadius:12,padding:'12px 20px',fontSize:13,fontWeight:700,color:toast.type==='error'?'#e84a2f':'#4ade80',backdropFilter:'blur(12px)'}}>{toast.msg}</div>}
 
       {logoutConfirm&&<ConfirmModal title="Log Out?" message="Sign out of Coach Portal?" onConfirm={handleLogout} onCancel={()=>setLogoutConfirm(false)} danger={false}/>}
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  MARK CLASS AS DONE — Confirmation                    */}
+      {/* ════════════════════════════════════════════════════ */}
+      {endClassTarget && (
+        <div onClick={()=>!endingClass && setEndClassTarget(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(34,197,94,0.4)',maxWidth:480,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(34,197,94,0.25)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#22c55e,#16a34a)'}}/>
+            <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,boxShadow:'0 4px 14px rgba(34,197,94,0.5)'}}>🏁</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#22c55e'}}>MARK CLASS AS DONE?</div>
+                  <div style={{fontSize:10,color:'#888',letterSpacing:'0.1em',textTransform:'uppercase',fontWeight:700,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{endClassTarget.name} · {endClassTarget.day} · {endClassTarget.time}</div>
+                </div>
+              </div>
+              <div style={{padding:'14px 16px',background:'rgba(34,197,94,0.06)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>This will:</div>
+                <div style={{display:'flex',flexDirection:'column',gap:5,fontSize:11,color:'#999'}}>
+                  <div>✓ End the class — it disappears from the schedule</div>
+                  <div>✓ Send a <strong style={{color:'#22c55e'}}>thank-you message</strong> to every booked member (from {endClassTarget.coach||'you'})</div>
+                  <div>✓ Notify admin via Activity Feed</div>
+                </div>
+                <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid rgba(255,255,255,0.06)',fontSize:11,color:'#888'}}>
+                  <strong style={{color:'#22c55e'}}>{(bookings.filter(b=>b.classId===endClassTarget.id)).length}</strong> participant{(bookings.filter(b=>b.classId===endClassTarget.id)).length===1?'':'s'} will be thanked
+                </div>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setEndClassTarget(null)} disabled={endingClass}
+                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:endingClass?'not-allowed':'pointer',opacity:endingClass?0.5:1}}>
+                  CANCEL
+                </button>
+                <button onClick={confirmEndClass} disabled={endingClass}
+                  style={{flex:1.3,background:'linear-gradient(135deg,#22c55e,#16a34a)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:endingClass?'not-allowed':'pointer',boxShadow:'0 4px 14px rgba(34,197,94,0.4)',opacity:endingClass?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                  {endingClass ? (<>
+                    <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+                    ENDING...
+                  </>) : '🏁 END CLASS'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteClassId&&<ConfirmModal title="Delete Class?" message="This will permanently remove the class." onConfirm={deleteClassConfirmed} onCancel={()=>setDeleteClassId(null)}/>}
       {confirm&&<ConfirmModal title={confirm.title} message={confirm.message} onConfirm={()=>{confirm.onConfirm();setConfirm(null)}} onCancel={()=>setConfirm(null)} danger={confirm.danger!==false}/>}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  LEVEL CONTROL MODAL — Coach unilaterally promotes /  */}
+      {/*  demotes members. Member is notified on next visit.   */}
+      {/* ════════════════════════════════════════════════════ */}
+      {levelTarget && (() => {
+        const currentLevel = levelTarget.experience || 'Beginner'
+        const lc = LEVEL_COLOR[currentLevel] || '#f5c842'
+        return (
+          <div onClick={()=>setLevelTarget(null)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'1px solid rgba(192,132,252,0.3)',maxWidth:520,width:'100%',overflow:'hidden',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(192,132,252,0.15)'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#c084fc,#42a5f5)'}}/>
+              {/* Header */}
+              <div style={{padding:'20px 26px',borderBottom:'1px solid rgba(192,132,252,0.15)',background:'linear-gradient(135deg,rgba(192,132,252,0.08) 0%,transparent 60%)',display:'flex',alignItems:'center',gap:14}}>
+                <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#c084fc,#7b1fa2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(192,132,252,0.4)'}}>🎚</div>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'0.06em',color:'#f0ece8'}}>LEVEL CONTROL</div>
+                  <div style={{fontSize:9,color:'#9d8ec0',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Promote or demote {levelTarget.name?.split(' ')[0] || 'member'}</div>
+                </div>
+                <button onClick={()=>setLevelTarget(null)}
+                  style={{width:32,height:32,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:9,color:'#888',fontSize:16,cursor:'pointer'}}>✕</button>
+              </div>
+              {/* Body */}
+              <div style={{padding:'24px 26px',display:'flex',flexDirection:'column',gap:18}}>
+                {/* Current level card */}
+                <div style={{padding:'14px 16px',background:`linear-gradient(135deg,${lc}10,rgba(20,15,14,0.6))`,border:`1px solid ${lc}30`,borderRadius:14,display:'flex',alignItems:'center',gap:14}}>
+                  <div style={{position:'relative',flexShrink:0}}>
+                    <div style={{width:48,height:48,borderRadius:'50%',background:`linear-gradient(135deg,${lc},${lc}aa)`,color:'#000',border:`2px solid ${lc}66`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:22,boxShadow:`0 4px 14px ${lc}40`}}>
+                      {(levelTarget.name||'?')[0].toUpperCase()}
+                    </div>
+                    <div style={{position:'absolute',bottom:-2,right:-3,width:18,height:18,borderRadius:'50%',background:'#0e0a0a',border:`1.5px solid ${lc}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10}}>{LEVEL_ICON[currentLevel]||'🥊'}</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:700,color:'#f0ece8',marginBottom:3}}>{levelTarget.name}</div>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{fontSize:9,color:'#666',letterSpacing:'0.1em',fontWeight:700,textTransform:'uppercase'}}>Currently:</span>
+                      <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:`${lc}22`,color:lc,border:`1px solid ${lc}44`,letterSpacing:'0.08em',textTransform:'uppercase'}}>{LEVEL_ICON[currentLevel]||'🥊'} {currentLevel}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats helper */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                  {[
+                    {icon:'🥊',label:'Workouts',val:levelTarget.totalWorkouts||0,color:'#f5c842'},
+                    {icon:'🔥',label:'Streak',val:(levelTarget.streak||0)+'d',color:'#e84a2f'},
+                    {icon:'📅',label:'Weekly',val:(levelTarget.weeklyPct||0)+'%',color:'#22c55e'},
+                  ].map((s,i)=>(
+                    <div key={i} style={{padding:'10px 12px',background:`${s.color}08`,border:`1px solid ${s.color}25`,borderRadius:10,textAlign:'center'}}>
+                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:s.color,lineHeight:1}}>{s.val}</div>
+                      <div style={{fontSize:7,color:'#666',fontWeight:700,letterSpacing:'0.12em',marginTop:3}}>{s.label.toUpperCase()}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Level options */}
+                <div>
+                  <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
+                    Move To Level
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {LEVELS.map(level=>{
+                      const targetColor=LEVEL_COLOR[level]||'#f5c842'
+                      const isCurrent=level===currentLevel
+                      const isPromote=LEVELS.indexOf(level)>LEVELS.indexOf(currentLevel)
+                      const isDemote=LEVELS.indexOf(level)<LEVELS.indexOf(currentLevel)
+                      return(
+                        <button key={level}
+                          disabled={isCurrent}
+                          onClick={()=>changeMemberLevel(levelTarget,level)}
+                          style={{position:'relative',display:'flex',alignItems:'center',gap:14,padding:'14px 16px',background:isCurrent?'rgba(255,255,255,0.025)':`linear-gradient(135deg,${targetColor}12,${targetColor}06)`,border:`1.5px solid ${isCurrent?'rgba(255,255,255,0.06)':targetColor+'35'}`,borderRadius:12,cursor:isCurrent?'default':'pointer',opacity:isCurrent?0.5:1,transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',textAlign:'left'}}
+                          onMouseEnter={e=>{if(!isCurrent){e.currentTarget.style.transform='translateX(4px)';e.currentTarget.style.borderColor=targetColor+'66';e.currentTarget.style.boxShadow=`0 6px 20px ${targetColor}25`}}}
+                          onMouseLeave={e=>{if(!isCurrent){e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=targetColor+'35';e.currentTarget.style.boxShadow='none'}}}>
+                          <div style={{width:40,height:40,borderRadius:11,background:`linear-gradient(135deg,${targetColor},${targetColor}aa)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0,boxShadow:`0 4px 12px ${targetColor}40`}}>{LEVEL_ICON[level]||'🥊'}</div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:13,fontWeight:800,color:isCurrent?'#666':targetColor,letterSpacing:'0.04em'}}>{level}</div>
+                            <div style={{fontSize:10,color:'#666',marginTop:2}}>
+                              {isCurrent?'Currently here':isPromote?'⬆ Promote — harder workouts unlocked':'⬇ Move down — lighter workouts'}
+                            </div>
+                          </div>
+                          {!isCurrent && (
+                            <div style={{fontSize:11,fontWeight:800,color:targetColor,padding:'6px 10px',borderRadius:50,background:`${targetColor}22`,border:`1px solid ${targetColor}44`,letterSpacing:'0.05em'}}>
+                              {isPromote?'PROMOTE →':'MOVE →'}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Footer note */}
+                <div style={{padding:'10px 14px',background:'rgba(192,132,252,0.06)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:10,fontSize:10,color:'#9d8ec0',lineHeight:1.6}}>
+                  <strong style={{color:'#c084fc'}}>What happens:</strong> Member's training plan regenerates for the new level. They move to the matching leaderboard division. They get a notification with you as the source. Action is logged in <code style={{background:'rgba(0,0,0,0.4)',padding:'1px 4px',borderRadius:4,fontFamily:'monospace'}}>levelChanges</code> for audit.
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <div style={{position:'relative',zIndex:1,maxWidth:1400,margin:'0 auto',padding:'20px 32px 60px',display:'flex',flexDirection:'column',gap:16}}>
 
@@ -822,9 +1258,9 @@ export default function CoachDashboard(){
             trend={members.length>0?`${Math.round((members.filter(m=>(m.totalWorkouts||0)>0).length/members.length)*100)}% engagement`:'—'}
             subtext="Have logged a workout"/>
           <StatCard
-            icon="📋" label="Classes" value={classes.length}
+            icon="📋" label="Classes" value={visibleClasses.length}
             color="info"
-            trend={classes.length>0?`${classes.reduce((s,c)=>s+(parseInt(c.spots)||0)-(c.enrolled||0),0)} spots open`:'None scheduled'}/>
+            trend={visibleClasses.length>0?`${visibleClasses.reduce((s,c)=>s+(parseInt(c.spots)||0)-(c.enrolled||0),0)} spots open`:'None scheduled'}/>
           <StatCard
             icon="⚠️" label="Need Attention" value={members.filter(m=>!(m.totalWorkouts||0)).length}
             color="danger"
@@ -933,6 +1369,7 @@ export default function CoachDashboard(){
                   saveEditFeedback={saveEditFeedback}
                   deleteFeedback={deleteFeedback}
                   setConfirm={setConfirm}
+                  setLevelTarget={setLevelTarget}
                 />
               </div>
             )}
@@ -956,7 +1393,7 @@ export default function CoachDashboard(){
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>📋 GYM SCHEDULE</div>
-                <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{classes.length} CLASSES</span>
+                <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{visibleClasses.length} ACTIVE</span>
               </div>
               <button onClick={()=>setShowNewClass(v=>!v)}
                 style={{background:showNewClass?'rgba(255,255,255,0.06)':'linear-gradient(135deg,#e84a2f,#c93820)',color:showNewClass?'#888':'#fff',border:showNewClass?'1px solid rgba(255,255,255,0.1)':'none',borderRadius:50,padding:'10px 22px',fontSize:12,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',boxShadow:showNewClass?'none':'0 6px 20px rgba(232,74,47,0.4)',transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}
@@ -999,20 +1436,23 @@ export default function CoachDashboard(){
             )}
 
             {/* Class grid */}
-            {classes.length===0?(
+            {visibleClasses.length===0?(
               <div style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:18,border:'1px dashed rgba(255,255,255,0.08)',padding:'60px 30px',textAlign:'center'}}>
                 <div style={{fontSize:56,marginBottom:14,opacity:0.4}}>📋</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',letterSpacing:'0.06em',marginBottom:6}}>NO CLASSES YET</div>
-                <div style={{fontSize:11,color:'#666',letterSpacing:'0.05em'}}>Schedule your first class to fill the gym 🥊</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',letterSpacing:'0.06em',marginBottom:6}}>NO ACTIVE CLASSES</div>
+                <div style={{fontSize:11,color:'#666',letterSpacing:'0.05em'}}>{classes.length>0?`${classes.length} class${classes.length===1?'':'es'} ended — schedule new ones 🥊`:'Schedule your first class to fill the gym 🥊'}</div>
               </div>
             ):(
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:14}}>
-                {classes.map(cls=>{
-                  const pct=cls.spots>0?Math.round(((cls.enrolled||0)/cls.spots)*100):0
+                {visibleClasses.map(cls=>{
+                  // SELF-HEALING ENROLLMENT — count from bookings collection,
+                  // not the cls.enrolled field (which can drift if writes fail).
+                  const classBookings = bookings.filter(b=>b.classId===cls.id)
+                  const enrolledCount = classBookings.length
+                  const pct=cls.spots>0?Math.round((enrolledCount/cls.spots)*100):0
                   const fillColor=pct>=90?'#e84a2f':pct>=60?'#f5c842':'#22c55e'
                   const lc=LEVEL_COLOR[cls.level]||'#f5c842'
                   const lvIc=LEVEL_ICON[cls.level]||'🥊'
-                  // Parse day to short
                   const dayShort=(cls.day||'').slice(0,3).toUpperCase()
                   return(
                     <div key={cls.id}
@@ -1024,14 +1464,22 @@ export default function CoachDashboard(){
                       {/* Left accent stripe */}
                       <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:`linear-gradient(180deg,${lc},#e84a2f)`}}/>
 
-                      {/* Delete button */}
-                      <button onClick={()=>setDeleteClassId(cls.id)} title="Delete"
-                        style={{position:'absolute',top:14,right:14,width:30,height:30,background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#e84a2f',cursor:'pointer',transition:'all 0.2s ease'}}
-                        onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='scale(1.08)'}}
-                        onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.1)';e.currentTarget.style.transform='scale(1)'}}>🗑</button>
+                      {/* Action buttons (top right) */}
+                      <div style={{position:'absolute',top:14,right:14,display:'flex',gap:6,zIndex:2}}>
+                        <button onClick={()=>setEndClassTarget(cls)} title="Mark as Done — ends the class, thanks participants"
+                          style={{height:30,padding:'0 11px',background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontSize:10,fontWeight:800,letterSpacing:'0.08em',color:'#22c55e',cursor:'pointer',transition:'all 0.2s ease'}}
+                          onMouseEnter={e=>{e.currentTarget.style.background='rgba(34,197,94,0.2)';e.currentTarget.style.transform='scale(1.04)';e.currentTarget.style.boxShadow='0 4px 12px rgba(34,197,94,0.3)'}}
+                          onMouseLeave={e=>{e.currentTarget.style.background='rgba(34,197,94,0.1)';e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}>
+                          🏁 DONE
+                        </button>
+                        <button onClick={()=>setDeleteClassId(cls.id)} title="Delete (no participant notifications)"
+                          style={{width:30,height:30,background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#e84a2f',cursor:'pointer',transition:'all 0.2s ease'}}
+                          onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='scale(1.08)'}}
+                          onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.1)';e.currentTarget.style.transform='scale(1)'}}>🗑</button>
+                      </div>
 
                       {/* Top: day badge + name */}
-                      <div style={{position:'relative',display:'flex',gap:14,alignItems:'flex-start',marginBottom:18,paddingRight:36}}>
+                      <div style={{position:'relative',display:'flex',gap:14,alignItems:'flex-start',marginBottom:18,paddingRight:120}}>
                         {/* Day badge */}
                         <div style={{width:64,height:64,borderRadius:14,background:`linear-gradient(135deg,${lc},${lc}aa)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#000',flexShrink:0,boxShadow:`0 6px 18px ${lc}50`,border:`2px solid ${lc}66`}}>
                           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,lineHeight:1}}>{dayShort}</div>
@@ -1052,7 +1500,7 @@ export default function CoachDashboard(){
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:6}}>
                           <span style={{fontSize:9,color:'#666',fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Enrollment</span>
                           <span style={{display:'flex',alignItems:'baseline',gap:4}}>
-                            <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:fillColor,lineHeight:1}}>{cls.enrolled||0}</span>
+                            <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:fillColor,lineHeight:1}}>{enrolledCount}</span>
                             <span style={{fontSize:11,color:'#555',fontWeight:700}}>/ {cls.spots}</span>
                             <span style={{fontSize:9,color:fillColor,fontWeight:700,marginLeft:4,padding:'2px 7px',borderRadius:50,background:`${fillColor}18`}}>{pct}%</span>
                           </span>
@@ -1061,6 +1509,26 @@ export default function CoachDashboard(){
                           <div style={{height:'100%',borderRadius:50,background:`linear-gradient(90deg,${fillColor},${fillColor}dd)`,width:`${pct}%`,boxShadow:`0 0 12px ${fillColor}88`,transition:'width 0.6s ease'}}/>
                         </div>
                         {pct>=90 && <div style={{marginTop:6,fontSize:9,color:'#e84a2f',fontWeight:700,letterSpacing:'0.05em'}}>🔥 ALMOST FULL</div>}
+                        {/* Booked members preview */}
+                        {classBookings.length>0 && (
+                          <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid rgba(255,255,255,0.05)'}}>
+                            <div style={{fontSize:8,fontWeight:800,color:'#666',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>
+                              👥 Booked ({classBookings.length})
+                            </div>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                              {classBookings.slice(0,8).map(b=>(
+                                <span key={b.id} style={{fontSize:9,padding:'3px 8px',borderRadius:50,background:'rgba(66,165,245,0.1)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.2)',fontWeight:600}}>
+                                  {b.userName||'Member'}
+                                </span>
+                              ))}
+                              {classBookings.length>8 && (
+                                <span style={{fontSize:9,padding:'3px 8px',borderRadius:50,background:'rgba(255,255,255,0.04)',color:'#666',fontWeight:600}}>
+                                  +{classBookings.length-8} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -1232,35 +1700,75 @@ export default function CoachDashboard(){
         {/* ANNOUNCEMENTS */}
         {tab==='notifications'&&(
           <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {/* Tab switcher */}
+            <div style={{display:'flex',gap:6,padding:6,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:14,border:'1px solid rgba(255,255,255,0.06)'}}>
+              {[
+                {id:'announcements', icon:'📢', label:'ANNOUNCEMENTS', count:visibleAnnouncements.length, color:'#f5c842', sub:'Manual gym news'},
+                {id:'activity',      icon:'⚡', label:'ACTIVITY FEED', count:activity.length, color:'#42a5f5', sub:'System events'},
+              ].map(t => {
+                const active = notifSubTab === t.id
+                return (
+                  <button key={t.id} onClick={()=>setNotifSubTab(t.id)}
+                    style={{flex:1,position:'relative',display:'flex',alignItems:'center',justifyContent:'center',gap:10,background:active?`linear-gradient(135deg,${t.color}20,${t.color}08)`:'transparent',color:active?t.color:'#777',border:active?`1px solid ${t.color}40`:'1px solid transparent',borderRadius:10,padding:'12px 18px',fontSize:13,fontWeight:800,letterSpacing:'0.06em',cursor:'pointer',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)',boxShadow:active?`0 4px 14px ${t.color}25`:'none'}}
+                    onMouseEnter={e=>{if(!active){e.currentTarget.style.background='rgba(255,255,255,0.03)';e.currentTarget.style.color='#aaa'}}}
+                    onMouseLeave={e=>{if(!active){e.currentTarget.style.background='transparent';e.currentTarget.style.color='#777'}}}>
+                    <span style={{fontSize:18}}>{t.icon}</span>
+                    <div style={{textAlign:'left'}}>
+                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.06em',lineHeight:1}}>{t.label}</div>
+                      <div style={{fontSize:8,color:active?t.color:'#555',marginTop:3,letterSpacing:'0.1em',opacity:0.7}}>{t.sub}</div>
+                    </div>
+                    <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:active?`${t.color}30`:'rgba(255,255,255,0.04)',color:active?t.color:'#666',letterSpacing:'0.05em'}}>{t.count}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* ANNOUNCEMENTS TAB */}
+            {notifSubTab==='announcements' && (<>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>📢 ANNOUNCEMENTS</div>
-                <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{notifs.length} POSTED</span>
+                <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{visibleAnnouncements.length} SHOWING</span>
+                {dismissedNotifs.length > 0 && (
+                  <span title="Announcements you've hidden from your view (still visible to other coaches)" style={{fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:50,background:'rgba(120,113,108,0.15)',color:'#888',letterSpacing:'0.08em'}}>👁‍🗨 {dismissedNotifs.length} HIDDEN</span>
+                )}
               </div>
-              <button onClick={()=>setShowNotif(true)}
-                style={{background:'linear-gradient(135deg,#f5c842,#e08820)',color:'#000',border:'none',borderRadius:50,padding:'10px 22px',fontSize:12,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',boxShadow:'0 6px 20px rgba(245,200,66,0.4)',transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}
-                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow='0 10px 28px rgba(245,200,66,0.55)'}}
-                onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 6px 20px rgba(245,200,66,0.4)'}}>
-                📢 POST ANNOUNCEMENT
-              </button>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                {visibleAnnouncements.length > 0 && (
+                  <button onClick={()=>setClearMyPostsConfirm(true)}
+                    title="Hide all announcements from your view (does not affect other coaches)"
+                    style={{background:'rgba(232,74,47,0.1)',color:'#e84a2f',border:'1px solid rgba(232,74,47,0.3)',borderRadius:50,padding:'9px 14px',fontSize:10,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'all 0.25s'}}
+                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(232,74,47,0.25)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.1)';e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none'}}>
+                    🧹 CLEAR ALL
+                  </button>
+                )}
+                <button onClick={()=>setShowNotif(true)}
+                  style={{background:'linear-gradient(135deg,#f5c842,#e08820)',color:'#000',border:'none',borderRadius:50,padding:'10px 22px',fontSize:12,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',boxShadow:'0 6px 20px rgba(245,200,66,0.4)',transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow='0 10px 28px rgba(245,200,66,0.55)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 6px 20px rgba(245,200,66,0.4)'}}>
+                  📢 POST ANNOUNCEMENT
+                </button>
+              </div>
             </div>
 
-            {notifs.length===0?(
+            {visibleAnnouncements.length===0?(
               <div style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:18,border:'1px dashed rgba(255,255,255,0.08)',padding:'60px 30px',textAlign:'center'}}>
-                <div style={{fontSize:56,marginBottom:14,opacity:0.4}}>📭</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',letterSpacing:'0.06em',marginBottom:6}}>NO ANNOUNCEMENTS YET</div>
-                <div style={{fontSize:11,color:'#666',letterSpacing:'0.05em'}}>Rally your gym 🥊 — post your first announcement</div>
+                <div style={{fontSize:56,marginBottom:14,opacity:0.4}}>{realAnnouncements.length > 0 ? '👁‍🗨' : '📭'}</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',letterSpacing:'0.06em',marginBottom:6}}>{realAnnouncements.length > 0 ? 'ALL HIDDEN FROM YOUR VIEW' : 'NO ANNOUNCEMENTS YET'}</div>
+                <div style={{fontSize:11,color:'#666',letterSpacing:'0.05em'}}>{realAnnouncements.length > 0 ? `${realAnnouncements.length} announcement${realAnnouncements.length===1?'':'s'} still exist for other coaches` : 'Rally your gym 🥊 — post your first announcement'}</div>
               </div>
             ):(
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {notifs.map(n=>{
+                {visibleAnnouncements.map(n=>{
                   const isAll=n.audience==='all'
                   const ac=isAll?'#f5c842':'#42a5f5'
+                  const isMine=isOwnAnnouncement(n)
                   return(
                     <div key={n.id}
                       style={{position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:14,border:`1px solid ${ac}25`,padding:'16px 20px',display:'flex',gap:14,alignItems:'flex-start',cursor:'default',transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}
-                      onMouseEnter={e=>{e.currentTarget.style.transform='translateX(4px)';e.currentTarget.style.borderColor=`${ac}55`;e.currentTarget.style.boxShadow=`0 8px 24px ${ac}15`}}
-                      onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=`${ac}25`;e.currentTarget.style.boxShadow='none'}}>
+                      onMouseEnter={e=>{e.currentTarget.style.transform='translateX(4px)';e.currentTarget.style.borderColor=`${ac}55`;e.currentTarget.style.boxShadow=`0 8px 24px ${ac}15`;const btn=e.currentTarget.querySelector('.ann-del');if(btn)btn.style.opacity='1'}}
+                      onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=`${ac}25`;e.currentTarget.style.boxShadow='none';const btn=e.currentTarget.querySelector('.ann-del');if(btn)btn.style.opacity='0'}}>
                       <div style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:`linear-gradient(180deg,${ac},transparent)`}}/>
                       <div style={{width:44,height:44,borderRadius:12,background:`linear-gradient(135deg,${ac},${ac}aa)`,color:'#000',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0,boxShadow:`0 4px 14px ${ac}50`,border:`1px solid ${ac}66`}}>
                         {isAll?'📢':'🥊'}
@@ -1269,15 +1777,157 @@ export default function CoachDashboard(){
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}>
                           <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.04em',color:'#f0ece8'}}>{n.title}</span>
                           <span style={{fontSize:8,fontWeight:800,padding:'3px 9px',borderRadius:50,background:`${ac}22`,color:ac,border:`1px solid ${ac}44`,letterSpacing:'0.08em',textTransform:'uppercase'}}>{isAll?'All Members':'Coaches Only'}</span>
+                          {isMine && <span style={{fontSize:8,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(34,197,94,0.15)',color:'#22c55e',border:'1px solid rgba(34,197,94,0.3)',letterSpacing:'0.08em',textTransform:'uppercase'}}>YOURS</span>}
                         </div>
                         <div style={{fontSize:12,color:'#aaa',lineHeight:1.65,marginBottom:8}}>{n.message}</div>
                         <div style={{fontSize:9,color:'#555',fontWeight:600,letterSpacing:'0.05em'}}>By <strong style={{color:'#777'}}>{n.from}</strong></div>
                       </div>
+                      <button className="ann-del" onClick={()=>dismissAnnouncement(n.id)} title="Hide from your view (other coaches still see it)"
+                        style={{opacity:0,width:32,height:32,background:'rgba(120,113,108,0.12)',color:'#a8a29e',border:'1px solid rgba(120,113,108,0.3)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,cursor:'pointer',flexShrink:0,transition:'all 0.25s',padding:0,alignSelf:'flex-start'}}
+                        onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.4)';e.currentTarget.style.transform='scale(1.1)';e.currentTarget.style.boxShadow='0 4px 12px rgba(232,74,47,0.25)'}}
+                        onMouseLeave={e=>{e.currentTarget.style.background='rgba(120,113,108,0.12)';e.currentTarget.style.color='#a8a29e';e.currentTarget.style.borderColor='rgba(120,113,108,0.3)';e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}>👁‍🗨</button>
                     </div>
                   )
                 })}
               </div>
             )}
+            </>)}
+
+            {/* ACTIVITY TAB */}
+            {notifSubTab==='activity' && (<>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>⚡ LIVE ACTIVITY</div>
+                <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(66,165,245,0.15)',color:'#42a5f5',letterSpacing:'0.08em'}}>{activity.length} EVENTS</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{display:'flex',alignItems:'center',gap:7,fontSize:10,fontWeight:700,color:'#22c55e',padding:'6px 14px',background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.25)',borderRadius:50,letterSpacing:'0.06em'}}>
+                  <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'#22c55e',animation:'pulseDot 1.6s ease-in-out infinite'}}/>
+                  LIVE
+                </span>
+                {activity.length > 0 && (
+                  <button onClick={()=>setClearActivityConfirm(true)}
+                    style={{background:'rgba(232,74,47,0.1)',color:'#e84a2f',border:'1px solid rgba(232,74,47,0.3)',borderRadius:50,padding:'6px 14px',fontSize:10,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',display:'flex',alignItems:'center',gap:6,transition:'all 0.25s'}}
+                    onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='translateY(-1px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(232,74,47,0.25)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.1)';e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none'}}>
+                    🧹 CLEAR ALL
+                  </button>
+                )}
+              </div>
+            </div>
+            {activity.length===0 ? (
+              <div style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:18,border:'1px dashed rgba(255,255,255,0.08)',padding:'60px 30px',textAlign:'center'}}>
+                <div style={{fontSize:56,marginBottom:14,opacity:0.4}}>⚡</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',letterSpacing:'0.06em',marginBottom:6}}>NO ACTIVITY YET</div>
+                <div style={{fontSize:11,color:'#666',letterSpacing:'0.05em'}}>System events will appear here as members book classes, levels change, etc.</div>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {activity.map(ev => {
+                  const t = ACTIVITY_TYPES[ev.type] || { icon:'⚡', color:'#888', label:'Event' }
+                  const ts = ev.createdAt?.seconds ? new Date(ev.createdAt.seconds*1000) : null
+                  return (
+                    <div key={ev.id}
+                      style={{position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:12,border:`1px solid ${t.color}22`,padding:'12px 16px',display:'flex',gap:12,alignItems:'center',cursor:'default',transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}
+                      onMouseEnter={e=>{e.currentTarget.style.transform='translateX(3px)';e.currentTarget.style.borderColor=`${t.color}55`;e.currentTarget.style.boxShadow=`0 6px 18px ${t.color}15`;const btn=e.currentTarget.querySelector('.act-del');if(btn)btn.style.opacity='1'}}
+                      onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=`${t.color}22`;e.currentTarget.style.boxShadow='none';const btn=e.currentTarget.querySelector('.act-del');if(btn)btn.style.opacity='0'}}>
+                      <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:`linear-gradient(180deg,${t.color},transparent)`}}/>
+                      <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${t.color}30,${t.color}10)`,color:t.color,border:`1px solid ${t.color}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,boxShadow:`0 4px 10px ${t.color}20`}}>{t.icon}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:3,flexWrap:'wrap'}}>
+                          <span style={{fontSize:9,fontWeight:800,color:t.color,letterSpacing:'0.12em',textTransform:'uppercase'}}>{t.label}</span>
+                          {ev.actorRole && <span style={{fontSize:8,fontWeight:700,padding:'1px 7px',borderRadius:50,background:'rgba(255,255,255,0.04)',color:'#777',letterSpacing:'0.08em',textTransform:'uppercase',border:'1px solid rgba(255,255,255,0.06)'}}>{ev.actorRole}</span>}
+                        </div>
+                        <div style={{fontSize:12,color:'#cdc8c2',lineHeight:1.55}}>{ev.description}</div>
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
+                        <span style={{fontSize:9,color:'#666',fontWeight:700,letterSpacing:'0.04em',whiteSpace:'nowrap'}}>
+                          {ts ? formatRelativeTime(ts) : '—'}
+                        </span>
+                        {ev.actorName && <span style={{fontSize:8,color:'#555',fontStyle:'italic',letterSpacing:'0.04em',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>by {ev.actorName}</span>}
+                      </div>
+                      <button className="act-del" onClick={()=>deleteActivityEvent(ev.id)} title="Delete this event"
+                        style={{opacity:0,width:30,height:30,background:'rgba(232,74,47,0.12)',color:'#e84a2f',border:'1px solid rgba(232,74,47,0.3)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,cursor:'pointer',flexShrink:0,transition:'all 0.25s',padding:0}}
+                        onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.25)';e.currentTarget.style.transform='scale(1.1)';e.currentTarget.style.boxShadow='0 4px 12px rgba(232,74,47,0.35)'}}
+                        onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.12)';e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}>🗑</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            </>)}
+          </div>
+        )}
+
+        {/* CLEAR ALL ACTIVITY — Confirmation modal */}
+        {clearActivityConfirm && (
+          <div onClick={()=>!clearingActivity && setClearActivityConfirm(false)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(232,74,47,0.25)'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
+              <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(232,74,47,0.5)'}}>🧹</div>
+                  <div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#e84a2f'}}>CLEAR ALL ACTIVITY?</div>
+                    <div style={{fontSize:9,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This wipes the activity feed for everyone</div>
+                  </div>
+                </div>
+                <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.6}}>
+                  <strong style={{color:'#e84a2f'}}>{activity.length}</strong> activity event{activity.length===1?'':'s'} will be permanently deleted. Announcements are NOT affected.
+                </div>
+                <div style={{display:'flex',gap:10}}>
+                  <button onClick={()=>setClearActivityConfirm(false)} disabled={clearingActivity}
+                    style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingActivity?'not-allowed':'pointer',opacity:clearingActivity?0.5:1}}>
+                    KEEP THEM
+                  </button>
+                  <button onClick={clearAllActivity} disabled={clearingActivity}
+                    style={{flex:1.3,background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingActivity?'not-allowed':'pointer',boxShadow:'0 4px 14px rgba(232,74,47,0.4)',opacity:clearingActivity?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    {clearingActivity ? (<>
+                      <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+                      CLEARING...
+                    </>) : `🧹 CLEAR ${activity.length}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CLEAR MY ANNOUNCEMENTS — Confirmation modal */}
+        {clearMyPostsConfirm && (
+          <div onClick={()=>!clearingMyPosts && setClearMyPostsConfirm(false)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(120,113,108,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(120,113,108,0.25)'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#a8a29e,#78716c)'}}/>
+              <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#a8a29e,#78716c)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(120,113,108,0.5)'}}>👁‍🗨</div>
+                  <div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#f0ece8'}}>HIDE ALL FROM VIEW?</div>
+                    <div style={{fontSize:9,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Only affects YOUR portal — other coaches keep seeing them</div>
+                  </div>
+                </div>
+                <div style={{padding:'14px 16px',background:'rgba(120,113,108,0.06)',border:'1px solid rgba(120,113,108,0.2)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.6}}>
+                  <strong style={{color:'#f0ece8'}}>{visibleAnnouncements.length}</strong> announcement{visibleAnnouncements.length===1?'':'s'} will be hidden from your view only. The announcements remain visible to other coaches and admins — nothing is deleted.
+                </div>
+                <div style={{display:'flex',gap:10}}>
+                  <button onClick={()=>setClearMyPostsConfirm(false)} disabled={clearingMyPosts}
+                    style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingMyPosts?'not-allowed':'pointer',opacity:clearingMyPosts?0.5:1}}>
+                    KEEP THEM
+                  </button>
+                  <button onClick={dismissAllVisible} disabled={clearingMyPosts}
+                    style={{flex:1.3,background:'linear-gradient(135deg,#a8a29e,#78716c)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingMyPosts?'not-allowed':'pointer',boxShadow:'0 4px 14px rgba(120,113,108,0.4)',opacity:clearingMyPosts?0.7:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    {clearingMyPosts ? (<>
+                      <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+                      HIDING...
+                    </>) : `👁‍🗨 HIDE ${visibleAnnouncements.length}`}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1336,14 +1986,16 @@ export default function CoachDashboard(){
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div style={{...glass(),padding:'32px 36px',width:'100%',maxWidth:480,border:'1px solid rgba(245,200,66,0.2)'}}>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',marginBottom:4,letterSpacing:'0.06em'}}>📢 POST ANNOUNCEMENT</div>
-            <div style={{fontSize:11,color:'#555',marginBottom:18}}>Send a notification to members or coaches</div>
-            <div style={{display:'flex',gap:8,marginBottom:16}}>
-              {[{id:'all',label:'📢 All Members'},{id:'coaches',label:'🥊 Coaches Only'}].map(a=>(
-                <button key={a.id} type="button" onClick={()=>setNotifForm(p=>({...p,audience:a.id}))}
-                  style={{flex:1,padding:'10px',borderRadius:10,border:'none',fontSize:11,fontWeight:700,cursor:'pointer',background:notifForm.audience===a.id?'#e84a2f':'rgba(255,255,255,0.05)',color:notifForm.audience===a.id?'#fff':'#555'}}>
-                  {a.label}
-                </button>
-              ))}
+            <div style={{fontSize:11,color:'#555',marginBottom:18}}>Send a notification to all members</div>
+            {/* Audience is locked to All Members for coaches.
+                Admin retains full audience control in their portal. */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,padding:'10px 14px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.22)',borderRadius:10}}>
+              <div style={{width:26,height:26,borderRadius:8,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>📢</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#f5c842',letterSpacing:'0.04em'}}>Audience: All Members</div>
+                <div style={{fontSize:9,color:'#777',marginTop:1,letterSpacing:'0.03em'}}>Coaches can only announce to members. Admin handles coach-only announcements.</div>
+              </div>
+              <span style={{fontSize:10,color:'#555'}}>🔒</span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <input placeholder="Announcement title..." value={notifForm.title} onChange={e=>setNotifForm(p=>({...p,title:e.target.value}))} style={inp}
@@ -1362,6 +2014,7 @@ export default function CoachDashboard(){
       <style>{`
         select option{background:#1a1818 !important;color:#f0ece8 !important}
         @keyframes pulseDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:0.6}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
       `}</style>
     </div>
   )

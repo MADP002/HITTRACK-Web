@@ -12,26 +12,33 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
-  const [success,  setSuccess]  = useState(
-    params.get('registered') === '1' ? '✅ Account created! Please sign in.' :
-    params.get('pending') === '1'    ? '⏳ Coach account submitted! Await admin approval.' : ''
-  )
-  const [showReset, setShowReset] = useState(false)
+  const [success,  setSuccess]  = useState(params.get('registered') === '1')
+  const [pending]              = useState(params.get('pending') === '1')
+  const [showReset, setShowReset]   = useState(false)
   const [resetEmail, setResetEmail] = useState('')
-  const [resetSent,  setResetSent]  = useState(false)
+  const [resetStatus, setResetStatus] = useState('')
   const [resetLoading, setResetLoading] = useState(false)
 
-  async function handleForgotPassword(e) {
+  async function handlePasswordReset(e) {
     e.preventDefault()
-    if (!resetEmail) return
-    setResetLoading(true)
+    const trimmed = resetEmail.trim().toLowerCase()
+    if (!trimmed) { setResetStatus('error:Please enter your email address.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setResetStatus('error:Please enter a valid email address.'); return }
+    setResetLoading(true); setResetStatus('')
     try {
-      await sendPasswordResetEmail(auth, resetEmail)
-      setResetSent(true)
-    } catch(err) {
-      setError('Could not send reset email. Check the address.')
+      await sendPasswordResetEmail(auth, trimmed)
+      setResetStatus('success:Reset link sent! Check your inbox (and spam folder).')
+      setResetLoading(false)
+    } catch (err) {
+      const msgs = {
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/invalid-email': 'Please enter a valid email address.',
+        'auth/too-many-requests': 'Too many requests. Please wait a few minutes and try again.',
+        'auth/network-request-failed': 'Network error. Check your connection and try again.',
+      }
+      setResetStatus('error:' + (msgs[err.code] || 'Something went wrong. Please try again.'))
+      setResetLoading(false)
     }
-    setResetLoading(false)
   }
 
   useEffect(() => { signOut(auth).catch(() => {}); localStorage.clear() }, [])
@@ -65,23 +72,24 @@ export default function Login() {
 
   async function handleLogin(e) {
     e.preventDefault()
-    if (!email || !password) { setError('Please fill in all fields'); return }
+    if (!email || !password) { setError('Please fill in all fields.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Please enter a valid email address.'); return }
     setLoading(true); setError('')
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password)
+      const cred = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password)
       const snap = await getDoc(doc(db, 'users', cred.user.uid))
       if (!snap.exists()) { setError('Account not found.'); setLoading(false); return }
       const data = snap.data()
       if (data.role === 'admin') { navigate('/admin'); return }
       if (data.role === 'coach') { navigate('/coach'); return }
       if (data.role === 'coach_pending') {
-        await auth.signOut()
-        setError('⏳ Your coach account is awaiting admin approval.')
+        await signOut(auth)
+        setError('Your coach application is still pending admin approval. You\'ll be able to log in once approved.')
         setLoading(false); return
       }
-      if (data.status === 'inactive') {
-        await auth.signOut()
-        setError('⛔ Your account has been deactivated. Contact the gym.')
+      if (data.role === 'coach_rejected') {
+        await signOut(auth)
+        setError('Your coach application was not approved. Please contact the gym admin for more info.')
         setLoading(false); return
       }
 
@@ -109,10 +117,16 @@ export default function Login() {
 
       navigate(data.programSetupDone ? '/home' : '/program-builder')
     } catch (err) {
-      const msg = err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
-        ? 'Invalid email or password.' : err.code === 'auth/too-many-requests'
-        ? 'Too many attempts. Try again later.' : 'Login failed. Please try again.'
-      setError(msg); setLoading(false)
+      const messages = {
+        'auth/invalid-credential': 'Invalid email or password. Please double-check and try again.',
+        'auth/wrong-password': 'Incorrect password. Please try again or reset your password.',
+        'auth/user-not-found': 'No account found with this email. Need to sign up first?',
+        'auth/user-disabled': 'This account has been disabled. Contact the gym admin for help.',
+        'auth/too-many-requests': 'Too many failed attempts. Please wait a few minutes before trying again.',
+        'auth/network-request-failed': 'Network error. Check your internet connection and try again.',
+        'auth/invalid-email': 'Please enter a valid email address.',
+      }
+      setError(messages[err.code] || 'Login failed. Please try again.'); setLoading(false)
     }
   }
 
@@ -151,6 +165,11 @@ export default function Login() {
             {success && (
               <div style={{ background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.25)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#4ade80', fontWeight:600, marginBottom:18 }}>
                 ✅ Account created! Please sign in.
+              </div>
+            )}
+            {pending && (
+              <div style={{ background:'rgba(66,165,245,0.08)', border:'1px solid rgba(66,165,245,0.2)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#42a5f5', fontWeight:600, marginBottom:18, lineHeight:1.7 }}>
+                ℹ️ Coach account submitted! An admin will review and approve your application. You'll be able to log in once approved.
               </div>
             )}
             {error && (
@@ -201,8 +220,8 @@ export default function Login() {
               </div>
             </form>
 
-            <div style={{ textAlign:'center', marginTop:20, fontSize:12, color:'#e84a2f', cursor:'pointer', letterSpacing:'0.02em', fontWeight:600, textDecoration:'underline', textDecorationColor:'rgba(232,74,47,0.4)' }}
-              onClick={() => { setShowReset(true); setResetSent(false); setResetEmail(''); setError('') }}>
+            <div style={{ textAlign:'center', marginTop:20, fontSize:12, color:'#444', cursor:'pointer', letterSpacing:'0.02em' }}
+              onClick={() => { setShowReset(true); setResetEmail(email); setResetStatus('') }}>
               Forgot Password?
             </div>
           </div>
@@ -251,38 +270,62 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      {showReset&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{background:'rgba(20,17,17,0.98)',borderRadius:20,border:'1px solid rgba(232,74,47,0.2)',boxShadow:'0 32px 80px rgba(0,0,0,0.6)',padding:'40px',width:'100%',maxWidth:400,position:'relative',zIndex:1}}>
-            <button onClick={()=>setShowReset(false)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',color:'#555',fontSize:20,cursor:'pointer'}}>✕</button>
-            <div style={{textAlign:'center',marginBottom:24}}>
-              <div style={{fontSize:36,marginBottom:12}}>🔑</div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f0ece8',letterSpacing:'0.06em'}}>RESET PASSWORD</div>
-              <div style={{fontSize:12,color:'#555',marginTop:4}}>Enter your email and we'll send a reset link</div>
-            </div>
-            {resetSent?(
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:48,marginBottom:12}}>📧</div>
-                <div style={{fontSize:14,fontWeight:700,color:'#4ade80',marginBottom:8}}>Reset email sent!</div>
-                <div style={{fontSize:12,color:'#555',lineHeight:1.7,marginBottom:20}}>Check your inbox at <strong style={{color:'#f0ece8'}}>{resetEmail}</strong> for a password reset link.</div>
-                <button onClick={()=>setShowReset(false)} style={{background:'#e84a2f',color:'#fff',border:'none',borderRadius:50,padding:'12px 32px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Back to Login</button>
+      {/* ── PASSWORD RESET MODAL ── */}
+      {showReset && (
+        <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'center', justifyContent:'center' }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowReset(false); setResetStatus('') } }}>
+          <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)' }}/>
+          <div style={{ position:'relative', width:420, background:'rgba(20,17,17,0.97)', borderRadius:20, border:'1px solid rgba(255,255,255,0.08)', boxShadow:'0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)', padding:'36px 32px', backdropFilter:'blur(16px)' }}>
+
+            <button onClick={() => { setShowReset(false); setResetStatus('') }}
+              style={{ position:'absolute', top:14, right:16, background:'none', border:'none', color:'#555', fontSize:20, cursor:'pointer', padding:4, lineHeight:1 }}
+              onMouseEnter={e => e.currentTarget.style.color='#e84a2f'}
+              onMouseLeave={e => e.currentTarget.style.color='#555'}>✕</button>
+
+            <div style={{ marginBottom:24 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#e84a2f', letterSpacing:'0.15em', textTransform:'uppercase', marginBottom:6 }}>Account Recovery</div>
+              <div style={{ fontFamily:"'Bebas Neue',sans-serif", fontSize:26, color:'#f0ece8', letterSpacing:'0.06em', lineHeight:1 }}>RESET YOUR PASSWORD</div>
+              <div style={{ fontSize:12, color:'#555', marginTop:10, lineHeight:1.6 }}>
+                Enter the email you signed up with. We'll send a link to reset your password.
               </div>
-            ):(
-              <form onSubmit={handleForgotPassword} style={{display:'flex',flexDirection:'column',gap:14}}>
-                <div style={{display:'flex',alignItems:'center',background:'rgba(255,255,255,0.04)',border:'1.5px solid rgba(255,255,255,0.08)',borderRadius:10,padding:'12px 14px',gap:8}}
-                  onFocus={e=>e.currentTarget.style.borderColor='#e84a2f'}
-                  onBlur={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}>
-                  <span style={{fontSize:15,opacity:0.4}}>✉️</span>
-                  <input type="email" placeholder="your@email.com" value={resetEmail} onChange={e=>setResetEmail(e.target.value)} required
-                    style={{flex:1,background:'none',border:'none',outline:'none',color:'#f0ece8',fontSize:13,fontFamily:"'Montserrat',sans-serif"}}/>
-                </div>
-                <button type="submit" disabled={resetLoading}
-                  style={{background:'#e84a2f',color:'#fff',border:'none',borderRadius:10,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 16px rgba(232,74,47,0.4)',opacity:resetLoading?0.7:1}}>
-                  {resetLoading?'Sending...':'Send Reset Link 📧'}
-                </button>
-              </form>
+            </div>
+
+            {resetStatus && (
+              <div style={{
+                background: resetStatus.startsWith('success') ? 'rgba(74,222,128,0.1)' : 'rgba(232,74,47,0.1)',
+                border: `1px solid ${resetStatus.startsWith('success') ? 'rgba(74,222,128,0.25)' : 'rgba(232,74,47,0.25)'}`,
+                borderRadius:10, padding:'10px 14px', fontSize:12, fontWeight:600, marginBottom:16, lineHeight:1.6,
+                color: resetStatus.startsWith('success') ? '#4ade80' : '#e84a2f',
+              }}>
+                {resetStatus.startsWith('success') ? '✅' : '⚠'} {resetStatus.split(':').slice(1).join(':')}
+              </div>
             )}
+
+            <form onSubmit={handlePasswordReset} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              <div>
+                <label style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:'0.1em', textTransform:'uppercase', display:'block', marginBottom:8 }}>Email Address</label>
+                <div style={s.fieldRow}>
+                  <input style={s.field} type="email" placeholder="your@email.com"
+                    value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                    onFocus={e => e.target.closest('div').style.borderColor='#e84a2f'}
+                    onBlur={e => e.target.closest('div').style.borderColor='rgba(255,255,255,0.08)'}
+                    autoFocus/>
+                  <span style={s.fieldIcon}>📧</span>
+                </div>
+              </div>
+
+              <button type="submit" disabled={resetLoading}
+                style={{ background:'#e84a2f', color:'#fff', border:'none', borderRadius:12, padding:'14px', fontSize:14, fontWeight:700, cursor:'pointer', letterSpacing:'0.04em', boxShadow:'0 6px 24px rgba(232,74,47,0.4)', opacity:resetLoading?0.7:1, transition:'all 0.2s' }}
+                onMouseEnter={e => { if(!resetLoading) e.target.style.background='#d43d24' }}
+                onMouseLeave={e => e.target.style.background='#e84a2f'}>
+                {resetLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
+
+            <div style={{ textAlign:'center', marginTop:16, fontSize:12, color:'#555' }}>
+              Remember your password?{' '}
+              <span style={{ color:'#e84a2f', fontWeight:700, cursor:'pointer' }} onClick={() => { setShowReset(false); setResetStatus('') }}>Back to Login</span>
+            </div>
           </div>
         </div>
       )}
@@ -342,3 +385,4 @@ const s = {
   field:     { flex:1, background:'none', border:'none', outline:'none', color:'#f0ece8', fontSize:14, fontFamily:"'Montserrat',sans-serif" },
   fieldIcon: { fontSize:16, opacity:0.35, flexShrink:0 },
 }
+
