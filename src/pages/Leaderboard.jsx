@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import Navbar from '../components/Navbar'
+import { useIsMobile } from '../lib/useIsMobile'
+import { computeMembershipState, canBook, STATUS } from '../lib/membership'
 
 const LEVEL_COLOR = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#4ade80' }
 const LEVEL_ICON  = { Beginner:'🥊', Intermediate:'⚡', Advanced:'🔥' }
@@ -70,6 +72,7 @@ function PodiumCard({user,rank,delay=0}){
 }
 
 function LeaderRow({user,maxScore,isMe,idx,divColor}){
+  const isMobile=useIsMobile()
   const [show,setShow]=useState(false)
   const [barW,setBarW]=useState(0)
   useEffect(()=>{
@@ -79,37 +82,44 @@ function LeaderRow({user,maxScore,isMe,idx,divColor}){
   },[])
   const rc=user.rank<=3?RANK_COLORS[user.rank-1]:divColor
   return(
-    <div style={{display:'flex',alignItems:'center',padding:'11px 20px',
+    <div style={{display:'flex',alignItems:'center',padding:isMobile?'10px 12px':'11px 20px',
       background:isMe?'rgba(245,200,66,0.04)':user.rank<=3?`${RANK_COLORS[user.rank-1]}08`:'transparent',
       borderBottom:'1px solid rgba(255,255,255,0.04)',
       borderLeft:`3px solid ${isMe?'#f5c842':user.rank<=3?RANK_COLORS[user.rank-1]:'transparent'}`,
       opacity:show?1:0,transform:show?'none':'translateX(-16px)',transition:`all 0.35s ease ${idx*35}ms`}}
       onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.02)'}
       onMouseLeave={e=>e.currentTarget.style.background=isMe?'rgba(245,200,66,0.04)':user.rank<=3?`${RANK_COLORS[user.rank-1]}08`:'transparent'}>
-      <div style={{width:44,flexShrink:0,textAlign:'center',fontSize:user.rank<=3?18:12,fontWeight:700,color:user.rank<=3?RANK_COLORS[user.rank-1]:'#555'}}>
+      <div style={{width:isMobile?32:44,flexShrink:0,textAlign:'center',fontSize:user.rank<=3?(isMobile?15:18):12,fontWeight:700,color:user.rank<=3?RANK_COLORS[user.rank-1]:'#555'}}>
         {MEDALS[user.rank]||`#${user.rank}`}
       </div>
-      <div style={{width:34,height:34,borderRadius:'50%',flexShrink:0,background:`${divColor}22`,border:`1.5px solid ${divColor}44`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:divColor,marginRight:10}}>
+      <div style={{width:isMobile?28:34,height:isMobile?28:34,borderRadius:'50%',flexShrink:0,background:`${divColor}22`,border:`1.5px solid ${divColor}44`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:isMobile?11:13,color:divColor,marginRight:isMobile?8:10}}>
         {(user.name||'?')[0].toUpperCase()}
       </div>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <span style={{fontSize:12,fontWeight:700,color:isMe?'#f5c842':'#f0ece8'}}>{user.name}</span>
+        <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+          <span style={{fontSize:isMobile?11:12,fontWeight:700,color:isMe?'#f5c842':'#f0ece8',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:isMobile?100:'none'}}>{user.name}</span>
           {isMe&&<span style={{fontSize:8,background:'rgba(245,200,66,0.2)',color:'#f5c842',border:'1px solid rgba(245,200,66,0.4)',borderRadius:50,padding:'1px 6px',fontWeight:700}}>YOU</span>}
           {(user.streak||0)>=14&&<span style={{fontSize:8,background:'rgba(232,74,47,0.15)',color:'#e84a2f',borderRadius:50,padding:'1px 5px',fontWeight:700}}>🔥HOT</span>}
         </div>
-        <div style={{fontSize:9,color:'#555',marginTop:1}}>{user.goal||'—'}</div>
+        <div style={{fontSize:9,color:'#555',marginTop:1,display:'flex',gap:6,alignItems:'center'}}>
+          <span>{user.goal||'—'}</span>
+          {isMobile && <span style={{color:'#666'}}>· 🥊{user.totalWorkouts||0} · 🔥{user.streak||0}d</span>}
+        </div>
       </div>
-      <div style={{width:60,flexShrink:0,display:'flex',alignItems:'center',gap:2}}>
-        <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#f0ece8'}}>{user.totalWorkouts||0}</span>
-        <span style={{fontSize:9}}>🥊</span>
-      </div>
-      <div style={{width:66,flexShrink:0,fontFamily:"'Bebas Neue',sans-serif",fontSize:12,color:(user.streak||0)>0?'#e84a2f':'#333'}}>🔥{user.streak||0}d</div>
-      <div style={{width:140,flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
+      {!isMobile && (
+        <div style={{width:60,flexShrink:0,display:'flex',alignItems:'center',gap:2}}>
+          <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#f0ece8'}}>{user.totalWorkouts||0}</span>
+          <span style={{fontSize:9}}>🥊</span>
+        </div>
+      )}
+      {!isMobile && (
+        <div style={{width:66,flexShrink:0,fontFamily:"'Bebas Neue',sans-serif",fontSize:12,color:(user.streak||0)>0?'#e84a2f':'#333'}}>🔥{user.streak||0}d</div>
+      )}
+      <div style={{width:isMobile?78:140,flexShrink:0,display:'flex',alignItems:'center',gap:isMobile?5:8}}>
         <div style={{flex:1,height:5,background:'rgba(255,255,255,0.06)',borderRadius:50,overflow:'hidden'}}>
           <div style={{height:'100%',borderRadius:50,background:`linear-gradient(90deg,${rc},${rc}bb)`,width:`${barW}%`,transition:'width 1s ease',boxShadow:`0 0 6px ${rc}66`}}/>
         </div>
-        <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:rc,minWidth:36,textAlign:'right'}}>{user.score.toLocaleString()}</span>
+        <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:isMobile?11:13,color:rc,minWidth:isMobile?26:36,textAlign:'right'}}>{user.score.toLocaleString()}</span>
       </div>
     </div>
   )
@@ -117,6 +127,7 @@ function LeaderRow({user,maxScore,isMe,idx,divColor}){
 
 // Single division leaderboard section
 function DivisionSection({division,users,myUid,goalFilter,searchQ}){
+  const isMobile=useIsMobile()
   const color=LEVEL_COLOR[division]||'#f5c842'
   const icon=LEVEL_ICON[division]||'🥊'
 
@@ -157,7 +168,7 @@ function DivisionSection({division,users,myUid,goalFilter,searchQ}){
         <>
           {/* Podium for top 3 */}
           {top3.length>=3&&(
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1.2fr 1fr',gap:12,alignItems:'flex-end'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1.2fr 1fr',gap:isMobile?6:12,alignItems:'flex-end'}}>
               <PodiumCard user={top3[1]} rank={2} delay={100}/>
               <PodiumCard user={top3[0]} rank={1} delay={0}/>
               <PodiumCard user={top3[2]} rank={3} delay={200}/>
@@ -172,8 +183,11 @@ function DivisionSection({division,users,myUid,goalFilter,searchQ}){
           {/* Full rankings */}
           {filtered.length>0&&(
             <div style={{background:'linear-gradient(135deg,rgba(28,26,26,0.98),rgba(14,12,12,0.99))',borderRadius:16,border:`1px solid ${color}18`,overflow:'hidden'}}>
-              <div style={{display:'flex',padding:'9px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-                {[{label:'RANK',w:44},{label:'MEMBER',flex:1},{label:'WORKOUTS',w:60},{label:'STREAK',w:66},{label:'SCORE',w:140}].map((h,i)=>(
+              <div style={{display:'flex',padding:isMobile?'9px 12px':'9px 20px',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                {(isMobile
+                  ? [{label:'RANK',w:32},{label:'MEMBER',flex:1},{label:'SCORE',w:78}]
+                  : [{label:'RANK',w:44},{label:'MEMBER',flex:1},{label:'WORKOUTS',w:60},{label:'STREAK',w:66},{label:'SCORE',w:140}]
+                ).map((h,i)=>(
                   <div key={i} style={{width:h.w,flex:h.flex,fontSize:8,fontWeight:700,color:'#444',letterSpacing:'0.1em'}}>{h.label}</div>
                 ))}
               </div>
@@ -214,6 +228,7 @@ function DivisionSection({division,users,myUid,goalFilter,searchQ}){
 // ── MAIN LEADERBOARD ─────────────────────────────────
 export default function Leaderboard(){
   const canvasRef=useRef(null)
+  const isMobile=useIsMobile()
   const [allUsers,setAllUsers]=useState([])
   const [loading,setLoading]=useState(true)
   const [goalFilter,setGoalFilter]=useState('All Goals')
@@ -222,6 +237,10 @@ export default function Leaderboard(){
   const [myUid,setMyUid]=useState(null)
 
   const profile=(() => {try{return JSON.parse(localStorage.getItem('hittrack_profile')||'{}')}catch{return{}}})()
+  // Membership gate — non-members and active members ignore this.
+  const isMember = (profile.role || 'member') === 'member'
+  const membershipBlocked = isMember && !canBook(profile.membership)
+  const membershipState = computeMembershipState(profile.membership)
 
   useEffect(()=>{
     const user=auth.currentUser
@@ -323,7 +342,7 @@ export default function Leaderboard(){
       <Navbar user={{name:profile.name||'Athlete'}}/>
       <canvas ref={canvasRef} style={{position:'fixed',inset:0,width:'100%',height:'100%',zIndex:0,pointerEvents:'none'}}/>
 
-      <div style={{position:'relative',zIndex:1,maxWidth:1200,margin:'0 auto',padding:'24px 40px 60px',display:'flex',flexDirection:'column',gap:24,fontFamily:'Montserrat,sans-serif'}}>
+      <div style={{position:'relative',zIndex:1,maxWidth:1200,margin:'0 auto',padding:isMobile?'14px 12px 40px':'24px 40px 60px',display:'flex',flexDirection:'column',gap:isMobile?16:24,fontFamily:'Montserrat,sans-serif'}}>
 
         {/* HEADER */}
         <div style={{...glass({borderRadius:20}),padding:'24px 32px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'relative',overflow:'hidden'}}>
@@ -363,7 +382,21 @@ export default function Leaderboard(){
           })}
         </div>
 
-        {/* GOAL FILTER + SEARCH */}
+        {/* GOAL FILTER + SEARCH — and everything below this is the
+            membership-gated content (filters + divisions). Header stays clean.
+            When member is expired/paused: content is blurred + un-clickable,
+            and a centered lock card invites them to renew. */}
+        <div style={{position:'relative'}}>
+          {/* The blurred/disabled content */}
+          <div style={{
+            filter: membershipBlocked ? 'blur(7px)' : 'none',
+            pointerEvents: membershipBlocked ? 'none' : 'auto',
+            userSelect: membershipBlocked ? 'none' : 'auto',
+            transition: 'filter 0.3s',
+            display:'flex', flexDirection:'column', gap: isMobile?16:24,
+          }}>
+
+          {/* GOAL FILTER + SEARCH */}
         <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
           <span style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase'}}>Goal:</span>
           {GOAL_DIVS.map((d,i)=>{
@@ -399,6 +432,48 @@ export default function Leaderboard(){
             ))}
           </div>
         )}
+          </div>{/* end blurred content */}
+
+          {/* ════════════════════════════════════════════════ */}
+          {/*  LOCK OVERLAY — centered card invites renewal     */}
+          {/* ════════════════════════════════════════════════ */}
+          {membershipBlocked && (
+            <div style={{
+              position:'absolute', top:0, left:0, right:0,
+              display:'flex', alignItems:'flex-start', justifyContent:'center',
+              paddingTop:80, pointerEvents:'none',
+            }}>
+              <div style={{
+                pointerEvents:'auto',
+                maxWidth:440, width:'90%',
+                background:'linear-gradient(135deg,rgba(28,18,18,0.97),rgba(14,10,10,0.99))',
+                borderRadius:20,
+                border:`2px solid ${membershipState===STATUS.EXPIRED?'rgba(232,74,47,0.55)':'rgba(156,163,175,0.45)'}`,
+                boxShadow:'0 30px 80px rgba(0,0,0,0.8), 0 0 60px rgba(232,74,47,0.25)',
+                padding:'30px 28px', textAlign:'center',
+                backdropFilter:'blur(12px)',
+                position:'relative', overflow:'hidden',
+              }}>
+                {/* Accent stripe */}
+                <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:membershipState===STATUS.EXPIRED?'linear-gradient(180deg,#e84a2f,#c93820)':'linear-gradient(180deg,#9ca3af,#6b7280)'}}/>
+                <div style={{fontSize:50,marginBottom:12,lineHeight:1}}>
+                  {membershipState===STATUS.EXPIRED ? '🔒' : '⏸'}
+                </div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'0.05em',color:'#f0ece8',lineHeight:1.1,marginBottom:8}}>
+                  {membershipState===STATUS.EXPIRED ? 'LEADERBOARD LOCKED' : 'MEMBERSHIP PAUSED'}
+                </div>
+                <div style={{fontSize:12,color:'#aaa',lineHeight:1.7,marginBottom:18}}>
+                  {membershipState===STATUS.EXPIRED
+                    ? 'Your membership has expired — leaderboard rankings are members-only. Speak with the gym admin to renew and rejoin the competition.'
+                    : 'Your membership is paused. Resume your plan with the admin to see how you stack up against the gym.'}
+                </div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 16px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,fontSize:11,color:'#e84a2f',fontWeight:700,letterSpacing:'0.06em'}}>
+                  <span>👀</span><span>Preview shown — Renew to compete</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>{/* end membership gate wrapper */}
       </div>
     </>
   )

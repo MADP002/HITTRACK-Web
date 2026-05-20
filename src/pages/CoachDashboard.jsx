@@ -5,7 +5,7 @@ import { signOut } from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { buildSchedule } from '../lib/scheduleBuilder'
 import { logActivity, ACTIVITY_TYPES } from '../lib/activityLog'
-import { isClassActive, isClassPassed, getClassStartTime, endClass, autoEndPastClasses } from '../lib/classLifecycle'
+import { isClassActive, isClassPassed, getClassStartTime, endClass, autoEndPastClasses, getClassDayLabel, isClassToday } from '../lib/classLifecycle'
 import InboxView from '../components/InboxView'
 
 const glass=(e={})=>({background:'linear-gradient(135deg,rgba(22,20,20,0.97),rgba(14,12,12,0.99))',borderRadius:16,border:'1px solid rgba(255,255,255,0.07)',boxShadow:'0 4px 24px rgba(0,0,0,0.4)',...e})
@@ -552,7 +552,7 @@ export default function CoachDashboard(){
   const [toast,setToast]=useState({msg:'',type:'success'})
   const [confirm,setConfirm]=useState(null)
   const [showNewClass,setShowNewClass]=useState(false)
-  const [newClass,setNewClass]=useState({name:'',day:'Monday',time:'6:00 AM',spots:'12',level:'Beginner'})
+  const [newClass,setNewClass]=useState({name:'',date:new Date().toISOString().slice(0,10),time:'6:00 AM',spots:'12',level:'Beginner'})
   const [deleteClassId,setDeleteClassId]=useState(null)
   const [logoutConfirm,setLogoutConfirm]=useState(false)
   const [coachProfile,setCoachProfile]=useState({name:'Coach'})
@@ -963,9 +963,13 @@ export default function CoachDashboard(){
 
   async function createClass(){
     if(!newClass.name.trim()){showToast('❌ Enter a class name','error');return}
+    if(!newClass.date){showToast('❌ Please select a date','error');return}
     try{
+      const DAYS_FROM_DATE = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+      const dateObj = new Date(newClass.date + 'T00:00:00')
+      const dayName = DAYS_FROM_DATE[dateObj.getDay()]
       const ref = await addDoc(collection(db,'classes'),{
-        ...newClass,spots:parseInt(newClass.spots)||12,enrolled:0,
+        ...newClass,day:dayName,spots:parseInt(newClass.spots)||12,enrolled:0,
         coach:coachProfile.name||'Coach',createdAt:serverTimestamp(),
       })
       logActivity({
@@ -973,30 +977,75 @@ export default function CoachDashboard(){
         actorId: auth.currentUser?.uid || '',
         actorName: coachProfile.name || 'Coach',
         actorRole: 'coach',
-        payload: { classId: ref.id, className: newClass.name.trim(), classDay: newClass.day, classTime: newClass.time, level: newClass.level },
+        payload: { classId: ref.id, className: newClass.name.trim(), classDay: dayName, classDate: newClass.date, classTime: newClass.time, level: newClass.level },
       })
-      setNewClass({name:'',day:'Monday',time:'6:00 AM',spots:'12',level:'Beginner'})
+      setNewClass({name:'',date:new Date().toISOString().slice(0,10),time:'6:00 AM',spots:'12',level:'Beginner'})
       setShowNewClass(false);loadClasses();showToast('✅ Class created!')
     }catch(e){showToast('❌ Failed','error')}
   }
 
   async function deleteClassConfirmed(){
     if(!deleteClassId)return
-    // Look up class info BEFORE deleting (so we have the name for the log)
     const cls = classes.find(c => c.id === deleteClassId)
-    try{
-      await deleteDoc(doc(db,'classes',deleteClassId))
+    const idToDelete = deleteClassId
+
+    // ════════════════════════════════════════════════════
+    //  CLASS CASCADE — same pattern as admin's delete:
+    //  Cancel all bookings + notify affected members BEFORE
+    //  the class doc itself is deleted. Prevents orphan
+    //  bookings showing on member schedules.
+    // ════════════════════════════════════════════════════
+    try {
+      // Find all bookings for this class
+      let bookingsToCancel = []
+      try {
+        const snap = await getDocs(query(collection(db, 'bookings'), where('classId', '==', idToDelete)))
+        bookingsToCancel = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      } catch (e) {
+        console.warn('Bookings query failed:', e.message)
+      }
+
+      // Notify each affected member + delete their booking
+      for (const bk of bookingsToCancel) {
+        try {
+          if (bk.userId) {
+            await addDoc(collection(db, 'notifications'), {
+              type:         'class_cancelled',
+              title:        '⚠ Class Cancelled',
+              message:      `Your booking for "${cls?.name || 'a class'}" on ${cls?.date ? getClassDayLabel(cls) : (cls?.day || '')} at ${cls?.time || ''} has been cancelled by the coach. We apologize for any disruption to your schedule.`,
+              audience:     'member',
+              targetUserId: bk.userId,
+              from:         coachProfile.name || 'Coach',
+              fromUid:      auth.currentUser?.uid || '',
+              createdAt:    serverTimestamp(),
+            })
+          }
+          await deleteDoc(doc(db, 'bookings', bk.id))
+        } catch (e) {
+          console.warn(`Cascade failed for booking ${bk.id}:`, e.message)
+        }
+      }
+
+      // Now delete the class itself
+      await deleteDoc(doc(db,'classes',idToDelete))
+
       if (cls) {
         logActivity({
           type:'class_deleted',
           actorId: auth.currentUser?.uid || '',
           actorName: coachProfile.name || 'Coach',
           actorRole: 'coach',
-          payload: { classId: cls.id, className: cls.name, classDay: cls.day, classTime: cls.time },
+          payload: { classId: cls.id, className: cls.name, classDay: cls.day, classTime: cls.time, bookingsCancelled: bookingsToCancel.length },
         })
       }
-      setDeleteClassId(null);loadClasses();showToast('🗑 Class deleted')
-    }catch(e){}
+
+      setDeleteClassId(null)
+      loadClasses()
+      showToast(`🗑 Class deleted${bookingsToCancel.length ? ` · ${bookingsToCancel.length} member${bookingsToCancel.length===1?'':'s'} notified` : ''}`)
+    } catch(e){
+      console.error('Delete class failed:', e)
+      showToast('❌ Delete failed','error')
+    }
   }
 
   async function postNotification(){
@@ -1416,7 +1465,14 @@ export default function CoachDashboard(){
                       onFocus={e=>{e.target.style.borderColor='#e84a2f';e.target.style.boxShadow='0 0 0 3px rgba(232,74,47,0.1)'}}
                       onBlur={e=>{e.target.style.borderColor='rgba(255,255,255,0.12)';e.target.style.boxShadow='none'}}/>
                   </div>
-                  {[{key:'day',label:'Day',opts:DAYS},{key:'time',label:'Time',opts:TIMES},{key:'level',label:'Level',opts:LEVELS},{key:'spots',label:'Max Spots',opts:['6','8','10','12','15','20','25','30']}].map(f=>(
+                  <div>
+                    <label style={{fontSize:9,color:'#666',fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',display:'block',marginBottom:6}}>Date *</label>
+                    <input type="date" value={newClass.date} onChange={e=>setNewClass(p=>({...p,date:e.target.value}))}
+                      min={new Date().toISOString().slice(0,10)}
+                      style={{...inp,background:'rgba(20,15,14,0.8)',colorScheme:'dark'}}
+                      onFocus={e=>e.target.style.borderColor='#e84a2f'} onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.12)'}/>
+                  </div>
+                  {[{key:'time',label:'Time',opts:TIMES},{key:'level',label:'Level',opts:LEVELS},{key:'spots',label:'Max Spots',opts:['6','8','10','12','15','20','25','30']}].map(f=>(
                     <div key={f.key}>
                       <label style={{fontSize:9,color:'#666',fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',display:'block',marginBottom:6}}>{f.label}</label>
                       <select value={newClass[f.key]} onChange={e=>setNewClass(p=>({...p,[f.key]:e.target.value}))} style={{...selStyle,background:'rgba(20,15,14,0.8)'}}
@@ -1453,10 +1509,12 @@ export default function CoachDashboard(){
                   const fillColor=pct>=90?'#e84a2f':pct>=60?'#f5c842':'#22c55e'
                   const lc=LEVEL_COLOR[cls.level]||'#f5c842'
                   const lvIc=LEVEL_ICON[cls.level]||'🥊'
-                  const dayShort=(cls.day||'').slice(0,3).toUpperCase()
+                  const dayLabel=getClassDayLabel(cls)
+                  const dayShort=cls.date ? dayLabel : (cls.day||'').slice(0,3).toUpperCase()
+                  const isTodayCls=isClassToday(cls)
                   return(
                     <div key={cls.id}
-                      style={{position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:18,border:`1px solid ${lc}25`,padding:'20px 22px',cursor:'default',transition:'all 0.4s cubic-bezier(0.34,1.56,0.64,1)',boxShadow:'0 4px 16px rgba(0,0,0,0.4)'}}
+                      style={{position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:18,border:isTodayCls?'1px solid rgba(74,222,128,0.35)':`1px solid ${lc}25`,padding:'20px 22px',cursor:'default',transition:'all 0.4s cubic-bezier(0.34,1.56,0.64,1)',boxShadow:isTodayCls?'0 4px 16px rgba(74,222,128,0.12)':'0 4px 16px rgba(0,0,0,0.4)'}}
                       onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-4px)';e.currentTarget.style.borderColor=`${lc}55`;e.currentTarget.style.boxShadow=`0 16px 40px rgba(0,0,0,0.6),0 0 30px ${lc}22`}}
                       onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.borderColor=`${lc}25`;e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.4)'}}>
                       {/* Glow burst */}
@@ -1481,13 +1539,16 @@ export default function CoachDashboard(){
                       {/* Top: day badge + name */}
                       <div style={{position:'relative',display:'flex',gap:14,alignItems:'flex-start',marginBottom:18,paddingRight:120}}>
                         {/* Day badge */}
-                        <div style={{width:64,height:64,borderRadius:14,background:`linear-gradient(135deg,${lc},${lc}aa)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#000',flexShrink:0,boxShadow:`0 6px 18px ${lc}50`,border:`2px solid ${lc}66`}}>
-                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,lineHeight:1}}>{dayShort}</div>
+                        <div style={{width:64,height:64,borderRadius:14,background:`linear-gradient(135deg,${lc},${lc}aa)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#000',flexShrink:0,boxShadow:`0 6px 18px ${lc}50`,border:isTodayCls?'2px solid #4ade80':`2px solid ${lc}66`}}>
+                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:cls.date?14:22,lineHeight:1,textAlign:'center',padding:'0 3px'}}>{dayShort}</div>
                           <div style={{fontSize:8,fontWeight:800,letterSpacing:'0.08em',marginTop:2,opacity:0.85}}>{cls.time}</div>
                         </div>
                         {/* Name + level */}
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1.1,marginBottom:6}}>{cls.name}</div>
+                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1.1}}>{cls.name}</div>
+                            {isTodayCls && <span style={{fontSize:7,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(74,222,128,0.15)',color:'#4ade80',border:'1px solid rgba(74,222,128,0.3)',letterSpacing:'0.1em'}}>TODAY</span>}
+                          </div>
                           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                             <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:`${lc}22`,color:lc,border:`1px solid ${lc}44`,letterSpacing:'0.08em',textTransform:'uppercase'}}>{lvIc} {cls.level}</span>
                             {cls.coach && <span style={{fontSize:9,fontWeight:700,padding:'3px 9px',borderRadius:50,background:'rgba(255,255,255,0.05)',color:'#888',letterSpacing:'0.05em'}}>👨‍🏫 {cls.coach}</span>}

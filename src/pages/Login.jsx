@@ -3,17 +3,20 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { useIsMobile } from '../lib/useIsMobile'
 
 export default function Login() {
   const navigate   = useNavigate()
   const [params]   = useSearchParams()
   const canvasRef  = useRef(null)
+  const isMobile   = useIsMobile()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState(params.get('registered') === '1')
   const [pending]              = useState(params.get('pending') === '1')
+  const [showPw, setShowPw]         = useState(false)
   const [showReset, setShowReset]   = useState(false)
   const [resetEmail, setResetEmail] = useState('')
   const [resetStatus, setResetStatus] = useState('')
@@ -140,12 +143,24 @@ export default function Login() {
       <CornerChevs pos="bottom-left"/>
       <CornerChevs pos="bottom-right"/>
 
-      {/* ── LEFT PANEL ── */}
+      {/* ── LEFT PANEL — Form ── */}
       <div style={{
-        flex:'0 0 560px', display:'flex', alignItems:'center', justifyContent:'center',
-        padding:'60px 80px', position:'relative', zIndex:2,
+        flex: isMobile ? '1' : '0 0 560px',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding: isMobile ? '24px 14px' : '60px 80px',
+        position:'relative', zIndex:2,
       }}>
-        <div style={{ width:'100%' }}>
+        <div style={{ width:'100%', maxWidth: isMobile ? 440 : 'none' }}>
+
+          {/* Mobile-only mini logo header */}
+          {isMobile && (
+            <div style={{textAlign:'center',marginBottom:18}}>
+              <div style={{fontSize:36,marginBottom:4}}>🥊</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1}}>
+                HIT<span style={{color:'#e84a2f'}}>TRACK</span>
+              </div>
+            </div>
+          )}
 
           {/* Big form card */}
           <div style={{
@@ -153,7 +168,7 @@ export default function Login() {
             borderRadius:20,
             border:'1px solid rgba(255,255,255,0.08)',
             boxShadow:'0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
-            padding:'44px 40px',
+            padding: isMobile ? '28px 22px' : '44px 40px',
             backdropFilter:'blur(16px)',
           }}>
             {/* Card title */}
@@ -195,11 +210,16 @@ export default function Login() {
               <div>
                 <label style={{ fontSize:10, fontWeight:700, color:'#555', letterSpacing:'0.1em', textTransform:'uppercase', display:'block', marginBottom:8 }}>Password</label>
                 <div style={s.fieldRow}>
-                  <input style={s.field} type="password" placeholder="••••••••"
+                  <input style={s.field} type={showPw ? 'text' : 'password'} placeholder="••••••••"
                     value={password} onChange={e => setPassword(e.target.value)}
                     onFocus={e => e.target.closest('div').style.borderColor='#e84a2f'}
                     onBlur={e  => e.target.closest('div').style.borderColor='rgba(255,255,255,0.08)'}/>
-                  <span style={s.fieldIcon}>🔒</span>
+                  <button type="button" onClick={() => setShowPw(v => !v)} tabIndex={-1}
+                    style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, opacity:0.4, flexShrink:0, padding:0, lineHeight:1, transition:'opacity 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity='0.8'}
+                    onMouseLeave={e => e.currentTarget.style.opacity='0.4'}>
+                    {showPw ? '🙈' : '👁'}
+                  </button>
                 </div>
               </div>
 
@@ -228,11 +248,12 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ── RIGHT PANEL — Branding ── */}
-      <div style={{
-        flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-        position:'relative', zIndex:2, padding:'60px 40px',
-      }}>
+      {/* ── RIGHT PANEL — Branding (hidden on mobile) ── */}
+      {!isMobile && (
+        <div style={{
+          flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          position:'relative', zIndex:2, padding:'60px 40px',
+        }}>
         {/* Background glow */}
         <div style={{ position:'absolute', width:500, height:500, borderRadius:'50%', background:'radial-gradient(circle,rgba(232,74,47,0.1),transparent 68%)', pointerEvents:'none' }}/>
 
@@ -269,6 +290,7 @@ export default function Login() {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── PASSWORD RESET MODAL ── */}
       {showReset && (

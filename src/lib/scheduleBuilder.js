@@ -347,7 +347,7 @@ function pickN(pool, n, seed) {
 // ────────────────────────────────────────────────────────
 //  Build a single workout — 6 exercises (1 warmup + 3 main + 1 strength + 1 cooldown)
 // ────────────────────────────────────────────────────────
-function buildWorkout(experience, goal, seed, weeklyProgramFocus) {
+export function buildWorkout(experience, goal, seed, weeklyProgramFocus) {
   const lvl = (experience && POOLS[experience]) ? experience : 'Beginner'
   const gl  = (goal && POOLS[lvl]?.[goal]) ? goal : 'Learn Boxing'
   const pool = POOLS[lvl][gl]

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase'
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, addDoc, deleteDoc, serverTimestamp, increment, runTransaction } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, addDoc, deleteDoc, serverTimestamp, increment, runTransaction, arrayUnion } from 'firebase/firestore'
 import Navbar from '../components/Navbar'
-import { buildSchedule, EXERCISE_POOLS, fmtDuration, isRichExercise, exerciseName } from '../lib/scheduleBuilder'
+import { buildSchedule, buildWorkout, EXERCISE_POOLS, fmtDuration, isRichExercise, exerciseName } from '../lib/scheduleBuilder'
 import { evaluateAdaptations, computeDifficulty, buildResetDayWorkout, getChampionBonusExercise, getDayStatus } from '../lib/adaptiveEngine'
 import { logActivity } from '../lib/activityLog'
-import { isClassActive } from '../lib/classLifecycle'
+import { isClassActive, getClassDayLabel, isClassToday } from '../lib/classLifecycle'
+import { useIsMobile } from '../lib/useIsMobile'
+import { computeMembershipState, daysRemaining, fmtExpiry, fmtRemaining, getStatusColor, getStatusIcon, canBook, STATUS } from '../lib/membership'
 
 // ── CONSTANTS ─────────────────────────────────────────
 const CIRCUMFERENCE      = 339
@@ -56,11 +58,16 @@ export default function Home() {
   const navigate  = useNavigate()
   const ringRef   = useRef(null)
   const canvasRef = useRef(null)
-
-  // Load profile from localStorage (synced from Firestore by App.jsx)
+  const isMobile  = useIsMobile()  // re-renders on viewport resize
   const [profile, setProfile] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hittrack_profile') || '{}') } catch { return {} }
   })
+
+  // ── MEMBERSHIP STATE — derived from profile, used for banner + booking gate
+  const membershipState = computeMembershipState(profile.membership)
+  const membershipBlocked = !canBook(profile.membership)  // EXPIRED or PAUSED
+  const daysLeft = daysRemaining(profile.membership)
+  const isMember = (profile.role || 'member') === 'member'  // coaches/admin don't see membership UI
 
   // Workout tracking state — load from Firestore
   const [dayChecked,        setDayChecked]        = useState({})
@@ -142,37 +149,96 @@ export default function Home() {
     setClassStatuses(classes.map(c => bookedIds.has(c.id) ? 'booked' : 'open'))
   }, [classes, myBookings])
 
+  // ── Clean up bookedExtras when classes are deleted/cancelled/ended ──
+  // If a class no longer has an active booking, remove its entry from the workout
+  useEffect(() => {
+    const activeBookedLabels = new Set(
+      myBookings
+        .filter(b => classes.some(c => c.id === b.classId))
+        .map(b => `📅 ${b.className} (${b.classTime})`)
+    )
+    let changed = false
+    const cleaned = {}
+    for (const [dayKey, extras] of Object.entries(bookedExtras)) {
+      const filtered = extras.filter(ex => {
+        if (typeof ex === 'string' && ex.startsWith('📅')) {
+          return activeBookedLabels.has(ex)
+        }
+        return true
+      })
+      if (filtered.length !== extras.length) changed = true
+      if (filtered.length > 0) cleaned[dayKey] = filtered
+      else cleaned[dayKey] = []
+    }
+    if (changed) {
+      setBookedExtras(cleaned)
+      // Also clean up corresponding dayChecked entries
+      const newChecked = { ...dayChecked }
+      for (const [dayKey, extras] of Object.entries(bookedExtras)) {
+        if (cleaned[dayKey]?.length !== extras.length) {
+          const baseLen = (schedule[parseInt(dayKey)]?.workout?.exercises?.length || 0) + (generatedWorkouts[parseInt(dayKey)]?.exercises?.length || 0)
+          const totalLen = baseLen + (cleaned[dayKey]?.length || 0)
+          if (newChecked[dayKey]) {
+            newChecked[dayKey] = newChecked[dayKey].slice(0, totalLen)
+          }
+        }
+      }
+      setDayChecked(newChecked)
+      saveWorkoutData(newChecked, generatedWorkouts, cleaned)
+    }
+  }, [myBookings, classes])
+
   // ── Load announcements/notifications ────────────────────
   // Shows:
   //   1. Gym-wide announcements (audience='all' or unset)
   //   2. Personally-targeted notifications for THIS member (thank-yous etc.)
   //      Filter EXCLUDES level_change since those get a celebration popup instead.
   const [announcements, setAnnouncements] = useState([])
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState([])
   useEffect(() => {
     const user = auth.currentUser
     if (!user) return
+    // Load dismissed list from user doc
+    getDoc(doc(db, 'users', user.uid)).then(s => {
+      if (s.exists() && Array.isArray(s.data().dismissedAnnouncements)) {
+        setDismissedAnnouncements(s.data().dismissedAnnouncements)
+      }
+    }).catch(() => {})
     import('firebase/firestore').then(({ onSnapshot, orderBy: fbOrderBy, query: fbQuery }) => {
       const q = fbQuery(collection(db, 'notifications'), fbOrderBy('createdAt', 'desc'))
       const unsub = onSnapshot(q, (snap) => {
         const ns = snap.docs.map(d => ({ id: d.id, ...d.data() }))
           .filter(n => {
-            // Gym-wide announcements
             if (n.audience === 'all' || !n.audience) {
-              // But hide system event types like level_change celebration popups
               return n.type !== 'level_change'
             }
-            // Personally targeted to THIS member (thank-yous, etc.)
-            // — but skip level_change (handled by celebration popup)
             if (n.targetUserId === user.uid && n.type !== 'level_change') {
               return true
             }
             return false
           })
-        setAnnouncements(ns.slice(0, 5)) // show latest 5
+        setAnnouncements(ns)
       }, () => {})
       return unsub
     })
   }, [])
+
+  const visibleAnnouncements = announcements.filter(n => !dismissedAnnouncements.includes(n.id))
+
+  async function dismissAnnouncement(notifId) {
+    const user = auth.currentUser
+    if (!user) return
+    setDismissedAnnouncements(prev => [...prev, notifId])
+    try { await updateDoc(doc(db, 'users', user.uid), { dismissedAnnouncements: arrayUnion(notifId) }) } catch (e) { console.error('Dismiss failed:', e) }
+  }
+
+  async function clearAllAnnouncements() {
+    const user = auth.currentUser
+    if (!user || visibleAnnouncements.length === 0) return
+    const ids = visibleAnnouncements.map(n => n.id)
+    setDismissedAnnouncements(prev => [...prev, ...ids])
+    try { await updateDoc(doc(db, 'users', user.uid), { dismissedAnnouncements: arrayUnion(...ids) }) } catch (e) { console.error('Clear all failed:', e) }
+  }
 
   // ── Load coach feedback for this member ───────────────
   const [coachFeedback, setCoachFeedback] = useState([])
@@ -569,19 +635,31 @@ export default function Home() {
 
   // ── ACTIONS ───────────────────────────────────────────
   function toggleEx(scheduleIdx, exIdx) {
-    // 🔒 DATE-LOCK GUARD (Issue 3 — Step 1)
-    // Only TODAY (schedule[0]) is editable. Past = past-done/past-missed (immutable).
-    // Future = locked entirely.
+    if (membershipBlocked) {
+      console.warn('🔒 Membership inactive — exercise tracking locked')
+      return
+    }
     if (scheduleIdx > 0) {
-      // Optional friendly toast — silently no-op in production
       console.warn('🔒 Future workouts are locked until their scheduled date')
       return
     }
-    if (scheduleIdx < 0) return  // past — also immutable
+    if (scheduleIdx < 0) return
     setDayChecked(prev => {
       const total = allExercises.length
       const arr   = [...(prev[scheduleIdx] || new Array(total).fill(false))]
-      arr[exIdx]  = !arr[exIdx]
+      // Sequential lock: cannot check an exercise unless all previous are done
+      if (!arr[exIdx]) {
+        for (let p = 0; p < exIdx; p++) {
+          if (!arr[p]) return prev
+        }
+      }
+      // Allow unchecking only the last checked exercise (can't uncheck middle ones)
+      if (arr[exIdx]) {
+        for (let n = exIdx + 1; n < arr.length; n++) {
+          if (arr[n]) return prev
+        }
+      }
+      arr[exIdx] = !arr[exIdx]
       const next  = { ...prev, [scheduleIdx]: arr }
       saveWorkoutData(next, generatedWorkouts, bookedExtras)
       return next
@@ -589,21 +667,19 @@ export default function Home() {
   }
 
   function generateRandom(scheduleIdx) {
-    // 🔒 DATE-LOCK — only allow rerolling today's workout
-    if (scheduleIdx !== 0) {
-      console.warn('🔒 Can only generate workouts for today')
-      return
+    if (scheduleIdx < 0) return
+    const exp  = profile?.experience || 'Beginner'
+    const goal = profile?.goal || 'Learn Boxing'
+    const seed = Math.floor(Math.random() * 1000) + totalWorkouts + streak + scheduleIdx
+    const generated = buildWorkout(exp, goal, seed, null)
+    const newW = {
+      ...generated,
+      title: `Bonus Session 🎲 — ${generated.title}`,
+      type: 'generated',
     }
-    const exp    = profile?.experience || 'Beginner'
-    const goal   = profile?.goal || 'Learn Boxing'
-    const pool   = EXERCISE_POOLS[exp]?.[goal] || EXERCISE_POOLS.Beginner['Learn Boxing']
-    const used   = schedule.flatMap(d => d.workout?.exercises || [])
-    const avail  = pool.filter(e => !used.includes(e))
-    const pick   = (avail.length >= 2 ? avail : [...pool]).sort(() => Math.random()-0.5).slice(0,2)
-    const newW   = { title:'Spontaneous Training 🎲', exercises:['Warm Up',...pick,'Cool Down'], duration:'30m', type:'generated' }
     const nextGen = { ...generatedWorkouts, [scheduleIdx]: newW }
     setGeneratedWorkouts(nextGen)
-    const nextChecked = { ...dayChecked, [scheduleIdx]: new Array(4).fill(false) }
+    const nextChecked = { ...dayChecked, [scheduleIdx]: new Array(newW.exercises.length).fill(false) }
     setDayChecked(nextChecked)
     saveWorkoutData(nextChecked, nextGen, bookedExtras)
   }
@@ -616,15 +692,31 @@ export default function Home() {
       setCancelConfirm({ classIndex: i, classData: cls })
       return
     }
+    // Membership gate — can't create new bookings when expired/paused.
+    // (Cancellation of EXISTING bookings is still allowed above — they may
+    // want to free their slot even if their plan lapsed.)
+    if (membershipBlocked) {
+      const reason = membershipState === STATUS.EXPIRED
+        ? 'Your membership has expired. Speak with the admin to renew before booking.'
+        : 'Your membership is paused. Ask the admin to resume access.'
+      alert(`🔒 ${reason}`)
+      return
+    }
     // Pre-flight: check if class is already full (server will re-check atomically)
     if (cls.spots && (cls.enrolled || 0) >= cls.spots) {
       alert(`❌ "${cls.name}" is full. First come, first served — try another class.`)
       return
     }
-    // Find matching workout day for conflict check (existing logic unchanged)
+    // Find matching workout day for conflict check
     const dayMap = { Sunday:0, Monday:1, Tuesday:2, Wednesday:3, Thursday:4, Friday:5, Saturday:6 }
     const today = new Date()
-    const targetDayIdx = dayMap[cls.day] ?? -1
+    let targetDayIdx
+    if (cls.date) {
+      const [y, m, d] = cls.date.split('-').map(Number)
+      targetDayIdx = new Date(y, m - 1, d).getDay()
+    } else {
+      targetDayIdx = dayMap[cls.day] ?? -1
+    }
     let matchDay = -1
     for (let d = 0; d < schedule.length; d++) {
       const dDate = new Date(today); dDate.setDate(today.getDate() + d)
@@ -993,7 +1085,7 @@ export default function Home() {
                   <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
                   Current State
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+                <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(4,1fr)',gap:8}}>
                   {[
                     {label:'Streak', val:`${streak}d`, color:streak>=14?'#f5c842':'#42a5f5'},
                     {label:'Weekly', val:`${weeklyPct}%`, color:weeklyPct>=80?'#22c55e':weeklyPct>=40?'#f5c842':'#e84a2f'},
@@ -1079,7 +1171,65 @@ export default function Home() {
         </div>
       )}
 
-      <div style={{position:'relative',zIndex:1,maxWidth:1500,margin:'0 auto',padding:'24px 40px 60px',display:'flex',flexDirection:'column',gap:16,fontFamily:'Montserrat,sans-serif'}}>
+      <div style={{position:'relative',zIndex:1,maxWidth:1500,margin:'0 auto',padding:isMobile?'14px 12px 40px':'24px 40px 60px',display:'flex',flexDirection:'column',gap:isMobile?12:16,fontFamily:'Montserrat,sans-serif'}}>
+
+        {/* ════════════════════════════════════════════════════ */}
+        {/*  MEMBERSHIP BANNER — shown for members only when     */}
+        {/*  state needs attention (trial, expiring, expired,    */}
+        {/*  paused, none). Active members with >7 days see      */}
+        {/*  nothing — banner stays out of their way.            */}
+        {/* ════════════════════════════════════════════════════ */}
+        {isMember && (() => {
+          const state = membershipState
+          const days = daysLeft
+          const isExpiringSoon = (state === STATUS.ACTIVE || state === STATUS.TRIAL) && days !== null && days >= 0 && days <= 7
+
+          // No banner for active members with plenty of time, or legacy users
+          if ((state === STATUS.ACTIVE && !isExpiringSoon) || state === STATUS.LEGACY) return null
+
+          // Banner config per state
+          let cfg
+          if (state === STATUS.EXPIRED) {
+            cfg = { color:'#e84a2f', bg:'rgba(232,74,47,0.08)', border:'rgba(232,74,47,0.35)', icon:'🔒', title:'Membership expired', body:'Bookings are locked. Speak with the gym admin to renew your plan.', cta:null }
+          } else if (state === STATUS.PAUSED) {
+            cfg = { color:'#9ca3af', bg:'rgba(156,163,175,0.06)', border:'rgba(156,163,175,0.3)', icon:'⏸', title:'Membership paused', body:'Your expiry timer is frozen. See the admin to resume access.', cta:null }
+          } else if (state === STATUS.NONE) {
+            cfg = { color:'#888', bg:'rgba(255,255,255,0.03)', border:'rgba(255,255,255,0.1)', icon:'⚪', title:'No active membership', body:'Speak with the gym admin to set up your plan.', cta:null }
+          } else if (state === STATUS.TRIAL) {
+            cfg = { color:'#42a5f5', bg:'rgba(66,165,245,0.07)', border:'rgba(66,165,245,0.3)', icon:'🎁', title:`Free Trial · ${days} day${days===1?'':'s'} left`, body:`Your 7-day trial ends ${fmtExpiry(profile.membership)}. Speak with admin to continue after.`, cta:null }
+          } else {
+            // ACTIVE but expiring soon
+            cfg = { color:'#f5c842', bg:'rgba(245,200,66,0.08)', border:'rgba(245,200,66,0.35)', icon:'⚠', title:`Expiring in ${days} day${days===1?'':'s'}`, body:`Membership expires ${fmtExpiry(profile.membership)}. Renew with admin before access is locked.`, cta:null }
+          }
+
+          return (
+            <div style={{
+              ...glass({borderRadius:14}),
+              padding:isMobile?'14px 16px':'14px 22px',
+              border:`1px solid ${cfg.border}`,
+              background:cfg.bg,
+              display:'flex',alignItems:isMobile?'flex-start':'center',gap:14,
+              flexDirection:isMobile?'column':'row',
+              position:'relative',overflow:'hidden',
+            }}>
+              {/* Accent stripe */}
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:`linear-gradient(180deg,${cfg.color},${cfg.color}66)`}}/>
+              <div style={{display:'flex',alignItems:'center',gap:14,flex:1,minWidth:0}}>
+                <div style={{width:42,height:42,borderRadius:11,background:`${cfg.color}18`,border:`1.5px solid ${cfg.color}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>
+                  {cfg.icon}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.05em',color:cfg.color,lineHeight:1.1}}>
+                    {cfg.title}
+                  </div>
+                  <div style={{fontSize:11,color:'#aaa',marginTop:3,lineHeight:1.5}}>
+                    {cfg.body}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* STREAK */}
         <div style={{...glass({borderRadius:14}),padding:'14px 28px',display:'flex',alignItems:'center',justifyContent:'space-between',border:'1px solid rgba(232,74,47,0.2)'}}>
@@ -1098,7 +1248,7 @@ export default function Home() {
         </div>
 
         {/* HERO ROW */}
-        <div style={s.heroRow}>
+        <div style={{...s.heroRow, gridTemplateColumns: isMobile ? '1fr' : '1fr 1.5fr 0.9fr', gap: isMobile ? 12 : 16}}>
 
           {/* WELCOME CARD */}
           <div style={{...glass(),padding:'22px',display:'flex',flexDirection:'column',gap:14}}>
@@ -1160,7 +1310,22 @@ export default function Home() {
           </div>
 
           {/* TODAY'S WORKOUT */}
-          <div style={{...glass(),padding:'22px 24px',display:'flex',flexDirection:'column',gap:12}}>
+          <div style={{...glass(),padding:'22px 24px',display:'flex',flexDirection:'column',gap:12,position:'relative'}}>
+
+            {/* ════════════════════════════════════════════════ */}
+            {/*  MEMBERSHIP LOCK OVERLAY                          */}
+            {/*  Member can SEE today's workout but can't mark    */}
+            {/*  exercises complete. Read-only preview mode.      */}
+            {/* ════════════════════════════════════════════════ */}
+            {membershipBlocked && (
+              <div style={{position:'absolute',top:14,right:18,zIndex:5,display:'flex',alignItems:'center',gap:8,padding:'8px 14px',background:'linear-gradient(135deg,rgba(232,74,47,0.18),rgba(232,74,47,0.06))',border:'1px solid rgba(232,74,47,0.45)',borderRadius:50,backdropFilter:'blur(8px)',boxShadow:'0 4px 14px rgba(232,74,47,0.25)'}}>
+                <span style={{fontSize:14}}>🔒</span>
+                <span style={{fontSize:10,fontWeight:800,letterSpacing:'0.08em',color:'#e84a2f',textTransform:'uppercase'}}>
+                  Read-only · Renew to track
+                </span>
+              </div>
+            )}
+
             {/* ════════════════════════════════════════════════ */}
             {/*  🧠 ADAPTIVE COACH widget (Issue 3 — Step 3)    */}
             {/*  Visible proof that the rule-based AI is active. */}
@@ -1334,6 +1499,10 @@ export default function Home() {
                     const isRich = isRichExercise(ex)
                     const exName = exerciseName(ex)
                     const isExtra = extraExercises.includes(ex)
+                    const isMemberLocked = membershipBlocked
+                    // Sequential lock: exercise is locked if any previous exercise is not done
+                    const isSeqLocked = selDay === 0 && !isLocked && !isMemberLocked && i > 0 && checked.slice(0, i).some(c => !c)
+                    const effectiveLocked = isLocked || isMemberLocked || isSeqLocked
                     // Type color mapping (for rich exercises)
                     const TYPE_COLOR = {
                       warmup:       '#fb923c', // orange — warmup
@@ -1345,17 +1514,17 @@ export default function Home() {
                     }
                     const typeColor = isRich ? (TYPE_COLOR[ex.type] || '#888') : '#42a5f5'
                     return (
-                    <div key={i} onClick={() => isLocked ? null : toggleEx(selDay,i)}
-                      style={{display:'flex',gap:11,padding:isRich?'12px 13px':'10px 12px',borderRadius:11,cursor:isLocked?'not-allowed':'pointer',
-                        background:isLocked?'rgba(255,255,255,0.015)':checked[i]?'rgba(74,222,128,0.05)':isExtra?'rgba(66,165,245,0.04)':'rgba(255,255,255,0.02)',
-                        border:`1px solid ${isLocked?'rgba(255,255,255,0.04)':checked[i]?'rgba(74,222,128,0.18)':isExtra?'rgba(66,165,245,0.15)':isRich?typeColor+'18':'rgba(255,255,255,0.04)'}`,
-                        opacity:isLocked?0.55:1,
+                    <div key={i} onClick={() => effectiveLocked ? null : toggleEx(selDay,i)}
+                      style={{display:'flex',gap:11,padding:isRich?'12px 13px':'10px 12px',borderRadius:11,cursor:effectiveLocked?'not-allowed':'pointer',
+                        background:effectiveLocked?'rgba(255,255,255,0.015)':checked[i]?'rgba(74,222,128,0.05)':isExtra?'rgba(66,165,245,0.04)':'rgba(255,255,255,0.02)',
+                        border:`1px solid ${effectiveLocked?'rgba(255,255,255,0.04)':checked[i]?'rgba(74,222,128,0.18)':isExtra?'rgba(66,165,245,0.15)':isRich?typeColor+'18':'rgba(255,255,255,0.04)'}`,
+                        opacity:effectiveLocked?0.55:1,
                         transition:'all 0.25s',
                         position:'relative',
                         overflow:'hidden'}}>
                       {/* Left checkmark/index circle */}
-                      <div style={{width:28,height:28,borderRadius:'50%',background:isLocked?'#1a1818':checked[i]?'#4ade80':isRich?typeColor+'20':'#2a2424',border:isLocked?'2px dashed #555':checked[i]?'none':isRich?`2px solid ${typeColor}55`:'2px solid #444',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:isLocked?'#666':checked[i]?'#fff':isRich?typeColor:'#555',flexShrink:0,transform:checked[i]&&!isLocked?'scale(1.1)':'scale(1)',transition:'all 0.25s',marginTop:2}}>
-                        {isLocked?'🔒':checked[i]?'✓':i+1}
+                      <div style={{width:28,height:28,borderRadius:'50%',background:isSeqLocked?'#1e1818':isLocked?'#1a1818':checked[i]?'#4ade80':isRich?typeColor+'20':'#2a2424',border:isSeqLocked?'2px dashed rgba(245,200,66,0.3)':isLocked?'2px dashed #555':checked[i]?'none':isRich?`2px solid ${typeColor}55`:'2px solid #444',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:isSeqLocked?'#f5c842':isLocked?'#666':checked[i]?'#fff':isRich?typeColor:'#555',flexShrink:0,transform:checked[i]&&!effectiveLocked?'scale(1.1)':'scale(1)',transition:'all 0.25s',marginTop:2}}>
+                        {isSeqLocked?'🔒':isLocked?'🔒':checked[i]?'✓':i+1}
                       </div>
                       {/* Body */}
                       <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:isRich?5:0}}>
@@ -1408,7 +1577,7 @@ export default function Home() {
                         )}
                       </div>
                       {/* Status text */}
-                      <div style={{fontSize:10,color:isLocked?'#444':checked[i]?'#4ade80':'#555',fontWeight:600,flexShrink:0,marginTop:2}}>{isLocked?'locked':checked[i]?'done':'tap'}</div>
+                      <div style={{fontSize:10,color:isSeqLocked?'#f5c84288':isLocked?'#444':checked[i]?'#4ade80':'#555',fontWeight:600,flexShrink:0,marginTop:2}}>{isSeqLocked?'finish prev':isLocked?'locked':checked[i]?'done':'tap'}</div>
                     </div>
                     )
                   })}
@@ -1426,8 +1595,11 @@ export default function Home() {
                 <div style={{fontSize:12,color:'#555',textAlign:'center',lineHeight:1.7,maxWidth:240}}>Recovery is essential. Your body rebuilds stronger on rest days.</div>
                 <div style={{width:'100%',background:'rgba(192,132,252,0.06)',border:'1px solid rgba(192,132,252,0.15)',borderRadius:14,padding:'14px',textAlign:'center'}}>
                   <div style={{fontSize:12,color:'#c084fc',fontWeight:700,marginBottom:6}}>🎲 Feeling Motivated?</div>
-                  <div style={{fontSize:11,color:'#7a7570',marginBottom:10,lineHeight:1.6}}>Generate a workout based on your {profile.experience||'Beginner'} level — won't overlap your plan!</div>
-                  <button style={{background:'linear-gradient(135deg,#7b1fa2,#c084fc)',color:'#fff',border:'none',borderRadius:50,padding:'9px 22px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={() => generateRandom(selDay)}>
+                  <div style={{fontSize:11,color:'#7a7570',marginBottom:10,lineHeight:1.6}}>Generate an adaptive workout based on your {profile.experience||'Beginner'} level and {profile.goal||'Learn Boxing'} goal!</div>
+                  <button style={{background:'linear-gradient(135deg,#7b1fa2,#c084fc)',color:'#fff',border:'none',borderRadius:50,padding:'10px 24px',fontSize:12,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(192,132,252,0.4)',transition:'all 0.2s'}}
+                    onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 8px 24px rgba(192,132,252,0.5)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 4px 14px rgba(192,132,252,0.4)'}}
+                    onClick={() => generateRandom(selDay)}>
                     Generate Workout 🎲
                   </button>
                 </div>
@@ -1596,7 +1768,9 @@ export default function Home() {
                   const isBooked = classStatuses[i]==='booked'
                   const spotsLeft = c.spots ? c.spots - (c.enrolled||0) : null
                   const lc = LEVEL_COLOR[c.level]||'#f5c842'
-                  const dayShort = (c.day||'').slice(0,3).toUpperCase()
+                  const dayLabel = getClassDayLabel(c)
+                  const dayShort = c.date ? dayLabel : (c.day||'').slice(0,3).toUpperCase()
+                  const isTodayCls = isClassToday(c)
                   return (
                     <div key={c.id}
                       style={{position:'relative',display:'flex',alignItems:'center',gap:12,background:isBooked?'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(20,15,14,0.7))':'linear-gradient(135deg,rgba(40,30,28,0.5),rgba(20,15,14,0.7))',borderRadius:14,padding:'12px 14px',border:`1px solid ${isBooked?'rgba(34,197,94,0.3)':'rgba(255,255,255,0.06)'}`,transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',cursor:'default'}}
@@ -1605,8 +1779,8 @@ export default function Home() {
                       {/* Left accent stripe for booked */}
                       {isBooked&&<div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'linear-gradient(180deg,#22c55e,transparent)',borderRadius:'14px 0 0 14px'}}/>}
                       {/* Day badge */}
-                      <div style={{width:48,height:48,borderRadius:11,background:isBooked?'linear-gradient(135deg,#22c55e,#15803d)':`linear-gradient(135deg,${lc},${lc}aa)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:isBooked?'#fff':'#000',flexShrink:0,boxShadow:isBooked?'0 4px 12px rgba(34,197,94,0.4)':`0 4px 12px ${lc}40`,border:`2px solid ${isBooked?'rgba(34,197,94,0.5)':lc+'66'}`}}>
-                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,lineHeight:1}}>{dayShort}</div>
+                      <div style={{width:48,height:48,borderRadius:11,background:isBooked?'linear-gradient(135deg,#22c55e,#15803d)':`linear-gradient(135deg,${lc},${lc}aa)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:isBooked?'#fff':'#000',flexShrink:0,boxShadow:isBooked?'0 4px 12px rgba(34,197,94,0.4)':`0 4px 12px ${lc}40`,border:isTodayCls&&!isBooked?'2px solid #4ade80':`2px solid ${isBooked?'rgba(34,197,94,0.5)':lc+'66'}`}}>
+                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:c.date?10:16,lineHeight:1,textAlign:'center',padding:'0 2px'}}>{dayShort}</div>
                         <div style={{fontSize:7,fontWeight:800,letterSpacing:'0.08em',marginTop:2,opacity:0.85}}>{c.time}</div>
                       </div>
                       {/* Info */}
@@ -1614,11 +1788,16 @@ export default function Home() {
                         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,flexWrap:'wrap'}}>
                           <span style={{fontSize:13,fontWeight:700,color:isBooked?'#22c55e':'#f0ece8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
                           {isBooked&&<span style={{fontSize:7,fontWeight:800,padding:'2px 6px',borderRadius:50,background:'rgba(34,197,94,0.2)',color:'#22c55e',letterSpacing:'0.1em',flexShrink:0}}>BOOKED</span>}
+                          {isTodayCls&&!isBooked&&<span style={{fontSize:7,fontWeight:800,padding:'2px 6px',borderRadius:50,background:'rgba(74,222,128,0.12)',color:'#4ade80',border:'1px solid rgba(74,222,128,0.25)',letterSpacing:'0.1em',flexShrink:0}}>TODAY</span>}
                         </div>
                         <div style={{display:'flex',gap:5,fontSize:10,alignItems:'center',flexWrap:'wrap',color:'#888'}}>
                           {c.coach&&<><span style={{color:'#e84a2f',fontWeight:700}}>👨‍🏫 {c.coach}</span><span style={{color:'#444'}}>·</span></>}
                           <span style={{fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:50,background:`${lc}15`,color:lc,letterSpacing:'0.06em',textTransform:'uppercase'}}>{c.level||'Beginner'}</span>
+                          {c.createdBy&&<><span style={{color:'#444'}}>·</span><span style={{fontSize:9,color:c.createdByRole==='admin'?'#c084fc':'#888',fontWeight:600}}>by {c.createdBy}</span></>}
                         </div>
+                        {c.description && (
+                          <div style={{fontSize:10,color:'#888',lineHeight:1.5,marginTop:4,fontStyle:'italic'}}>📝 {c.description}</div>
+                        )}
                         {!isBooked && spotsLeft !== null && spotsLeft <= 3 && spotsLeft > 0 && (
                           <div style={{fontSize:9,color:'#f5c842',fontWeight:700,marginTop:4,letterSpacing:'0.04em'}}>⚠️ Only {spotsLeft} spot{spotsLeft===1?'':'s'} left!</div>
                         )}
@@ -1628,27 +1807,28 @@ export default function Home() {
                       </div>
                       {/* Action button */}
                       <button onClick={() => handleBook(i)}
-                        disabled={!isBooked && spotsLeft === 0}
+                        disabled={!isBooked && (spotsLeft === 0 || membershipBlocked)}
+                        title={!isBooked && membershipBlocked ? (membershipState === STATUS.EXPIRED ? 'Renew membership to book' : 'Membership paused') : undefined}
                         style={{
-                          background:isBooked?'rgba(34,197,94,0.12)':spotsLeft===0?'rgba(255,255,255,0.04)':'linear-gradient(135deg,#e84a2f,#c93820)',
-                          color:isBooked?'#22c55e':spotsLeft===0?'#444':'#fff',
-                          border:isBooked?'1px solid rgba(34,197,94,0.3)':'none',
+                          background:isBooked?'rgba(34,197,94,0.12)':(membershipBlocked && !isBooked)?'rgba(232,74,47,0.06)':spotsLeft===0?'rgba(255,255,255,0.04)':'linear-gradient(135deg,#e84a2f,#c93820)',
+                          color:isBooked?'#22c55e':(membershipBlocked && !isBooked)?'#666':spotsLeft===0?'#444':'#fff',
+                          border:isBooked?'1px solid rgba(34,197,94,0.3)':(membershipBlocked && !isBooked)?'1px solid rgba(232,74,47,0.2)':'none',
                           borderRadius:50,padding:'8px 14px',fontSize:10,fontWeight:800,letterSpacing:'0.05em',
-                          cursor:(!isBooked&&spotsLeft===0)?'not-allowed':'pointer',
+                          cursor:(!isBooked && (spotsLeft===0 || membershipBlocked))?'not-allowed':'pointer',
                           whiteSpace:'nowrap',
-                          boxShadow:!isBooked&&spotsLeft!==0?'0 4px 14px rgba(232,74,47,0.35)':'none',
+                          boxShadow:!isBooked && !membershipBlocked && spotsLeft!==0?'0 4px 14px rgba(232,74,47,0.35)':'none',
                           transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)',
                           flexShrink:0,
                         }}
                         onMouseEnter={e=>{
                           if(isBooked){e.currentTarget.style.background='rgba(232,74,47,0.15)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.35)';e.currentTarget.style.transform='scale(1.04)'}
-                          else if(spotsLeft!==0){e.currentTarget.style.transform='translateY(-2px) scale(1.04)';e.currentTarget.style.boxShadow='0 6px 18px rgba(232,74,47,0.5)'}
+                          else if(!membershipBlocked && spotsLeft!==0){e.currentTarget.style.transform='translateY(-2px) scale(1.04)';e.currentTarget.style.boxShadow='0 6px 18px rgba(232,74,47,0.5)'}
                         }}
                         onMouseLeave={e=>{
                           if(isBooked){e.currentTarget.style.background='rgba(34,197,94,0.12)';e.currentTarget.style.color='#22c55e';e.currentTarget.style.borderColor='rgba(34,197,94,0.3)';e.currentTarget.style.transform='scale(1)'}
-                          else if(spotsLeft!==0){e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 4px 14px rgba(232,74,47,0.35)'}
+                          else if(!membershipBlocked && spotsLeft!==0){e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 4px 14px rgba(232,74,47,0.35)'}
                         }}>
-                        {isBooked?'✓ BOOKED':spotsLeft===0?'FULL':'🥊 BOOK'}
+                        {isBooked?'✓ BOOKED':(membershipBlocked && !isBooked)?'🔒 LOCKED':spotsLeft===0?'FULL':'🥊 BOOK'}
                       </button>
                     </div>
                   )
@@ -1663,7 +1843,7 @@ export default function Home() {
         {/* ════════════════════════════════════════════════ */}
         {/*  COACH FEEDBACK + GYM ANNOUNCEMENTS — side-by-side */}
         {/* ════════════════════════════════════════════════ */}
-        <div style={{display:'grid',gridTemplateColumns:announcements.length>0?'1fr 1fr':'1fr',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:16}}>
 
           {/* COACH FEEDBACK */}
           <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(232,74,47,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
@@ -1724,33 +1904,60 @@ export default function Home() {
             )}
           </div>
 
-          {/* GYM ANNOUNCEMENTS — only if announcements exist */}
-          {announcements.length > 0 && (
-            <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
-              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
-              <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(245,200,66,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <div style={{width:30,height:30,borderRadius:9,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,boxShadow:'0 4px 12px rgba(245,200,66,0.3)'}}>📢</div>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>GYM ANNOUNCEMENTS</div>
-                  <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{announcements.length}</span>
-                </div>
+          {/* GYM ANNOUNCEMENTS — always visible */}
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(245,200,66,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:30,height:30,borderRadius:9,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,boxShadow:'0 4px 12px rgba(245,200,66,0.3)'}}>📢</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>GYM ANNOUNCEMENTS</div>
+                <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{visibleAnnouncements.length}</span>
               </div>
-              <div style={{display:'flex',flexDirection:'column',maxHeight:280,overflowY:'auto'}}>
-                {announcements.map((n,i)=>(
-                  <div key={n.id} style={{padding:'12px 16px',borderBottom:i<announcements.length-1?'1px solid rgba(255,255,255,0.04)':'none',display:'flex',gap:10,alignItems:'flex-start',transition:'background 0.2s'}}
-                    onMouseEnter={e=>e.currentTarget.style.background='rgba(245,200,66,0.04)'}
-                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <div style={{width:26,height:26,borderRadius:8,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0,boxShadow:'0 3px 10px rgba(245,200,66,0.3)'}}>📢</div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:11,fontWeight:700,color:'#f0ece8',marginBottom:3,letterSpacing:'0.01em'}}>{n.title}</div>
-                      <div style={{fontSize:10,color:'#888',lineHeight:1.55,marginBottom:4}}>{n.message}</div>
-                      <div style={{fontSize:8,color:'#555',letterSpacing:'0.05em'}}>From <strong style={{color:'#777'}}>{n.from}</strong></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {visibleAnnouncements.length > 0 && (
+                <button onClick={clearAllAnnouncements} title="Clear all announcements"
+                  style={{fontSize:9,fontWeight:700,padding:'5px 12px',borderRadius:50,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',color:'#888',cursor:'pointer',transition:'all 0.2s',letterSpacing:'0.04em'}}
+                  onMouseEnter={e=>{e.currentTarget.style.color='#f5c842';e.currentTarget.style.borderColor='rgba(245,200,66,0.3)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}}>
+                  Clear All
+                </button>
+              )}
             </div>
-          )}
+            {visibleAnnouncements.length > 0 ? (
+              <div style={{display:'flex',flexDirection:'column',maxHeight:320,overflowY:'auto'}}>
+                {visibleAnnouncements.map((n,i)=>{
+                  const ts = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000) : null)
+                  const dateStr = ts ? ts.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : ''
+                  const timeStr = ts ? ts.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }) : ''
+                  return(
+                    <div key={n.id} style={{padding:'12px 16px',borderBottom:i<visibleAnnouncements.length-1?'1px solid rgba(255,255,255,0.04)':'none',display:'flex',gap:10,alignItems:'flex-start',transition:'background 0.2s',position:'relative'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(245,200,66,0.04)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <div style={{width:26,height:26,borderRadius:8,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0,boxShadow:'0 3px 10px rgba(245,200,66,0.3)'}}>📢</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11,fontWeight:700,color:'#f0ece8',marginBottom:3,letterSpacing:'0.01em'}}>{n.title}</div>
+                        <div style={{fontSize:10,color:'#888',lineHeight:1.55,marginBottom:4}}>{n.message}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:9,color:'#555',letterSpacing:'0.04em',flexWrap:'wrap'}}>
+                          <span>From <strong style={{color:'#777'}}>{n.from}</strong></span>
+                          {dateStr && <><span style={{color:'#333'}}>·</span><span>{dateStr} at {timeStr}</span></>}
+                        </div>
+                      </div>
+                      <button onClick={(e)=>{e.stopPropagation();dismissAnnouncement(n.id)}} title="Dismiss"
+                        style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.2s'}}
+                        onMouseEnter={e=>{e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.3)';e.currentTarget.style.background='rgba(232,74,47,0.1)'}}
+                        onMouseLeave={e=>{e.currentTarget.style.color='#555';e.currentTarget.style.borderColor='rgba(255,255,255,0.08)';e.currentTarget.style.background='rgba(255,255,255,0.04)'}}>
+                        ✕
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{padding:'30px 20px',textAlign:'center'}}>
+                <div style={{fontSize:28,marginBottom:8,opacity:0.4}}>📢</div>
+                <div style={{fontSize:11,color:'#555',letterSpacing:'0.04em'}}>No announcements right now</div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* TIPS — Compact strip */}

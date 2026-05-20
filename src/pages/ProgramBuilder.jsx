@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { doc, setDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { logActivity } from '../lib/activityLog'
+import { useIsMobile } from '../lib/useIsMobile'
 
 // Program Builder uses setDoc with merge=true so it can write ALL fields
 // including locked ones (stance, experience, goal, weeklyProgram)
@@ -91,6 +92,7 @@ const glass = (extra = {}) => ({
 // ── COMPONENT ─────────────────────────────────────────
 export default function ProgramBuilder() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [step, setStep]         = useState(0)
   const [generating, setGen]    = useState(false)
   const [done, setDone]         = useState(false)
@@ -104,13 +106,40 @@ export default function ProgramBuilder() {
     injuries: '',
   })
 
-  // Pre-fill name if already saved from signup
+  // ════════════════════════════════════════════════════════
+  //  AGE LOCK — Did this user sign up with a DOB?
+  //  If yes, age is computed automatically and the field is locked.
+  //  If no (legacy users), age input is shown editable as a fallback.
+  // ════════════════════════════════════════════════════════
+  const [ageFromDOB, setAgeFromDOB] = useState(null)  // null = legacy user, no DOB
+
+  // Helper: compute current age from a YYYY-MM-DD DOB string
+  function computeAgeFromDOB(dobStr) {
+    if (!dobStr) return null
+    const dob = new Date(dobStr)
+    if (isNaN(dob.getTime())) return null
+    const today = new Date()
+    let age = today.getFullYear() - dob.getFullYear()
+    const m = today.getMonth() - dob.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
+    return age
+  }
+
+  // Pre-fill name + age from signup data (DOB-derived)
   useEffect(() => {
     try {
       const saved = localStorage.getItem('hittrack_profile')
       if (saved) {
         const p = JSON.parse(saved)
-        if (p.name) setForm(f => ({ ...f, name: p.name }))
+        const patches = {}
+        if (p.name) patches.name = p.name
+        // If DOB was captured at signup, compute age automatically
+        const computed = computeAgeFromDOB(p.dob)
+        if (computed !== null && computed >= 13 && computed <= 100) {
+          patches.age = String(computed)
+          setAgeFromDOB(computed)
+        }
+        if (Object.keys(patches).length) setForm(f => ({ ...f, ...patches }))
       }
     } catch {}
   }, [])
@@ -271,7 +300,7 @@ export default function ProgramBuilder() {
   if (done) return <DoneScreen navigate={navigate} form={form} bmi={bmi} bmiLabel={bmiLabel} bmiColor={bmiColor} />
 
   return (
-    <div style={s.page}>
+    <div style={{...s.page, padding: isMobile ? '24px 12px 40px' : '40px 24px 60px', gap: isMobile ? 18 : 28}}>
 
       {/* Header */}
       <div style={s.header}>
@@ -293,9 +322,12 @@ export default function ProgramBuilder() {
             }}>
               {i < step ? '✓' : st.icon}
             </div>
-            <div style={{ ...s.stepLabel, color: i === step ? '#f5c842' : i < step ? '#4ade80' : '#555' }}>
-              {st.title}
-            </div>
+            {/* Show label only for the active step on mobile; all labels on desktop */}
+            {(!isMobile || i === step) && (
+              <div style={{ ...s.stepLabel, color: i === step ? '#f5c842' : i < step ? '#4ade80' : '#555', fontSize: isMobile ? 9 : undefined }}>
+                {st.title}
+              </div>
+            )}
             {i < STEPS.length - 1 && (
               <div style={{ ...s.stepLine, background: i < step ? '#4ade80' : '#2a2a2a' }} />
             )}
@@ -304,7 +336,7 @@ export default function ProgramBuilder() {
       </div>
 
       {/* Card */}
-      <div style={{ ...glass(), maxWidth: 580, width: '100%', padding: '36px 40px', position:'relative' }}>
+      <div style={{ ...glass(), maxWidth: 580, width: '100%', padding: isMobile?'24px 18px':'36px 40px', position:'relative' }}>
 
         {/* Cancel button — only shown when re-doing an existing program */}
         {isRedo && (
@@ -343,7 +375,7 @@ export default function ProgramBuilder() {
         </div>
 
         {/* Step content */}
-        {step === 0 && <StepBasic form={form} update={update} errors={errors} isMinor={isMinor} />}
+        {step === 0 && <StepBasic form={form} update={update} errors={errors} isMinor={isMinor} ageFromDOB={ageFromDOB} />}
         {step === 1 && <StepBody  form={form} update={update} errors={errors} bmi={bmi} bmiLabel={bmiLabel} bmiColor={bmiColor} />}
         {step === 2 && <StepStyle form={form} update={update} errors={errors} />}
         {step === 3 && <StepGoals form={form} update={update} errors={errors} />}
@@ -402,7 +434,8 @@ export default function ProgramBuilder() {
 }
 
 // ── STEP 1: Basic Info ────────────────────────────────
-function StepBasic({ form, update, errors, isMinor }) {
+function StepBasic({ form, update, errors, isMinor, ageFromDOB }) {
+  const ageLocked = ageFromDOB !== null  // we have a DOB from signup → don't let them edit
   return (
     <div style={s.stepContent}>
       <Field label="Full Name *"  error={errors.name}>
@@ -411,10 +444,27 @@ function StepBasic({ form, update, errors, isMinor }) {
       <Field label="Nickname">
         <input style={s.input} placeholder="e.g. Low (optional)" value={form.nickname} onChange={e => update('nickname', e.target.value)} />
       </Field>
-      <Field label="Age *" error={errors.age}>
-        <input style={s.input} type="number" min={13} max={100} step={1}
-          placeholder="e.g. 22" value={form.age}
-          onChange={e => update('age', e.target.value)} />
+      <Field label={ageLocked ? "Age 🔒" : "Age *"} error={errors.age}>
+        {ageLocked ? (
+          // Locked display: shows age + a small note explaining where it came from.
+          // Background is dimmed to signal "read-only" while still readable.
+          <div style={{
+            ...s.input,
+            background:'rgba(255,255,255,0.02)',
+            color:'#f5c842',
+            display:'flex',alignItems:'center',justifyContent:'space-between',
+            gap:10,cursor:'not-allowed',
+          }}>
+            <span style={{fontWeight:700}}>{form.age} years old</span>
+            <span style={{fontSize:10,color:'#666',fontStyle:'italic'}}>
+              calculated from your date of birth
+            </span>
+          </div>
+        ) : (
+          <input style={s.input} type="number" min={13} max={100} step={1}
+            placeholder="e.g. 22" value={form.age}
+            onChange={e => update('age', e.target.value)} />
+        )}
       </Field>
       {/* Minor warning — appears when valid age is 13-17 */}
       {isMinor && !errors.age && (
@@ -636,6 +686,7 @@ function GeneratingScreen({ form }) {
 
 // ── DONE SCREEN ───────────────────────────────────────
 function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
+  const isMobile = useIsMobile()
   const program = PROGRAMS[form.experience]?.[form.goal] || PROGRAMS['Beginner']['Learn Boxing']
 
   return (
@@ -652,7 +703,7 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
       {/* Summary */}
       <div style={{ ...glass({ borderRadius: 16 }), padding: '20px 28px', width: '100%', maxWidth: 480 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#f5c842', letterSpacing: '0.1em', marginBottom: 14 }}>YOUR PROFILE SUMMARY</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, textAlign: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, textAlign: 'center', marginBottom: 16 }}>
           {[
             { label: 'BMI', val: bmi, color: bmiColor, sub: bmiLabel },
             { label: 'Stance', val: form.stance === 'Orthodox' ? 'Orth.' : 'South.', color: '#f5c842', sub: form.stance },

@@ -40,26 +40,38 @@ function parseTimeString(timeStr) {
 }
 
 /**
- * Compute when a class actually starts: the next occurrence of (day, time)
- * at or after the class's createdAt timestamp.
+ * Compute when a class actually starts.
+ *
+ * Supports two formats:
+ *  - New: cls.date is a "YYYY-MM-DD" string (specific calendar date)
+ *  - Legacy: cls.day is a weekday name like "Monday" (computed from createdAt)
  *
  * Returns a Date, or null if class data is incomplete.
  */
 export function getClassStartTime(cls) {
-  if (!cls || !cls.day || !cls.time) return null
-  const dayIdx = DAYS.indexOf(cls.day)
-  if (dayIdx === -1) return null
+  if (!cls || !cls.time) return null
   const t = parseTimeString(cls.time)
   if (!t) return null
 
-  // createdAt may be a Firestore Timestamp, a number, or undefined
+  // New date-based scheduling (YYYY-MM-DD)
+  if (cls.date) {
+    const [y, m, d] = cls.date.split('-').map(Number)
+    if (y && m && d) {
+      const result = new Date(y, m - 1, d, t.h, t.m, 0, 0)
+      return result
+    }
+  }
+
+  // Legacy day-name scheduling
+  if (!cls.day) return null
+  const dayIdx = DAYS.indexOf(cls.day)
+  if (dayIdx === -1) return null
+
   let createdAt
   if (cls.createdAt?.toDate) createdAt = cls.createdAt.toDate()
   else if (cls.createdAt?.seconds) createdAt = new Date(cls.createdAt.seconds * 1000)
   else createdAt = new Date()
 
-  // Start from createdAt date, set to the target time, then advance days
-  // until we hit the target day AND result >= createdAt
   const result = new Date(createdAt)
   result.setHours(t.h, t.m, 0, 0)
   let safety = 0
@@ -69,6 +81,35 @@ export function getClassStartTime(cls) {
     safety++
   }
   return result
+}
+
+/**
+ * Get a display-friendly day label for a class.
+ * If date-based: returns "Mon, May 19" format.
+ * If legacy day-name: returns the day name.
+ */
+export function getClassDayLabel(cls) {
+  if (!cls) return ''
+  if (cls.date) {
+    const [y, m, d] = cls.date.split('-').map(Number)
+    if (y && m && d) {
+      const dt = new Date(y, m - 1, d)
+      return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    }
+  }
+  return cls.day || ''
+}
+
+/**
+ * Check if a class is scheduled for today.
+ */
+export function isClassToday(cls) {
+  if (!cls) return false
+  const today = new Date()
+  const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0')
+  if (cls.date) return cls.date === todayStr
+  // Legacy: compare day name
+  return cls.day === DAYS[today.getDay()]
 }
 
 /**

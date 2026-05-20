@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { useIsMobile } from '../lib/useIsMobile'
 
 function CornerChevs({ pos }) {
   const isTop  = pos.startsWith('top')
@@ -55,12 +56,15 @@ function firebaseErrorMessage(code) {
 export default function Signup() {
   const navigate  = useNavigate()
   const canvasRef = useRef(null)
+  const isMobile  = useIsMobile()
   const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'', phone:'', dob:'' })
   const [role, setRole]       = useState('member')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [touched, setTouched] = useState({})
+  const [showPw, setShowPw] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   // ════════════════════════════════════════════════════════
   //  AGE GATE — Min 13, Max 100. Aligns with Philippine DPA
@@ -204,13 +208,78 @@ export default function Signup() {
           ...userData,
           role: 'coach_pending',
           approved: false, programSetupDone: true,
+          // Coaches don't have memberships — they're staff, not paying members.
         })
         await auth.signOut()
         navigate('/login?pending=1')
       } else {
+        // ════════════════════════════════════════════════════
+        //  TRIAL ABUSE PROTECTION
+        //  Each email gets ONE free trial. If they signed up
+        //  before (and later self-deleted or whatever), they
+        //  must pay to activate — no second trial.
+        //
+        //  We track claimed-trial emails in /trialUsage/{email}
+        //  which is immutable once written. The doc survives
+        //  even if the user deletes their account.
+        // ════════════════════════════════════════════════════
+        const trialDocRef = doc(db, 'trialUsage', normalizedEmail)
+        let trialAlreadyClaimed = false
+        try {
+          const trialDoc = await getDoc(trialDocRef)
+          trialAlreadyClaimed = trialDoc.exists()
+        } catch (e) {
+          // If we can't read, fail closed — no trial (safer)
+          console.warn('Trial-usage check failed:', e.message)
+          trialAlreadyClaimed = true
+        }
+
+        const TRIAL_DAYS = 7
+        const trialEnd = new Date(Date.now() + TRIAL_DAYS * 86400000)
+
+        if (!trialAlreadyClaimed) {
+          // Mark this email as having claimed its trial — write BEFORE creating
+          // the user so a failed user create doesn't release the trial slot.
+          try {
+            await setDoc(trialDocRef, {
+              email:     normalizedEmail,
+              claimedAt: serverTimestamp(),
+              claimedByName: form.name.trim(),  // for audit
+            })
+          } catch (e) {
+            console.warn('Could not stamp trial usage:', e.message)
+          }
+        }
+
         await setDoc(doc(db, 'users', cred.user.uid), {
           ...userData,
           role: 'member', status: 'active', programSetupDone: false,
+          membership: trialAlreadyClaimed ? {
+            // No trial — must pay before any access. Banner will show
+            // "No active membership" + bookings/leaderboard/stats are locked.
+            trialStartedAt:    null,
+            trialEndsAt:       null,
+            trialUsed:         true,
+            startedAt:         null,
+            expiresAt:         null,
+            pausedAt:          null,
+            totalPauseDays:    0,
+            lastRenewedAt:     null,
+            lastRenewedBy:     null,
+            lastRenewedByName: null,
+            previouslyClaimedTrial: true,  // flag for admin awareness
+          } : {
+            trialStartedAt:    serverTimestamp(),
+            trialEndsAt:       trialEnd,
+            trialUsed:         true,
+            startedAt:         null,
+            expiresAt:         trialEnd,
+            pausedAt:          null,
+            totalPauseDays:    0,
+            lastRenewedAt:     null,
+            lastRenewedBy:     null,
+            lastRenewedByName: null,
+          },
         })
         await auth.signOut()
         navigate('/login?registered=1')
@@ -238,36 +307,47 @@ export default function Signup() {
       <CornerChevs pos="top-left"/><CornerChevs pos="top-right"/>
       <CornerChevs pos="bottom-left"/><CornerChevs pos="bottom-right"/>
 
-      {/* LEFT — Branding */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',position:'relative',zIndex:2,padding:'60px 40px'}}>
-        <div style={{position:'absolute',width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle,rgba(232,74,47,0.1),transparent 68%)',pointerEvents:'none'}}/>
-        <div style={{position:'relative',zIndex:1,textAlign:'center'}}>
-          <div style={{fontSize:72,marginBottom:16,animation:'gloveFloat 3s ease-in-out infinite'}}>🥊</div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:72,letterSpacing:'0.04em',lineHeight:1,color:'#f0ece8',textShadow:'0 0 80px rgba(232,74,47,0.25)'}}>
-            HIT<span style={{color:'#e84a2f',textShadow:'0 0 50px rgba(232,74,47,0.7)'}}>TRACK</span>
-          </div>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.25em',color:'#e84a2f',marginTop:10,fontStyle:'italic'}}>Join the Fight</div>
-          <div style={{display:'flex',alignItems:'center',gap:14,margin:'24px auto',maxWidth:280}}>
-            <div style={{flex:1,height:1,background:'linear-gradient(90deg,transparent,rgba(232,74,47,0.6))'}}/>
-            <div style={{width:8,height:8,borderRadius:'50%',background:'#e84a2f',boxShadow:'0 0 12px rgba(232,74,47,0.8)'}}/>
-            <div style={{flex:1,height:1,background:'linear-gradient(90deg,rgba(232,74,47,0.6),transparent)'}}/>
-          </div>
-          <div style={{fontSize:11,color:'#555',letterSpacing:'0.14em',textTransform:'uppercase',marginBottom:28}}>Wild Bout Boxing Gym · Create Account</div>
-          <div style={{display:'flex',flexDirection:'column',gap:10,textAlign:'left',maxWidth:280,margin:'0 auto'}}>
-            {['🏆 Personalized workout program','📊 Track your progress & stats','🥊 Real-time leaderboard','💬 Connect with your coach'].map((item,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:10,fontSize:12,color:'#7a7570'}}>
-                <div style={{width:6,height:6,borderRadius:'50%',background:'#e84a2f',flexShrink:0}}/>
-                {item}
-              </div>
-            ))}
+      {/* LEFT — Branding (hidden on mobile) */}
+      {!isMobile && (
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',position:'relative',zIndex:2,padding:'60px 40px'}}>
+          <div style={{position:'absolute',width:500,height:500,borderRadius:'50%',background:'radial-gradient(circle,rgba(232,74,47,0.1),transparent 68%)',pointerEvents:'none'}}/>
+          <div style={{position:'relative',zIndex:1,textAlign:'center'}}>
+            <div style={{fontSize:72,marginBottom:16,animation:'gloveFloat 3s ease-in-out infinite'}}>🥊</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:72,letterSpacing:'0.04em',lineHeight:1,color:'#f0ece8',textShadow:'0 0 80px rgba(232,74,47,0.25)'}}>
+              HIT<span style={{color:'#e84a2f',textShadow:'0 0 50px rgba(232,74,47,0.7)'}}>TRACK</span>
+            </div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.25em',color:'#e84a2f',marginTop:10,fontStyle:'italic'}}>Join the Fight</div>
+            <div style={{display:'flex',alignItems:'center',gap:14,margin:'24px auto',maxWidth:280}}>
+              <div style={{flex:1,height:1,background:'linear-gradient(90deg,transparent,rgba(232,74,47,0.6))'}}/>
+              <div style={{width:8,height:8,borderRadius:'50%',background:'#e84a2f',boxShadow:'0 0 12px rgba(232,74,47,0.8)'}}/>
+              <div style={{flex:1,height:1,background:'linear-gradient(90deg,rgba(232,74,47,0.6),transparent)'}}/>
+            </div>
+            <div style={{fontSize:11,color:'#555',letterSpacing:'0.14em',textTransform:'uppercase',marginBottom:28}}>Wild Bout Boxing Gym · Create Account</div>
+            <div style={{display:'flex',flexDirection:'column',gap:10,textAlign:'left',maxWidth:280,margin:'0 auto'}}>
+              {['🏆 Personalized workout program','📊 Track your progress & stats','🥊 Real-time leaderboard','💬 Connect with your coach'].map((item,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:10,fontSize:12,color:'#7a7570'}}>
+                  <div style={{width:6,height:6,borderRadius:'50%',background:'#e84a2f',flexShrink:0}}/>
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* RIGHT — Form */}
-      <div style={{flex:'0 0 520px',display:'flex',alignItems:'center',justifyContent:'center',padding:'40px 56px',position:'relative',zIndex:2}}>
-        <div style={{width:'100%'}}>
-          <div style={{background:'rgba(20,17,17,0.92)',borderRadius:20,border:'1px solid rgba(255,255,255,0.08)',boxShadow:'0 32px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05)',padding:'40px 36px',backdropFilter:'blur(16px)'}}>
+      {/* RIGHT — Form (full width on mobile) */}
+      <div style={{flex:isMobile?'1':'0 0 520px',display:'flex',alignItems:'center',justifyContent:'center',padding:isMobile?'24px 14px':'40px 56px',position:'relative',zIndex:2}}>
+        <div style={{width:'100%',maxWidth:isMobile?440:'none'}}>
+          {/* Mobile-only mini logo header */}
+          {isMobile && (
+            <div style={{textAlign:'center',marginBottom:18}}>
+              <div style={{fontSize:36,marginBottom:4}}>🥊</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1}}>
+                HIT<span style={{color:'#e84a2f'}}>TRACK</span>
+              </div>
+            </div>
+          )}
+          <div style={{background:'rgba(20,17,17,0.92)',borderRadius:20,border:'1px solid rgba(255,255,255,0.08)',boxShadow:'0 32px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05)',padding:isMobile?'28px 22px':'40px 36px',backdropFilter:'blur(16px)'}}>
 
             <div style={{marginBottom:24}}>
               <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:6}}>Create Account</div>
@@ -308,11 +388,20 @@ export default function Signup() {
                     <div style={{display:'flex',alignItems:'center',background:'rgba(255,255,255,0.04)',border:`1.5px solid ${borderColor}`,borderRadius:10,padding:'11px 14px',transition:'border-color 0.2s',gap:8}}
                       onFocus={e => { if (!hasErr) e.currentTarget.style.borderColor='#e84a2f' }}
                       onBlur={e => { e.currentTarget.style.borderColor = (touched[f.field] && fieldErrors[f.field]) ? '#e84a2f' : 'rgba(255,255,255,0.08)' }}>
-                      <input type={f.type} placeholder={f.ph} value={form[f.field]}
+                      <input type={f.field==='password'?(showPw?'text':'password'):f.field==='confirm'?(showConfirm?'text':'password'):f.type} placeholder={f.ph} value={form[f.field]}
                         {...(f.field === 'dob' ? { min: minDOBStr, max: maxDOBStr } : {})}
                         onChange={e => update(f.field, e.target.value)}
                         onBlur={() => handleBlur(f.field)}
                         style={{flex:1,background:'none',border:'none',outline:'none',color:'#f0ece8',fontSize:13,fontFamily:"'Montserrat',sans-serif",colorScheme:'dark'}}/>
+                      {(f.field==='password'||f.field==='confirm') && (
+                        <button type="button" tabIndex={-1}
+                          onClick={()=>f.field==='password'?setShowPw(v=>!v):setShowConfirm(v=>!v)}
+                          style={{background:'none',border:'none',cursor:'pointer',fontSize:15,opacity:0.4,flexShrink:0,padding:0,lineHeight:1,transition:'opacity 0.2s'}}
+                          onMouseEnter={e=>e.currentTarget.style.opacity='0.8'}
+                          onMouseLeave={e=>e.currentTarget.style.opacity='0.4'}>
+                          {(f.field==='password'?showPw:showConfirm)?'🙈':'👁'}
+                        </button>
+                      )}
                     </div>
                     {hasErr && (
                       <div style={{fontSize:11,color:'#e84a2f',marginTop:5,paddingLeft:2,display:'flex',alignItems:'center',gap:4}}>

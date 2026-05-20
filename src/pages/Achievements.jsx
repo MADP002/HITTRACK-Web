@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Navbar from '../components/Navbar'
+import { auth, db } from '../firebase'
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore'
 
 // ════════════════════════════════════════════════════════
 //  HALL OF CHAMPIONS — Achievements
@@ -69,11 +71,18 @@ const CATEGORIES = [
   { id:'Rankings',    icon:'📊', color:'#c084fc' },
 ]
 
-function calcRank(totalWorkouts, streak, weeklyPct, level) {
-  const LEVEL_BONUS = { Beginner:0, Intermediate:150, Advanced:350, Expert:600, Elite:1000 }
-  const myScore = (totalWorkouts*10)+(streak*5)+(LEVEL_BONUS[level]||0)+Math.round(weeklyPct*1.5)
-  const gymScores = [2228,1562,1483,1008,913,822,627,544,436,375,180,135]
-  return gymScores.filter(s=>s>myScore).length+1
+const DIVISIONS = ['Beginner', 'Intermediate', 'Advanced']
+const LEVEL_BONUS_MAP = { Beginner:0, Intermediate:150, Advanced:350, Expert:600, Elite:1000 }
+
+function normalizeDivision(level) {
+  const normalized = String(level || 'Beginner').trim()
+  return DIVISIONS.includes(normalized) ? normalized : 'Beginner'
+}
+function calcMyScore(totalWorkouts, streak, weeklyPct, level) {
+  return (totalWorkouts*10)+(streak*5)+(LEVEL_BONUS_MAP[level]||0)+Math.round(weeklyPct*1.5)
+}
+function calcMemberScore(u) {
+  return ((u.totalWorkouts||0)*10)+((u.streak||0)*5)+(LEVEL_BONUS_MAP[u.experience||u.currentLevel||u.level]||0)+Math.round((u.weeklyPct||0)*1.5)
 }
 
 function getProgress(badge, stats) {
@@ -229,8 +238,11 @@ export default function Achievements() {
   const [category, setCategory] = useState('All')
   const [showOnly, setShowOnly] = useState('all')
   const [showcase, setShowcase] = useState(null)
+  const [firestoreStats, setFirestoreStats] = useState(null)
+  const [gymScores, setGymScores] = useState([])
 
-  const profile = useMemo(() => {
+  // localStorage as instant fallback
+  const localProfile = useMemo(() => {
     try {
       const p = JSON.parse(localStorage.getItem('hittrack_profile') || '{}')
       const s = JSON.parse(localStorage.getItem('hittrack_stats')   || '{}')
@@ -238,11 +250,69 @@ export default function Achievements() {
     } catch { return {} }
   }, [])
 
+  // Load user stats + gym members from Firestore
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
+    (async () => {
+      try {
+        // Load user's own stats from Firestore
+        const [userSnap, statsSnap] = await Promise.all([
+          getDoc(doc(db, 'users', user.uid)),
+          getDoc(doc(db, 'stats', user.uid)),
+        ])
+        const userData = userSnap.exists() ? userSnap.data() : {}
+        const statsData = statsSnap.exists() ? statsSnap.data() : {}
+        setFirestoreStats({ ...userData, ...statsData })
+
+        // Load all gym members for rank calculation
+        const usersSnap = await getDocs(collection(db, 'users'))
+        const scores = []
+        for (const ud of usersSnap.docs) {
+          const d = ud.data()
+          if (d.role && d.role !== 'member') continue
+          if (d.status === 'inactive') continue
+          if (!d.name) continue
+          let memberStats = {}
+          try {
+            const ss = await getDoc(doc(db, 'stats', ud.id))
+            if (ss.exists()) memberStats = ss.data()
+          } catch(e) { /* ok */ }
+          const merged = { ...d, ...memberStats }
+          const division = normalizeDivision(
+            d.experience || memberStats.experience || d.currentLevel || memberStats.currentLevel || d.level
+          )
+          scores.push({ uid: ud.id, score: Math.round(calcMemberScore(merged)), division })
+        }
+        setGymScores(scores)
+      } catch (e) {
+        console.warn('Achievements data load:', e.message)
+      }
+    })()
+  }, [])
+
+  // Merge: Firestore takes priority over localStorage
+  const profile = firestoreStats ? { ...localProfile, ...firestoreStats } : localProfile
+
   const totalWorkouts = profile.totalWorkouts || 0
   const streak        = profile.streak        || 0
   const weeklyPct     = profile.weeklyPct     || 0
   const currentLevel  = profile.currentLevel  || profile.experience || 'Beginner'
-  const rank          = calcRank(totalWorkouts, streak, weeklyPct, currentLevel)
+  const myDivision    = normalizeDivision(currentLevel)
+
+  // Rank within your division — same logic as the Leaderboard page
+  const rank = (() => {
+    const myUid = auth.currentUser?.uid
+    const divisionMembers = gymScores
+      .filter(u => u.division === myDivision)
+      .sort((a, b) => b.score - a.score)
+    if (divisionMembers.length === 0) return 1
+    const idx = divisionMembers.findIndex(u => u.uid === myUid)
+    if (idx >= 0) return idx + 1
+    const myScore = calcMyScore(totalWorkouts, streak, weeklyPct, currentLevel)
+    return divisionMembers.filter(u => u.score > myScore).length + 1
+  })()
+
   const stats = { totalWorkouts, streak, weeklyPct, rank }
 
   const badgeStatus = useMemo(() => BADGES.map(b => ({ ...b, unlocked: b.condition(stats) })), [totalWorkouts, streak, weeklyPct, rank])

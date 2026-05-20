@@ -14,6 +14,7 @@ import Stats          from './pages/Stats'
 import Achievements   from './pages/Achievements'
 import AboutUs        from './pages/AboutUs'
 import Inbox          from './pages/Inbox'
+import Forum          from './pages/Forum'
 import CoachDashboard from './pages/CoachDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 
@@ -160,6 +161,7 @@ export default function App() {
         <Route path="/achievements"    element={<RequireMember s={authState}><Achievements/></RequireMember>}/>
         <Route path="/about"           element={<RequireMember s={authState}><AboutUs/></RequireMember>}/>
         <Route path="/inbox"           element={<RequireMember s={authState}><Inbox/></RequireMember>}/>
+        <Route path="/forum"          element={<RequireMember s={authState}><Forum/></RequireMember>}/>
         <Route path="/coach"           element={<RequireCoach s={authState}><CoachDashboard/></RequireCoach>}/>
         <Route path="/admin"           element={<RequireAdmin s={authState}><AdminDashboard/></RequireAdmin>}/>
         <Route path="*"                element={<Navigate to="/" replace/>}/>
