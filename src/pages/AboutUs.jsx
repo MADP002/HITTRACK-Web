@@ -11,6 +11,25 @@ const glass = (extra={}) => ({
   overflow:'hidden', ...extra,
 })
 
+// Our coaches — hardcoded to match the mobile About page (the real Wild Bout
+// coaching staff). Mirrors HITTRACK-App-main/app/(member)/about.jsx COACHES.
+// Kept static (not pulled from Firestore coach accounts) so the page always shows
+// the two real coaches with their certifications, never test/example accounts.
+const COACHES = [
+  {
+    name: 'Coach Rafael Labordo', role: 'Head Coach · 16 Years Experience',
+    initial: 'RL', specialty: 'Boxing · Muay Thai', color: '#e84a2f',
+    achievement: '2x Awardee of Makati Government Professional Instructor',
+    cert: '/coaches/rafael-cert.png',
+  },
+  {
+    name: 'Coach Michael Labordo', role: 'Assistant Coach · 8 Years Experience',
+    initial: 'ML', specialty: 'Boxing · Conditioning', color: '#f5c842',
+    achievement: '3x URCC Winner',
+    cert: '/coaches/michael-cert.png',
+  },
+]
+
 // ── DEFAULT CONTENT — Wild Bout Boxing Gym, Makati ─────────────────
 // The page is data-driven from gymConfig/main. These defaults fill in
 // when a field is missing so the page always shows real content. The
@@ -234,7 +253,7 @@ export default function AboutUs() {
   const liveStats = [
     { val: yearsRunning, suffix: '+', label:'Years Running', icon:'📅', loading: configLoading },
     { val: statCounts.members, suffix: '', label:'Active Members', icon:'👊', loading: statsLoading },
-    { val: statCounts.coaches, suffix: '', label:'Expert Coaches', icon:'🥊', loading: statsLoading },
+    { val: COACHES.length, suffix: '', label:'Expert Coaches', icon:'🥊', loading: false },
     { val: statCounts.classes, suffix: '', label:'Scheduled Classes', icon:'📋', loading: statsLoading },
   ]
 
@@ -378,63 +397,32 @@ export default function AboutUs() {
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'#f0ece8'}}>Our Coaches</div>
           </div>
 
-          {statsLoading ? (
-            <div style={{...glass({borderRadius:20}),padding:'40px',textAlign:'center',fontSize:12,color:'#666'}}>Loading coaches...</div>
-          ) : coachProfiles.length === 0 ? (
-            <EmptyBlock icon="🥊" title="NO COACHES YET" hint="Coaches appear here automatically when coach accounts are added in the system." />
-          ) : (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:20}}>
-              {coachProfiles.map((coach,i)=>{
-                const color = i % 2 === 0 ? '#e84a2f' : '#f5c842'
-                const initial = (coach.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
-                const specialty = coach.specialty?.trim() || coach.goal?.trim() || coach.bio?.trim() || null
-                return (
-                  <div key={coach.uid} style={{...glass({borderRadius:24}),padding:'36px 32px',position:'relative',overflow:'hidden',border:`1px solid ${color}22`}}>
-                    <div style={{position:'absolute',top:-30,right:-30,width:120,height:120,background:`radial-gradient(circle,${color}22,transparent 70%)`,pointerEvents:'none'}}/>
-                    <div style={{display:'flex',gap:20,alignItems:'flex-start',position:'relative',zIndex:1}}>
-                      <div style={{width:80,height:80,borderRadius:'50%',background:`linear-gradient(135deg,${color}44,${color}11)`,border:`3px solid ${color}`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color,flexShrink:0,boxShadow:`0 0 24px ${color}44`}}>
-                        {initial}
-                      </div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:18,fontWeight:700,color:'#f0ece8'}}>{coach.name || 'Coach'}</div>
-                        <div style={{fontSize:11,color,fontWeight:600,marginTop:3,marginBottom:14}}>
-                          Coach{coach.experience ? ` · ${coach.experience}` : ''}
-                        </div>
-                        {(coach.students != null || coach.wins != null) && (
-                          <div style={{display:'flex',gap:10,marginBottom:16}}>
-                            {coach.students != null && (
-                              <div style={{background:`${color}12`,border:`1px solid ${color}22`,borderRadius:10,padding:'8px 14px',textAlign:'center'}}>
-                                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color}}>{coach.students}</div>
-                                <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase'}}>Students</div>
-                              </div>
-                            )}
-                            {coach.wins != null && (
-                              <div style={{background:`${color}12`,border:`1px solid ${color}22`,borderRadius:10,padding:'8px 14px',textAlign:'center'}}>
-                                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color}}>{coach.wins}</div>
-                                <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase'}}>Victories</div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {specialty && (
-                          <>
-                            <div style={{fontSize:11,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6}}>Specialty</div>
-                            <div style={{fontSize:12,color:'#b0ada8'}}>{specialty}</div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {coach.quote?.trim() && (
-                      <div style={{marginTop:20,padding:'16px 18px',background:'rgba(255,255,255,0.03)',borderRadius:14,border:`1px solid ${color}18`,position:'relative',zIndex:1}}>
-                        <div style={{position:'absolute',top:-6,left:16,fontSize:24,color,opacity:0.4,fontFamily:'Georgia,serif'}}>"</div>
-                        <div style={{fontSize:12,color:'#b0ada8',fontStyle:'italic',lineHeight:1.7,paddingTop:8}}>{coach.quote}</div>
-                      </div>
-                    )}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:20}}>
+            {COACHES.map((coach)=>(
+              <div key={coach.name} style={{...glass({borderRadius:24}),padding:'36px 32px',position:'relative',overflow:'hidden',border:`1px solid ${coach.color}22`}}>
+                <div style={{position:'absolute',top:-30,right:-30,width:120,height:120,background:`radial-gradient(circle,${coach.color}22,transparent 70%)`,pointerEvents:'none'}}/>
+                <div style={{display:'flex',gap:20,alignItems:'flex-start',position:'relative',zIndex:1}}>
+                  <div style={{width:80,height:80,borderRadius:'50%',background:`linear-gradient(135deg,${coach.color}44,${coach.color}11)`,border:`3px solid ${coach.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:coach.color,flexShrink:0,boxShadow:`0 0 24px ${coach.color}44`}}>
+                    {coach.initial}
                   </div>
-                )
-              })}
-            </div>
-          )}
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:18,fontWeight:700,color:'#f0ece8'}}>{coach.name}</div>
+                    <div style={{fontSize:11,color:coach.color,fontWeight:600,marginTop:3,marginBottom:14}}>{coach.role}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6}}>Specialty</div>
+                    <div style={{fontSize:12,color:'#b0ada8'}}>{coach.specialty}</div>
+                  </div>
+                </div>
+                <div style={{marginTop:18,position:'relative',zIndex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:`${coach.color}11`,border:`1px solid ${coach.color}33`,borderRadius:12,marginBottom:14}}>
+                    <span style={{fontSize:15}}>🏆</span>
+                    <span style={{fontSize:12,fontWeight:700,color:coach.color,lineHeight:1.4}}>{coach.achievement}</span>
+                  </div>
+                  <div style={{fontSize:9,fontWeight:700,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:8}}>Certification</div>
+                  <img src={coach.cert} alt={`${coach.name} certification`} style={{width:'100%',borderRadius:12,border:'1px solid rgba(255,255,255,0.08)',background:'#0e0a0a',display:'block'}}/>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* VALUES */}
