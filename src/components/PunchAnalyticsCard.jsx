@@ -41,11 +41,13 @@ function Bar({ value, max=100, color, delay=0 }) {
   )
 }
 
+// Only metrics actually derivable from rep data. Power Output removed (2D
+// keypoints can't measure force — it was always null). "Combo Flow" was really
+// timing consistency → "Rhythm"; "Form Accuracy" is a rough extension proxy → "Form Quality".
 const METRIC_DEFS = [
-  { key:'punchSpeed',  icon:'⚡', label:'Punch Speed',   color:'#f5c842', poseUnit:'ppm', recUnit:'rpm', max:120 },
-  { key:'powerOutput', icon:'💥', label:'Power Output',  color:'#e84a2f', poseUnit:'%',   recUnit:'%',   max:100 },
-  { key:'accuracy',    icon:'🎯', label:'Form Accuracy', color:'#4ade80', poseUnit:'%',   recUnit:'%',   max:100 },
-  { key:'comboFlow',   icon:'🔄', label:'Combo Flow',    color:'#42a5f5', poseUnit:'%',   recUnit:'%',   max:100 },
+  { key:'punchSpeed', icon:'⚡', label:'Punch Speed',  color:'#f5c842', poseUnit:'ppm', recUnit:'rpm', max:120 },
+  { key:'accuracy',   icon:'🎯', label:'Form Quality', color:'#4ade80', poseUnit:'%',   recUnit:'%',   max:100 },
+  { key:'comboFlow',  icon:'🔄', label:'Rhythm',       color:'#42a5f5', poseUnit:'%',   recUnit:'%',   max:100 },
 ]
 
 export default function PunchAnalyticsCard({ uid, compact=false }) {
@@ -146,7 +148,7 @@ export default function PunchAnalyticsCard({ uid, compact=false }) {
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
                       <span style={{fontSize:11,fontWeight:700,color: isMissing ? '#555' : '#aaa'}}>{p.label}</span>
                       {isMissing ? (
-                        <span title="Coming soon — captured by full pose pipeline"
+                        <span title="Not enough reps logged yet"
                           style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#444',cursor:'help'}}>—</span>
                       ) : (
                         <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:p.color}}>
@@ -160,9 +162,6 @@ export default function PunchAnalyticsCard({ uid, compact=false }) {
                         ? <div style={{height:'100%',width:'100%',background:'rgba(255,255,255,0.04)',borderRadius:50}}/>
                         : <Bar value={pct} max={100} color={p.color} delay={i*80}/>}
                     </div>
-                    {isMissing && (
-                      <div style={{fontSize:9,color:'#555',marginTop:5,fontStyle:'italic'}}>Coming soon — captured by full pose pipeline</div>
-                    )}
                   </div>
                 </div>
               )
