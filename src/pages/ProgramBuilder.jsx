@@ -11,6 +11,7 @@ import {
   MOVEMENT_LIBRARY,
   getTypeInfo,
 } from '../lib/trainingPrograms'
+import { buildSchedule, exerciseName } from '../lib/scheduleBuilder'
 
 // Program Builder uses setDoc with merge=true so it can write ALL fields
 // including locked ones (stance, experience, goal, weeklyProgram)
@@ -773,6 +774,15 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
     return { id: movId, name: displayName, icon: mov.icon, type: mov.type }
   }).filter(Boolean)
 
+  // Sample of the "Today's Workout" the schedule builder generates from this plan
+  // — so the member sees BOTH halves of their program (camera movements above,
+  // and the daily warmup/drill workout here), not just the punches.
+  const weeklyProgram = PROGRAMS[form.experience]?.[form.goal] || PROGRAMS['Beginner']['Learn Boxing']
+  const sampleWorkout = buildSchedule(
+    { experience: form.experience, goal: form.goal, daysPerWeek: form.daysPerWeek, weeklyProgram },
+    new Date()
+  ).find(d => d.workout)?.workout
+
   return (
     <div style={s.genPage}>
       <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(74,222,128,0.15)', border: '2px solid #4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#4ade80' }}>✓</div>
@@ -823,6 +833,23 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
             </div>
           )
         })}
+
+        {sampleWorkout && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', letterSpacing: '0.08em', marginTop: 18, marginBottom: 6 }}>
+              TODAY'S WORKOUT PREVIEW
+            </div>
+            <div style={{ fontSize: 10, color: '#7a7570', marginBottom: 12, lineHeight: 1.5, fontStyle: 'italic' }}>
+              A sample of what “Today's Workout” generates from your plan — the daily warmup/drill session, separate from the camera Training Lab movements above.
+            </div>
+            {(sampleWorkout.exercises || []).map((ex, i) => (
+              <div key={`tw${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: i < sampleWorkout.exercises.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(74,222,128,0.13)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🏋</div>
+                <div style={{ fontSize: 13, color: '#f0ece8', fontWeight: 500, flex: 1, minWidth: 0 }}>{exerciseName(ex)}</div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Lock notice */}
