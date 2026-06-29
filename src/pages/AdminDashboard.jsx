@@ -183,6 +183,9 @@ export default function AdminDashboard() {
   const [viewMember,setViewMember]       = useState(null)  // member object for read-only View Member drawer
   const [deleteTyped,setDeleteTyped]     = useState('')    // user-typed confirmation
   const [deleting,setDeleting]           = useState(false) // loading state during cascade delete
+  const [coachDeleteTarget,setCoachDeleteTarget] = useState(null) // coach object for delete confirmation
+  const [coachDeleteTyped,setCoachDeleteTyped]   = useState('')   // user-typed coach confirmation
+  const [coachDeleting,setCoachDeleting]         = useState(false)// loading state during coach cascade
 
   // Membership management state
   const [payTarget,setPayTarget]         = useState(null)  // member object for Record Payment modal
@@ -867,6 +870,105 @@ export default function AdminDashboard() {
     }catch(e){showToast('❌ Error','error')}
   }
 
+  // ════════════════════════════════════════════════════════
+  //  PERMANENT COACH DELETE — cascade, mirrors permanentlyDeleteMember
+  //  but for coach-owned data. Writes an audit entry to deletions/{uid}
+  //  FIRST, cancels the classes this coach runs (notifying booked
+  //  members like the class-delete cascade), removes the feedback they
+  //  authored + training recordings + messages + notifications, then the
+  //  user doc LAST. Classes are matched by coach NAME (that's how class
+  //  docs store the coach). Note: the Firebase Auth login can't be removed
+  //  from the client SDK — same limitation as the member delete.
+  // ════════════════════════════════════════════════════════
+  async function permanentlyDeleteCoach(coach){
+    if (!coach?.uid) return
+    setCoachDeleting(true)
+    const uid = coach.uid
+    const me  = auth.currentUser
+    let removed = { classes:0, bookings:0, feedback:0, recordings:0, messages:0, notifications:0 }
+    try {
+      // 1. Audit FIRST
+      await setDoc(doc(db,'deletions',uid), {
+        memberId: uid, memberName: coach.name || 'Unknown', memberEmail: coach.email || '',
+        memberRole: 'coach', deletedBy: me?.uid || '', deletedByName: adminProfile.name || 'Admin',
+        deletedAt: serverTimestamp(), reason: 'Admin permanent coach deletion',
+      })
+
+      // 2. Cancel classes this coach runs (matched by name) — cascade like class delete
+      try {
+        const clsSnap = await getDocs(query(collection(db,'classes'), where('coach','==', coach.name || '')))
+        for (const cd of clsSnap.docs) {
+          const cls = { id: cd.id, ...cd.data() }
+          try {
+            const bSnap = await getDocs(query(collection(db,'bookings'), where('classId','==',cls.id)))
+            for (const b of bSnap.docs) {
+              const bk = b.data()
+              if (bk.userId) {
+                await addDoc(collection(db,'notifications'), {
+                  type:'class_cancelled', title:'⚠ Class Cancelled',
+                  message:`The class "${cls.name||'your booking'}" on ${cls.day||''} at ${cls.time||''} was cancelled because the coach was removed. Your booking has been refunded.`,
+                  audience:'member', targetUserId: bk.userId,
+                  from: adminProfile.name||'Admin', fromUid: me?.uid||'', createdAt: serverTimestamp(),
+                })
+              }
+              await deleteDoc(b.ref); removed.bookings++
+            }
+          } catch(e){ console.warn('coach booking cascade:', e.message) }
+          await deleteDoc(cd.ref); removed.classes++
+        }
+      } catch(e){ console.warn('coach class cascade:', e.message) }
+
+      // 3. Feedback this coach authored
+      try {
+        const fbSnap = await getDocs(query(collection(db,'feedback'), where('coachId','==',uid)))
+        for (const d of fbSnap.docs){ await deleteDoc(d.ref); removed.feedback++ }
+      } catch(e){ console.warn('coach feedback:', e.message) }
+
+      // 4. Training recordings (mobile)
+      try {
+        const trSnap = await getDocs(query(collection(db,'trainingRecordings'), where('coachUid','==',uid)))
+        for (const d of trSnap.docs){ await deleteDoc(d.ref); removed.recordings++ }
+      } catch(e){ console.warn('coach recordings:', e.message) }
+
+      // 5. Messages where this coach is a participant
+      try {
+        const mSnap = await getDocs(query(collection(db,'messages'), where('participants','array-contains',uid)))
+        for (const d of mSnap.docs){ await deleteDoc(d.ref); removed.messages++ }
+      } catch(e){ console.warn('coach messages:', e.message) }
+
+      // 6. Notifications targeted at this coach
+      try {
+        const nSnap = await getDocs(query(collection(db,'notifications'), where('targetUserId','==',uid)))
+        for (const d of nSnap.docs){ await deleteDoc(d.ref); removed.notifications++ }
+      } catch(e){ console.warn('coach notifications:', e.message) }
+
+      // 7. Best-effort stats/workouts (coaches can use the member portal too)
+      try { await deleteDoc(doc(db,'stats',uid)) } catch(_){}
+      try { await deleteDoc(doc(db,'workouts',uid)) } catch(_){}
+
+      // 8. User doc LAST
+      await deleteDoc(doc(db,'users',uid))
+
+      // Local state + close modal
+      setCoaches(prev => prev.filter(c => c.uid !== uid))
+      setClasses(prev => prev.filter(c => (c.coach||'') !== (coach.name||'')))
+      setCoachDeleteTarget(null); setCoachDeleteTyped('')
+      const total = Object.values(removed).reduce((a,b)=>a+b,0)
+      try {
+        logActivity({
+          type:'coach_deleted', actorId: me?.uid||'', actorName: adminProfile.name||'Admin', actorRole:'admin',
+          payload: { coachId: uid, coachName: coach.name||'Coach', classesCancelled: removed.classes, recordsRemoved: total },
+        })
+      } catch(_){}
+      showToast(`🗑 Coach ${coach.name} deleted (${removed.classes} class${removed.classes===1?'':'es'} cancelled, ${total} records purged)`)
+    } catch(e){
+      console.error('Coach delete failed:', e)
+      showToast('❌ Delete failed: '+(e.message||'unknown error'),'error')
+    } finally {
+      setCoachDeleting(false)
+    }
+  }
+
   async function createClass(){
     if(!newClass.name.trim()){showToast('❌ Please enter a class name','error');return}
     try{
@@ -1063,7 +1165,10 @@ export default function AdminDashboard() {
   const inp={background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:10,padding:'11px 14px',color:'#f0ece8',fontSize:13,fontFamily:'Montserrat,sans-serif',outline:'none',width:'100%',boxSizing:'border-box',transition:'border-color 0.2s'}
   const selStyle={...inp,cursor:'pointer',appearance:'none',WebkitAppearance:'none',backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23555'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 12px center',paddingRight:32}
 
-  const tabs=[{id:'overview',icon:'📊',label:'Overview'},{id:'members',icon:'👥',label:'Members'},{id:'memberships',icon:'💳',label:'Memberships'},{id:'inbox',icon:'💬',label:'Inbox'},{id:'coaches',icon:'🥊',label:`Coaches${pending.length>0?' ('+pending.length+')':''}`},{id:'classes',icon:'📋',label:'Classes'},{id:'leaderboard',icon:'🏆',label:'Leaderboard'},{id:'notifications',icon:'📢',label:'Notifications'},{id:'forum',icon:'💬',label:'Forum'}]
+  // Tab order, grouped by purpose: landing → people/management → operations →
+  // communication → community. Tail (classes→inbox→notifications→forum→leaderboard)
+  // is kept identical to the coach dashboard for a predictable staff layout.
+  const tabs=[{id:'overview',icon:'📊',label:'Overview'},{id:'members',icon:'👥',label:'Members'},{id:'coaches',icon:'🥊',label:`Coaches${pending.length>0?' ('+pending.length+')':''}`},{id:'memberships',icon:'💳',label:'Memberships'},{id:'classes',icon:'📋',label:'Classes'},{id:'inbox',icon:'💬',label:'Inbox'},{id:'notifications',icon:'📢',label:'Notifications'},{id:'forum',icon:'💬',label:'Forum'},{id:'leaderboard',icon:'🏆',label:'Leaderboard'}]
 
   return(
     <div style={{minHeight:'100vh',background:'#0c0a0a',fontFamily:'Montserrat,sans-serif',position:'relative'}}>
@@ -1441,6 +1546,96 @@ export default function AdminDashboard() {
                       <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
                       DELETING…
                     </>) : '🗑 DELETE PAYMENT'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ════════════════════════════════════════════════════ */}
+      {/*  PERMANENT DELETE — COACH (two-step type-to-confirm)  */}
+      {/* ════════════════════════════════════════════════════ */}
+      {coachDeleteTarget && (() => {
+        const expected = (coachDeleteTarget.name || '').trim()
+        const matches = coachDeleteTyped.trim().toLowerCase() === expected.toLowerCase() && expected.length > 0
+        const coachClasses = classes.filter(c => (c.coach||'') === (coachDeleteTarget.name||''))
+        return (
+          <div onClick={()=>!coachDeleting && setCoachDeleteTarget(null)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:520,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 60px rgba(232,74,47,0.25)'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
+              <div style={{padding:'20px 26px',borderBottom:'1px solid rgba(232,74,47,0.2)',display:'flex',alignItems:'center',gap:14}}>
+                <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(232,74,47,0.5)'}}>🗑</div>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#e84a2f'}}>DELETE COACH</div>
+                  <div style={{fontSize:9,color:'#888',letterSpacing:'0.14em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action cannot be undone</div>
+                </div>
+                {!coachDeleting && (
+                  <button onClick={()=>setCoachDeleteTarget(null)}
+                    style={{width:32,height:32,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:9,color:'#888',fontSize:16,cursor:'pointer'}}>✕</button>
+                )}
+              </div>
+              <div style={{padding:'24px 26px',display:'flex',flexDirection:'column',gap:18}}>
+                <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,display:'flex',alignItems:'center',gap:14}}>
+                  <div style={{width:48,height:48,borderRadius:'50%',background:'linear-gradient(135deg,#42a5f5,#2563eb)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:22,flexShrink:0}}>
+                    {(coachDeleteTarget.name||'?')[0].toUpperCase()}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:700,color:'#f0ece8',marginBottom:3}}>{coachDeleteTarget.name}</div>
+                    <div style={{fontSize:10,color:'#888'}}>{coachDeleteTarget.email||'—'}</div>
+                    <div style={{fontSize:9,color:'#666',letterSpacing:'0.06em',marginTop:2}}>Coach account</div>
+                  </div>
+                </div>
+
+                {coachClasses.length > 0 && (
+                  <div style={{padding:'12px 14px',background:'rgba(245,200,66,0.08)',border:'1px solid rgba(245,200,66,0.3)',borderRadius:10,fontSize:11,color:'#f5c842',lineHeight:1.6}}>
+                    ⚠ This coach runs <strong>{coachClasses.length}</strong> class{coachClasses.length===1?'':'es'}. Deleting will <strong>cancel</strong> {coachClasses.length===1?'it':'them'} and notify all booked members.
+                  </div>
+                )}
+
+                <div>
+                  <div style={{fontSize:9,fontWeight:800,color:'#e84a2f',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{display:'inline-block',width:14,height:2,background:'#e84a2f'}}/>
+                    The following will be permanently erased
+                  </div>
+                  <div style={{background:'rgba(0,0,0,0.4)',border:'1px solid rgba(232,74,47,0.15)',borderRadius:10,padding:'10px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'4px 14px',fontSize:10,color:'#aaa',lineHeight:1.7}}>
+                    <span>• Coach profile</span>
+                    <span>• Classes they run (cancelled)</span>
+                    <span>• Feedback they wrote</span>
+                    <span>• Training recordings</span>
+                    <span>• Their messages</span>
+                    <span>• Notifications & alerts</span>
+                  </div>
+                  <div style={{fontSize:10,color:'#888',marginTop:8,fontStyle:'italic',lineHeight:1.5}}>
+                    💾 An audit entry is saved in <code style={{background:'rgba(0,0,0,0.4)',padding:'1px 5px',borderRadius:4,fontFamily:'monospace',color:'#c084fc'}}>deletions/</code>. The Firebase Auth login is not removed by this action — delete it in the Firebase console if needed.
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{fontSize:9,fontWeight:800,color:'#e84a2f',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:8}}>Type the coach's name to confirm</div>
+                  <div style={{fontSize:11,color:'#888',marginBottom:8}}>
+                    Type <strong style={{color:'#f5c842',fontFamily:'monospace',background:'rgba(245,200,66,0.1)',padding:'2px 8px',borderRadius:5}}>{coachDeleteTarget.name}</strong> below:
+                  </div>
+                  <input type="text" value={coachDeleteTyped} onChange={e=>setCoachDeleteTyped(e.target.value)} disabled={coachDeleting} autoFocus
+                    placeholder={`Type "${coachDeleteTarget.name}" exactly`}
+                    style={{width:'100%',padding:'12px 14px',background:'rgba(0,0,0,0.4)',border:`1.5px solid ${matches?'#22c55e':'rgba(232,74,47,0.3)'}`,borderRadius:10,color:matches?'#22c55e':'#f0ece8',fontSize:13,fontFamily:'monospace',outline:'none'}}/>
+                  {matches && <div style={{fontSize:10,color:'#22c55e',fontWeight:700,marginTop:6}}>✓ Name matches — deletion unlocked</div>}
+                </div>
+
+                <div style={{display:'flex',gap:10,marginTop:4}}>
+                  <button onClick={()=>setCoachDeleteTarget(null)} disabled={coachDeleting}
+                    style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:coachDeleting?'not-allowed':'pointer',opacity:coachDeleting?0.5:1}}>
+                    KEEP COACH
+                  </button>
+                  <button onClick={()=>permanentlyDeleteCoach(coachDeleteTarget)} disabled={!matches||coachDeleting}
+                    style={{flex:1.4,background:matches?'linear-gradient(135deg,#e84a2f,#c93820)':'rgba(232,74,47,0.2)',color:matches?'#fff':'#666',border:'none',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:matches&&!coachDeleting?'pointer':'not-allowed',boxShadow:matches?'0 4px 14px rgba(232,74,47,0.4)':'none',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    {coachDeleting ? (<>
+                      <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+                      DELETING...
+                    </>) : '🗑 PERMANENTLY DELETE'}
                   </button>
                 </div>
               </div>
@@ -2189,6 +2384,10 @@ export default function AdminDashboard() {
                     onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}>
                       {isActive?'Deactivate':'Activate'}
                     </button>
+                    <button onClick={()=>{setCoachDeleteTarget(c);setCoachDeleteTyped('')}} title="Permanently delete coach"
+                      style={{width:34,height:34,background:'rgba(232,74,47,0.12)',color:'#e84a2f',border:'1.5px solid rgba(232,74,47,0.3)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,cursor:'pointer',transition:'all 0.2s'}}
+                      onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='scale(1.08)'}}
+                      onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.12)';e.currentTarget.style.transform='scale(1)'}}>🗑</button>
                     <button onClick={()=>{setMsgTarget(c);setMsgThread([])}} title="Quick message"
                       style={{width:34,height:34,background:'rgba(66,165,245,0.12)',color:'#42a5f5',border:'1.5px solid rgba(66,165,245,0.3)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,cursor:'pointer',transition:'all 0.2s'}}
                       onMouseEnter={e=>{e.currentTarget.style.background='rgba(66,165,245,0.2)';e.currentTarget.style.transform='scale(1.08)'}}
