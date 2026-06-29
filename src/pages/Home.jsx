@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth, db } from '../firebase'
-import { doc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, addDoc, deleteDoc, serverTimestamp, increment, runTransaction, arrayUnion } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, onSnapshot, addDoc, deleteDoc, serverTimestamp, increment, runTransaction, arrayUnion } from 'firebase/firestore'
 import Navbar from '../components/Navbar'
 import { buildSchedule, buildWorkout, EXERCISE_POOLS, fmtDuration, isRichExercise, exerciseName } from '../lib/scheduleBuilder'
-import { evaluateAdaptations, computeDifficulty, buildResetDayWorkout, getChampionBonusExercise, getDayStatus } from '../lib/adaptiveEngine'
+import { evaluateAdaptations, computeDifficulty, computeDifficultyBreakdown, buildResetDayWorkout, getChampionBonusExercise, getDayStatus } from '../lib/adaptiveEngine'
+import { computeTrainingStats } from '../lib/trainingStats'
 import { logActivity } from '../lib/activityLog'
 import { isClassActive, getClassDayLabel, isClassToday } from '../lib/classLifecycle'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -18,6 +19,13 @@ const LEVELS             = ['Beginner','Intermediate','Advanced','Expert','Elite
 const LEVEL_COLOR        = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#22c55e', Expert:'#42a5f5', Elite:'#c084fc' }
 const MILESTONE_BADGES   = [10,20,30,40,50,60]
 
+// Rules that make a REAL, visible change to today's workout (Item 5 — action
+// tie-in). Used to show an "Applied to today" badge on those decisions.
+const RULE_ACTION = {
+  RESET_DAY:     "Today swapped to a light Reset Day",
+  CHAMPION_MODE: "Champion bonus exercise added to today",
+}
+
 const TIPS = [
   {icon:'🥊',category:'TECHNIQUE',   text:"Keep your chin tucked and shoulders raised when jabbing. Protects your jaw and makes punches harder to read."},
   {icon:'🦵',category:'FOOTWORK',    text:"Never cross your feet when moving. Use the step-drag method — lead foot moves first, rear follows. Keeps your base solid."},
@@ -29,6 +37,45 @@ const TIPS = [
 ]
 
 // ── HELPERS ───────────────────────────────────────────
+// Local-timezone YYYY-MM-DD (NOT toISOString — that's UTC and would shift a
+// late-evening PH workout to the next calendar day).
+const ymdLocal = (input) => {
+  const x = new Date(input)
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`
+}
+
+// Local midnight (ms) — used for whole-day diffs without UTC drift.
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0,0,0,0); return x.getTime() }
+
+// Completion checkmarks (and any pre-generated bonus / booked-extra sessions)
+// are stored keyed by RELATIVE schedule index: 0 = today, 1 = tomorrow, …
+// But the schedule re-anchors to the real "today" on every load, so a map that
+// was saved on an earlier day is stale: yesterday's finished day-0 would render
+// as today's day-0 (the workout shows complete before the day even starts).
+// Shift every key back by the number of calendar days elapsed since the map was
+// saved, dropping days now in the past and keeping future entries pinned to
+// their real calendar day.
+const shiftDayMap = (map, days) => {
+  if (!map || !days || days <= 0) return map || {}
+  const out = {}
+  for (const [k, v] of Object.entries(map)) {
+    const ni = parseInt(k, 10) - days
+    if (Number.isInteger(ni) && ni >= 0) out[ni] = v
+  }
+  return out
+}
+
+// Friendly relative time for the adaptation timeline ("Today" / "3d ago").
+const relTime = (ms) => {
+  if (!ms) return ''
+  const days = Math.round((startOfDay(Date.now()) - startOfDay(ms)) / 86400000)
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7)  return `${days}d ago`
+  if (days < 30) return `${Math.floor(days / 7)}w ago`
+  return new Date(ms).toLocaleDateString()
+}
+
 const glass = (extra={}) => ({
   background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
@@ -83,6 +130,27 @@ export default function Home() {
   }, [])
   const memberLevel = getMemberLevel({ experience: profile.experience, trainingLevel })
 
+  // ── UNIFIED COMPLETION LOG (Items 3 + 4) ──────────────────────────────
+  //  Both web and mobile write a `trainingSessions` doc per completed day.
+  //  We load this member's real, dated session history to power BOTH the
+  //  missed-days view and the adaptive engine's weekly/missed inputs.
+  const [trainedDates, setTrainedDates] = useState([])  // ['YYYY-MM-DD', ...] sorted
+  useEffect(() => {
+    const user = auth.currentUser
+    if (!user) return
+    const q = query(collection(db, 'trainingSessions'), where('uid', '==', user.uid))
+    const unsub = onSnapshot(q, (snap) => {
+      const set = new Set()
+      snap.docs.forEach(d => {
+        const ts = d.data().completedAt
+        const ms = ts?.toMillis ? ts.toMillis() : (ts?.seconds ? ts.seconds * 1000 : null)
+        if (ms) set.add(ymdLocal(ms))
+      })
+      setTrainedDates([...set].sort())
+    }, (e) => console.warn('trainingSessions load:', e.message))
+    return () => unsub()
+  }, [])
+
   // ── FREE-TRIAL WELCOME — Item 5. Shown once per account on first Home visit
   //    while the member is on a trial. localStorage flag prevents re-showing.
   const [showTrialWelcome, setShowTrialWelcome] = useState(false)
@@ -113,7 +181,9 @@ export default function Home() {
   const [adaptiveDifficulty, setAdaptiveDifficulty] = useState(3)
   const [adaptiveOpen, setAdaptiveOpen]   = useState(false)  // explainability modal
   const [adaptiveLog, setAdaptiveLog]     = useState([])      // last 10 from Firestore
+  const [adaptiveClearedAt, setAdaptiveClearedAt] = useState(0) // hide timeline before this ms (localStorage, non-destructive)
   const [resetDayActive, setResetDayActive] = useState(false) // Step 4 auto-substitution flag
+  const [championBonusActive, setChampionBonusActive] = useState(false) // Champion bonus injected into today
 
   // ── Cancel-booking confirmation (Improvement 1) ──
   const [cancelConfirm, setCancelConfirm] = useState(null) // { classIndex, classData } | null
@@ -135,12 +205,23 @@ export default function Home() {
     const user = auth.currentUser
     if (!user) return
     getDoc(doc(db, 'workouts', user.uid)).then(snap => {
-      if (snap.exists()) {
-        const data = snap.data()
-        if (data.dayChecked)        setDayChecked(data.dayChecked)
-        if (data.generatedWorkouts) setGeneratedWorkouts(data.generatedWorkouts)
-        if (data.bookedExtras)      setBookedExtras(data.bookedExtras)
-      }
+      if (!snap.exists()) return
+      const data = snap.data()
+      // Stored maps are keyed by relative day index (0 = today). Re-anchor them
+      // to the current date so a workout finished on a previous day doesn't show
+      // up as already complete on today's plan. See shiftDayMap.
+      const daysElapsed = data.updatedAt
+        ? Math.floor((startOfDay(Date.now()) - startOfDay(data.updatedAt)) / 86400000)
+        : 0
+      const dc = shiftDayMap(data.dayChecked || {}, daysElapsed)
+      const gw = shiftDayMap(data.generatedWorkouts || {}, daysElapsed)
+      const be = shiftDayMap(data.bookedExtras || {}, daysElapsed)
+      setDayChecked(dc)
+      setGeneratedWorkouts(gw)
+      setBookedExtras(be)
+      // Persist once per day rollover so updatedAt tracks today and the same
+      // data isn't shifted again on the next load.
+      if (daysElapsed > 0) saveWorkoutData(dc, gw, be)
     }).catch(console.error)
   }, [])
 
@@ -391,6 +472,29 @@ export default function Home() {
     } catch(e) { console.error('Stats save error:', e) }
   }, [])
 
+  // ── Unified completion log (Items 3 + 4) ──────────────────────────────
+  //  When a workout day is finished on WEB, write a dated trainingSessions
+  //  record so web + mobile share ONE history. Idempotent: deterministic doc
+  //  id + a guard against re-logging a date we already have. Create-only
+  //  (rules have no update on trainingSessions), so it never overwrites a
+  //  richer mobile-written doc for the same day.
+  async function logWebSession() {
+    const user = auth.currentUser
+    if (!user) return
+    const todayStr = ymdLocal(Date.now())
+    if (trainedDates.includes(todayStr)) return
+    try {
+      await setDoc(doc(db, 'trainingSessions', `${user.uid}_${todayStr}_web`), {
+        uid:         user.uid,
+        memberName:  profile.name || 'Member',
+        source:      'web',
+        date:        todayStr,
+        completedAt: serverTimestamp(),
+      })
+      setTrainedDates(prev => prev.includes(todayStr) ? prev : [...prev, todayStr].sort())
+    } catch (e) { console.warn('Web session log (non-fatal):', e.message) }
+  }
+
   // Canvas background
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
@@ -422,41 +526,32 @@ export default function Home() {
   useEffect(() => { const t = setInterval(() => setTipIdx(i => (i+1)%TIPS.length), 8000); return () => clearInterval(t) }, [])
   useEffect(() => { if (!tipVisible) { const t = setTimeout(() => { setTipVisible(true); setTipIdx(i => (i+1)%TIPS.length) }, 30000); return () => clearTimeout(t) } }, [tipVisible])
 
-  // ── DERIVED VALUES ────────────────────────────────────
-  const thisWeekWorkouts = schedule.slice(0,7).filter(d => d.isWorkout || !!generatedWorkouts[d.idx])
+  // ── DERIVED VALUES — unified stats from the shared trainingSessions log ──
+  // streak / weekly% / total all come from distinct TRAINING DAYS (Today's
+  // Workout completed OR mobile camera Lab done), via lib/trainingStats — the
+  // single source of truth shared with mobile. `dayChecked` is now used ONLY for
+  // the today's-workout check-off UI below, not for these global stats.
+  const dpwTarget = Math.min(Math.max(profile?.daysPerWeek || 3, 1), 7)
+  const { totalWorkouts, streak, weeklyPct } = computeTrainingStats(trainedDates, dpwTarget)
 
-  const totalWorkouts = Object.entries(dayChecked).filter(([idx, ch]) => {
-    const day = schedule[parseInt(idx)]
-    return (day?.isWorkout || !!generatedWorkouts[parseInt(idx)]) && ch.length > 0 && ch.every(Boolean)
-  }).length
-
-  const completedThisWeek = thisWeekWorkouts.filter(d => {
-    const ch = dayChecked[d.idx] || []
-    return ch.length > 0 && ch.every(Boolean)
-  }).length
-
-  const streak = (() => {
-    let s = 0
-    for (const d of schedule) {
-      if (!d.isWorkout && !generatedWorkouts[d.idx]) continue
-      const ch = dayChecked[d.idx] || []
-      if (ch.length > 0 && ch.every(Boolean)) s++
-      else break
-    }
-    return s
+  // Distinct training days in the current (Mon–Sun) week — for the "This Week" stat.
+  const completedThisWeek = (() => {
+    const mon = new Date(); mon.setHours(0, 0, 0, 0)
+    const dow = mon.getDay(); mon.setDate(mon.getDate() - (dow === 0 ? 6 : dow - 1))
+    return trainedDates.filter(ds => new Date(ds + 'T00:00:00') >= mon).length
   })()
 
-  // Workout-milestone progress (gamification XP toward the next milestone) —
-  // this is NOT the member's division. Division = memberLevel (canonical).
-  const levelIdx     = Math.min(Math.floor(totalWorkouts / WORKOUTS_PER_LEVEL), LEVELS.length-1)
-  const workoutTier  = LEVELS[levelIdx]
-  const nextTier     = LEVELS[Math.min(levelIdx+1, LEVELS.length-1)]
-  const levelPct     = ((totalWorkouts % WORKOUTS_PER_LEVEL) / WORKOUTS_PER_LEVEL) * 100
-  const toNext       = WORKOUTS_PER_LEVEL - (totalWorkouts % WORKOUTS_PER_LEVEL)
+  // Workout-milestone progress — pure gamification (a badge every 25 workouts).
+  // This is NOT the member's skill division. Division = memberLevel (canonical),
+  // shown separately in the "Skill Level" pill. We intentionally avoid level
+  // words (Beginner/Intermediate/…) here so the two never look like they disagree.
+  const milestoneFloor = Math.floor(totalWorkouts / WORKOUTS_PER_LEVEL) * WORKOUTS_PER_LEVEL
+  const nextBadgeAt    = milestoneFloor + WORKOUTS_PER_LEVEL
+  const levelPct       = ((totalWorkouts % WORKOUTS_PER_LEVEL) / WORKOUTS_PER_LEVEL) * 100
+  const toNext         = WORKOUTS_PER_LEVEL - (totalWorkouts % WORKOUTS_PER_LEVEL)
 
-  const totalExThisWeek   = thisWeekWorkouts.reduce((a,d) => a + (d.workout?.exercises?.length || 0), 0)
-  const checkedExThisWeek = thisWeekWorkouts.reduce((a,d) => a + (dayChecked[d.idx]||[]).filter(Boolean).length, 0)
-  const weeklyPct         = totalExThisWeek > 0 ? Math.round((checkedExThisWeek/totalExThisWeek)*100) : 0
+  // (weeklyPct now comes from computeTrainingStats above — training days vs target,
+  //  not the old checked-exercise ratio. See unify-stats decision.)
 
   const selDayData    = schedule[selDay]
   const workout       = generatedWorkouts[selDay] || selDayData?.workout || null
@@ -468,6 +563,10 @@ export default function Home() {
   const workoutDone   = allExercises.length > 0 && completedCount === allExercises.length
 
   const lc = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#4ade80', Expert:'#42a5f5', Elite:'#c084fc' }[memberLevel] || '#f5c842'
+
+  // Difficulty breakdown for the reasoning modal (Item 5). Same composite as the
+  // engine, exposed component-by-component so the score is explainable.
+  const diffParts = computeDifficultyBreakdown({ experience: memberLevel, streak, weeklyPct, totalWorkouts })
 
   // Update ring
   useEffect(() => {
@@ -497,28 +596,54 @@ export default function Home() {
   useEffect(() => {
     if (!profile?.experience || allExercises.length === 0) return
 
-    // Build weekly history from dayChecked (last 4 weeks)
-    const weeks = [0, 1, 2, 3].map(w => {
-      const days = schedule.slice(w * 7, w * 7 + 7).filter(d => d.isWorkout || generatedWorkouts[d.idx])
-      const total = days.reduce((sum, d) => sum + (d.workout?.exercises?.length || generatedWorkouts[d.idx]?.exercises?.length || 0), 0)
-      const done = days.reduce((sum, d) => sum + ((dayChecked[d.idx] || []).filter(Boolean).length), 0)
-      return { weekStart: `Week ${w + 1}`, pct: total > 0 ? Math.round((done / total) * 100) : 0 }
-    })
-
-    // Compute consecutive missed days BACKWARD from today
-    // Today (schedule[0]) is excluded — only count fully past days
-    let missedStreak = 0
-    for (let d = 1; d <= 7; d++) {
-      const ch = dayChecked[-d]  // negative index = past day storage
-      const expected = schedule[-d]?.isWorkout
-      if (!expected) continue  // rest day — skip
-      if (ch && ch.length > 0 && ch.every(Boolean)) break  // completed → streak end
-      missedStreak++
+    // Build REAL weekly history from the unified trainingSessions log (Item 4).
+    // Each week (Mon–Sun) = distinct days trained ÷ the member's weekly target,
+    // most-recent first. Replaces the old forward-schedule estimate that made
+    // past weeks always read 0% and fired a false "deload" suggestion.
+    const trainedSet = new Set(trainedDates)
+    const dpw    = Math.min(Math.max(profile.daysPerWeek || 3, 1), 7)
+    const today0 = new Date(); today0.setHours(0, 0, 0, 0)
+    const thisMonday = (() => {
+      const x = new Date(today0); const dow = x.getDay()
+      x.setDate(x.getDate() - (dow === 0 ? 6 : dow - 1)); return x
+    })()
+    // COMPLETED weeks only (w starts at 1 — exclude the in-progress current
+    // week, which always reads low mid-week) AND only weeks from the member's
+    // FIRST session onward. A week before they ever trained is "no data yet",
+    // not 0% effort — so new/sporadic members can't trip a false deload.
+    const firstMs = trainedDates.length ? new Date(trainedDates[0] + 'T00:00:00').getTime() : null
+    const weeks = []
+    for (let w = 1; w <= 4; w++) {
+      const start = new Date(thisMonday); start.setDate(start.getDate() - w * 7)
+      const end   = new Date(start);      end.setDate(end.getDate() + 7)
+      if (firstMs != null && end.getTime() <= firstMs) continue  // entirely before first session
+      let trained = 0
+      for (const ds of trainedSet) {
+        const d = new Date(ds + 'T00:00:00')
+        if (d >= start && d < end) trained++
+      }
+      weeks.push({ weekStart: ymdLocal(start), pct: Math.min(100, Math.round((trained / dpw) * 100)) })
     }
 
-    // Build engine input state
+    // Days since the member last trained (Item 4). One rest day is always fine,
+    // so missed = gap − 1. Zero if they trained today, or if they've never
+    // trained (brand-new members are covered by the NEW_MEMBER_BOOST rule).
+    let missedStreak = 0
+    if (trainedSet.size > 0 && !trainedSet.has(ymdLocal(today0))) {
+      let lastMs = 0
+      for (const ds of trainedSet) {
+        const ms = new Date(ds + 'T00:00:00').getTime()
+        if (ms > lastMs) lastMs = ms
+      }
+      const gapDays = Math.floor((today0.getTime() - lastMs) / 86400000)
+      missedStreak = Math.max(0, gapDays - 1)
+    }
+
+    // Build engine input state. experience = CANONICAL level (admin promote OR
+    // mobile training), not the raw profile field — so difficulty + level-up
+    // rules agree with the Skill Level shown on screen.
     const state = {
-      experience: profile.experience,
+      experience: memberLevel,
       goal: profile.goal,
       streak,
       weeklyPct,
@@ -544,17 +669,41 @@ export default function Home() {
       setResetDayActive(false)
     }
 
+    // Champion Mode — actually inject the bonus exercise into today (Item 5
+    // visible action tie-in). Previously the rule CLAIMED it added one but never
+    // did; now the claim is true. Added as a normal extra on day 0, guarded so
+    // it's injected once and removed when the streak no longer qualifies.
+    const hasChampion = decisions.some(d => d.rule === 'CHAMPION_MODE')
+    const championEx  = getChampionBonusExercise(profile.goal)
+    if (hasChampion && !championBonusActive && selDay === 0) {
+      setBookedExtras(prev => {
+        const day0 = prev[0] || []
+        if (day0.includes(championEx)) return prev
+        return { ...prev, 0: [...day0, championEx] }
+      })
+      setDayChecked(prev => ({ ...prev, 0: [...(prev[0] || []), false] }))
+      setChampionBonusActive(true)
+    } else if (!hasChampion && championBonusActive) {
+      setBookedExtras(prev => {
+        const day0 = prev[0] || []
+        if (!day0.includes(championEx)) return prev
+        return { ...prev, 0: day0.filter(e => e !== championEx) }
+      })
+      setChampionBonusActive(false)
+    }
+
     // Step 5 — Persist decisions to Firestore (best-effort, non-blocking)
     const persist = async () => {
       const user = auth.currentUser
       if (!user || decisions.length === 0) return
       try {
-        // Throttle: only persist once per session per rule combination
-        const sessionKey = 'hittrack_last_adaptive_' + user.uid
-        const lastSig = sessionStorage.getItem(sessionKey)
-        const sig = decisions.map(d => d.rule).sort().join('|')
-        if (lastSig === sig) return
-        sessionStorage.setItem(sessionKey, sig)
+        // Throttle: persist a given decision-set at most once per DAY (localStorage,
+        // not sessionStorage) so page reloads don't stack duplicate audit entries.
+        const sigDay = ymdLocal(Date.now())
+        const sigKey = 'hittrack_last_adaptive_' + user.uid
+        const sig = sigDay + ':' + decisions.map(d => d.rule).sort().join('|')
+        if (localStorage.getItem(sigKey) === sig) return
+        localStorage.setItem(sigKey, sig)
         // Write each decision as its own audit entry
         for (const d of decisions) {
           await addDoc(collection(db, 'adaptiveDecisions'), {
@@ -574,7 +723,7 @@ export default function Home() {
       }
     }
     persist()
-  }, [profile?.experience, profile?.goal, streak, weeklyPct, totalWorkouts, allExercises.length])
+  }, [memberLevel, profile?.goal, streak, weeklyPct, totalWorkouts, allExercises.length, trainedDates])
 
   // Load last 10 adaptive decisions for explainability modal
   useEffect(() => {
@@ -589,6 +738,25 @@ export default function Home() {
     }, (err) => console.warn('Adaptive log stream:', err))
     return () => unsub()
   }, [])
+
+  // Load this user's timeline "clear" cutoff (non-destructive — see below).
+  useEffect(() => {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    try { setAdaptiveClearedAt(Number(localStorage.getItem('hittrack_adaptive_cleared_' + uid)) || 0) } catch {}
+  }, [])
+
+  // "Clear" the timeline VIEW — hides entries logged before now. NON-DESTRUCTIVE:
+  // the Firestore audit records stay intact (auditability is the point of the
+  // feature); only this device's display is filtered. Reversible by removing the
+  // localStorage key. We do NOT delete adaptiveDecisions docs.
+  function clearAdaptiveTimeline() {
+    const uid = auth.currentUser?.uid
+    if (!uid) return
+    const now = Date.now()
+    try { localStorage.setItem('hittrack_adaptive_cleared_' + uid, String(now)) } catch {}
+    setAdaptiveClearedAt(now)
+  }
 
   // ════════════════════════════════════════════════════════
   //  LEVEL CHANGE WATCHER — Coach/Admin promoted you?
@@ -697,6 +865,8 @@ export default function Home() {
       arr[exIdx] = !arr[exIdx]
       const next  = { ...prev, [scheduleIdx]: arr }
       saveWorkoutData(next, generatedWorkouts, bookedExtras)
+      // Completing TODAY's workout logs a unified session record (Items 3+4).
+      if (scheduleIdx === 0 && arr.length > 0 && arr.every(Boolean)) logWebSession()
       return next
     })
   }
@@ -1165,6 +1335,33 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Difficulty breakdown (Item 5) — why the score is what it is */}
+              <div>
+                <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
+                  Difficulty Breakdown
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'12px 14px',background:'rgba(192,132,252,0.05)',border:'1px solid rgba(192,132,252,0.18)',borderRadius:10}}>
+                  {[
+                    {lbl:`${diffParts.level} base`, val:diffParts.levelBase.toFixed(1), c:'#c084fc'},
+                    {lbl:'streak',  val:`+${diffParts.streakBonus.toFixed(1)}`,  c:'#42a5f5'},
+                    {lbl:'weekly',  val:`+${diffParts.weeklyBonus.toFixed(1)}`,  c:'#22c55e'},
+                    {lbl:'veteran', val:`+${diffParts.veteranBonus.toFixed(1)}`, c:'#f5c842'},
+                  ].map((p,i)=>(
+                    <div key={i} style={{textAlign:'center',padding:'6px 10px',background:`${p.c}12`,border:`1px solid ${p.c}30`,borderRadius:8,minWidth:60}}>
+                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,color:p.c,lineHeight:1}}>{p.val}</div>
+                      <div style={{fontSize:7,color:'#888',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',marginTop:3}}>{p.lbl}</div>
+                    </div>
+                  ))}
+                  <span style={{fontSize:18,color:'#555',fontWeight:700}}>=</span>
+                  <div style={{textAlign:'center',padding:'6px 12px',background:'rgba(192,132,252,0.18)',border:'1px solid rgba(192,132,252,0.45)',borderRadius:8}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#c084fc',lineHeight:1}}>{diffParts.total}</div>
+                    <div style={{fontSize:7,color:'#9d8ec0',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>/ 10</div>
+                  </div>
+                </div>
+                <div style={{fontSize:9,color:'#666',marginTop:6,fontStyle:'italic'}}>Higher level, longer streaks, better weekly completion, and total workouts each push the load up.</div>
+              </div>
+
               {/* Active rules */}
               <div>
                 <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
@@ -1189,6 +1386,11 @@ export default function Home() {
                             <span style={{fontSize:11,fontWeight:700,color:sevColor}}>{d.title}</span>
                           </div>
                           <div style={{fontSize:11,color:'#a8a29e',lineHeight:1.6,marginBottom:8}}>{d.message}</div>
+                          {RULE_ACTION[d.rule] && (
+                            <div style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:9,fontWeight:800,color:'#22c55e',background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:50,padding:'4px 10px',marginBottom:8,letterSpacing:'0.04em'}}>
+                              ⚡ APPLIED · {RULE_ACTION[d.rule]}
+                            </div>
+                          )}
                           {d.dataUsed && (
                             <div style={{fontSize:9,color:'#666',fontFamily:'monospace',background:'rgba(0,0,0,0.4)',padding:'6px 9px',borderRadius:6,wordBreak:'break-word'}}>
                               <span style={{color:sevColor,fontWeight:700}}>data:</span> {JSON.stringify(d.dataUsed)}
@@ -1201,29 +1403,60 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Audit log */}
+              {/* Adaptation timeline — plain-language history of every automatic
+                  change the coach made (Item 5). Newest first; rule codes dropped
+                  for the member view; entries before the (non-destructive) clear
+                  cutoff are hidden. */}
               {adaptiveLog.length > 0 && (
                 <div>
-                  <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
-                    Audit Log — Last {adaptiveLog.length} Decisions
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+                    <div style={{fontSize:9,fontWeight:800,color:'#9d8ec0',letterSpacing:'0.16em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{display:'inline-block',width:14,height:2,background:'#c084fc'}}/>
+                      Adaptation Timeline
+                    </div>
+                    <button onClick={clearAdaptiveTimeline}
+                      style={{background:'transparent',border:'1px solid rgba(255,255,255,0.12)',borderRadius:50,padding:'4px 12px',fontSize:9,fontWeight:700,color:'#888',cursor:'pointer',letterSpacing:'0.06em'}}
+                      onMouseEnter={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.borderColor='rgba(255,255,255,0.25)'}}
+                      onMouseLeave={e=>{e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'}}>
+                      Clear
+                    </button>
                   </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:200,overflowY:'auto'}}>
-                    {adaptiveLog.map((log) => {
-                      const sevColor = log.severity === 'celebrate' ? '#f5c842'
-                                     : log.severity === 'positive'  ? '#22c55e'
-                                     : log.severity === 'warning'   ? '#e84a2f'
-                                     :                                '#42a5f5'
-                      const ts = log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000) : null
-                      return (
-                        <div key={log.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:'rgba(255,255,255,0.02)',borderRadius:8,borderLeft:`2px solid ${sevColor}`}}>
-                          <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:`${sevColor}22`,color:sevColor,letterSpacing:'0.08em',fontFamily:'monospace',flexShrink:0}}>{log.rule}</span>
-                          <span style={{flex:1,fontSize:10,color:'#888',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{log.title}</span>
-                          <span style={{fontSize:9,color:'#555',flexShrink:0}}>{ts ? ts.toLocaleString() : '—'}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <div style={{fontSize:10,color:'#777',marginBottom:10,lineHeight:1.5}}>Every change your coach made to your plan, automatically — newest first.</div>
+                  {(() => {
+                    // Hide entries before the clear cutoff, then collapse consecutive
+                    // identical decisions into one row with a ×count.
+                    const visible = adaptiveLog.filter(l => ((l.createdAt?.seconds || 0) * 1000) > adaptiveClearedAt)
+                    if (visible.length === 0) return (
+                      <div style={{padding:'16px',textAlign:'center',background:'rgba(255,255,255,0.02)',borderRadius:10,border:'1px dashed rgba(255,255,255,0.06)',fontSize:11,color:'#666'}}>
+                        Timeline cleared — new adaptations will appear here.
+                      </div>
+                    )
+                    const runs = []
+                    for (const log of visible) {
+                      const last = runs[runs.length - 1]
+                      if (last && last.rule === log.rule && last.title === log.title) last.count++
+                      else runs.push({ ...log, count: 1 })
+                    }
+                    return (
+                      <div style={{display:'flex',flexDirection:'column',gap:5,maxHeight:200,overflowY:'auto'}}>
+                        {runs.map((log) => {
+                          const sevColor = log.severity === 'celebrate' ? '#f5c842'
+                                         : log.severity === 'positive'  ? '#22c55e'
+                                         : log.severity === 'warning'   ? '#e84a2f'
+                                         :                                '#42a5f5'
+                          const ms = (log.createdAt?.seconds || 0) * 1000
+                          return (
+                            <div key={log.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',background:'rgba(255,255,255,0.02)',borderRadius:8,borderLeft:`2px solid ${sevColor}`}}>
+                              <span style={{width:7,height:7,borderRadius:'50%',background:sevColor,flexShrink:0,boxShadow:`0 0 6px ${sevColor}`}}/>
+                              <span style={{flex:1,fontSize:11,color:'#c9c5c1',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{log.title}</span>
+                              {log.count > 1 && <span style={{fontSize:9,fontWeight:800,color:sevColor,flexShrink:0}}>×{log.count}</span>}
+                              <span style={{fontSize:9,color:'#666',flexShrink:0}}>{relTime(ms)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 
@@ -1351,21 +1584,20 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            {/* Level progress */}
+            {/* Workout milestones — gamification only (a badge every 25 workouts).
+                NOT the skill level; the canonical level is the "Skill Level" pill below. */}
             <div>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-                <span style={{fontSize:10,fontWeight:700,color:'#7a7570',textTransform:'uppercase',letterSpacing:'0.08em'}}>🏅 {workoutTier} → {nextTier}</span>
-                <span style={{fontSize:10,fontWeight:700,color:'#f5c842'}}>{levelPct.toFixed(0)}% · {toNext} to go</span>
+                <span style={{fontSize:10,fontWeight:700,color:'#7a7570',textTransform:'uppercase',letterSpacing:'0.08em'}}>🏅 Workout Milestones</span>
+                <span style={{fontSize:10,fontWeight:700,color:'#f5c842'}}>{toNext} to next badge</span>
               </div>
               <div style={{height:8,background:'#2a2424',borderRadius:50,overflow:'hidden'}}>
                 <div style={{height:'100%',background:'linear-gradient(90deg,#e84a2f,#f5c842)',borderRadius:50,width:`${levelPct}%`,transition:'width 0.6s ease'}}/>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',marginTop:5}}>
-                {LEVELS.map((lv,i) => (
-                  <span key={i} style={{fontSize:9,fontWeight:700,color:i===levelIdx?'#f5c842':i<levelIdx?'#4ade80':'#333'}}>
-                    {i<=levelIdx?'●':'○'} {lv.slice(0,3).toUpperCase()}
-                  </span>
-                ))}
+                <span style={{fontSize:9,fontWeight:700,color:'#555'}}>{milestoneFloor}</span>
+                <span style={{fontSize:9,fontWeight:700,color:'#f5c842'}}>{totalWorkouts} workouts</span>
+                <span style={{fontSize:9,fontWeight:700,color:'#555'}}>🏅 {nextBadgeAt}</span>
               </div>
             </div>
             <div style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',borderRadius:50,padding:'10px',textAlign:'center',boxShadow:'0 4px 20px rgba(232,74,47,0.3)'}}>
@@ -1491,6 +1723,40 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {/* ── TRAINING ACTIVITY — last 14 days (Item 3: spot missed days) ──
+                Real, dated history from the unified trainingSessions log. A day
+                is "trained" if a session (web OR mobile) exists for it; gaps are
+                days with no session. */}
+            {(() => {
+              const set = new Set(trainedDates)
+              const days = []
+              for (let i = 13; i >= 0; i--) {
+                const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i)
+                const ds = ymdLocal(d)
+                days.push({ d, ds, trained: set.has(ds), isToday: i === 0 })
+              }
+              const trainedCount = days.filter(x => x.trained).length
+              return (
+                <div style={{marginTop:2}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                    <span style={{fontSize:10,fontWeight:700,color:'#7a7570',textTransform:'uppercase',letterSpacing:'0.08em'}}>📆 Last 14 Days</span>
+                    <span style={{fontSize:10,fontWeight:700,color:trainedCount>0?'#4ade80':'#7a7570'}}>{trainedCount} trained</span>
+                  </div>
+                  <div style={{display:'flex',gap:3}}>
+                    {days.map((x,i) => (
+                      <div key={i} title={`${x.ds}${x.trained?' · trained':' · no session'}`} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                        <div style={{width:'100%',height:22,borderRadius:5,background:x.trained?'rgba(74,222,128,0.22)':'rgba(255,255,255,0.035)',border:`1px solid ${x.isToday?'#f5c842':x.trained?'rgba(74,222,128,0.5)':'rgba(255,255,255,0.06)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#4ade80'}}>
+                          {x.trained?'✓':''}
+                        </div>
+                        <span style={{fontSize:7,color:x.isToday?'#f5c842':'#555',fontWeight:700}}>{x.d.getDate()}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:9,color:'#555',marginTop:5,fontStyle:'italic'}}>Green = you trained (web or mobile). Gaps are days with no session.</div>
+                </div>
+              )
+            })()}
 
             {/* Back / Next */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
