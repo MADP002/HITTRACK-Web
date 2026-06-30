@@ -1229,7 +1229,10 @@ export default function CoachDashboard(){
   const selStyle={...inp,cursor:'pointer',appearance:'none',WebkitAppearance:'none',backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23555'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 12px center',paddingRight:32}
 
   const unviewedReports = reports.filter(r => !r.viewed).length
-  const tabs=[{id:'members',label:'👥 Members'},{id:'reports',label:`📋 Reports${unviewedReports>0?` (${unviewedReports})`:''}`},{id:'memberships',label:'💳 Memberships'},{id:'inbox',label:'💬 Inbox'},{id:'classes',label:'📋 Classes'},{id:'progress',label:'📈 Progress'},{id:'leaderboard',label:'🏆 Leaderboard'},{id:'notifications',label:'📢 Announcements'},{id:'forum',label:'💬 Forum'}]
+  // Tab order mirrors the admin dashboard: people/member-coaching tools first,
+  // then operations → communication → community. Tail (classes→inbox→
+  // announcements→forum→leaderboard) is identical to admin for consistency.
+  const tabs=[{id:'members',label:'👥 Members'},{id:'reports',label:`📋 Reports${unviewedReports>0?` (${unviewedReports})`:''}`},{id:'progress',label:'📈 Progress'},{id:'memberships',label:'💳 Memberships'},{id:'classes',label:'📋 Classes'},{id:'inbox',label:'💬 Inbox'},{id:'notifications',label:'📢 Announcements'},{id:'forum',label:'💬 Forum'},{id:'leaderboard',label:'🏆 Leaderboard'}]
 
   return(
     <div style={{minHeight:'100vh',background:'#0c0a0a',fontFamily:'Montserrat,sans-serif',position:'relative'}}>

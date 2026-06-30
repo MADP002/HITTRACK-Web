@@ -47,6 +47,18 @@ export function computeDifficulty(state) {
   return Math.min(10, Math.max(1, +(levelBase + streakBonus + weeklyBonus + veteranBonus).toFixed(1)))
 }
 
+// Same composite as computeDifficulty, but returns each component so the UI can
+// explain WHY the score is what it is (Item 5 — difficulty breakdown).
+export function computeDifficultyBreakdown(state) {
+  const { experience = 'Beginner', streak = 0, weeklyPct = 0, totalWorkouts = 0 } = state
+  const levelBase    = { Beginner: 3, Intermediate: 6, Advanced: 8 }[experience] || 3
+  const streakBonus  = +(Math.min(streak / 14, 1) * 1.2).toFixed(2)
+  const weeklyBonus  = +((weeklyPct / 100) * 0.6).toFixed(2)
+  const veteranBonus = +(Math.min(totalWorkouts / 50, 1) * 0.4).toFixed(2)
+  const total = Math.min(10, Math.max(1, +(levelBase + streakBonus + weeklyBonus + veteranBonus).toFixed(1)))
+  return { level: experience, levelBase, streakBonus, weeklyBonus, veteranBonus, total }
+}
+
 // ──────────────────────────────────────────────────────
 //  THE ENGINE
 //
@@ -104,7 +116,9 @@ export function evaluateAdaptations(state) {
   // ── RULE 3: Suggest Deload / Recovery (2 poor weeks) ──
   const poorWeeks = (weeklyHistory.slice(0, RULES.LEVEL_DOWN_WEEKS) || [])
     .filter(w => w.pct < RULES.POOR_WEEK_PCT).length
-  if (poorWeeks >= RULES.LEVEL_DOWN_WEEKS) {
+  // Only suggest a deload if they're ALSO low THIS week — never contradict an
+  // actively-training member (avoids "you're at 78% → we cut your volume").
+  if (poorWeeks >= RULES.LEVEL_DOWN_WEEKS && weeklyPct < RULES.POOR_WEEK_PCT) {
     decisions.push({
       rule: 'SUGGEST_DELOAD',
       severity: 'warning',
