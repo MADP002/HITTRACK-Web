@@ -10,7 +10,6 @@ import InboxView from '../components/InboxView'
 import PunchAnalyticsCard from '../components/PunchAnalyticsCard'
 import MedicalCertCard from '../components/MedicalCertCard'
 import { getMemberLevel, levelScore } from '../lib/memberLevel'
-import { PLANS, DISCIPLINES, getPlan, planLabel, peso } from '../lib/plans'
 import Forum from './Forum'
 
 // ── CONSTANTS ─────────────────────────────────────────
@@ -187,17 +186,13 @@ export default function AdminDashboard() {
   const [coachDeleteTyped,setCoachDeleteTyped]   = useState('')   // user-typed coach confirmation
   const [coachDeleting,setCoachDeleting]         = useState(false)// loading state during coach cascade
 
-  // Membership management state
-  const [payTarget,setPayTarget]         = useState(null)  // member object for Record Payment modal
-  const [payForm,setPayForm]             = useState({amount:'',durationDays:'30',method:'cash',reference:'',notes:'',planId:'',discipline:'Boxing'})
-  const [paySaving,setPaySaving]         = useState(false)
+  // Membership management state — cash-only gym: admin extends paid members + pause/resume.
+  const [extendTarget,setExtendTarget]   = useState(null)  // member object for the Extend modal
+  const [extendForm,setExtendForm]       = useState({ days: '30' })
+  const [extendSaving,setExtendSaving]   = useState(false)
   const [pauseTarget,setPauseTarget]     = useState(null)  // member object for pause/resume confirmation
   const [pauseSaving,setPauseSaving]     = useState(false)
-  const [paymentHistory,setPaymentHistory] = useState(null) // { member, payments[] } or null when drawer closed
-  const [monthlyPayments,setMonthlyPayments] = useState([])   // current month payments for revenue card
   const [remindedThisCycle,setRemindedThisCycle] = useState({}) // {uid: true} session-local dedupe
-  const [deletePaymentTarget,setDeletePaymentTarget] = useState(null) // payment object pending deletion
-  const [deletingPayment,setDeletingPayment] = useState(false)
 
   function showToast(msg,type='success'){setToast({msg,type});setTimeout(()=>setToast({msg:'',type:'success'}),3500)}
 
@@ -337,26 +332,6 @@ export default function AdminDashboard() {
     return () => { document.body.style.overflow = prev }
   }, [viewMember])
 
-  // Fetch current month's payments for the revenue card.
-  // Re-runs when the Memberships tab opens or when a payment is recorded.
-  useEffect(() => {
-    if (tab !== 'memberships') return
-    async function loadMonthly() {
-      const startOfMonth = new Date()
-      startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0)
-      try {
-        const snap = await getDocs(query(
-          collection(db, 'payments'),
-          where('createdAt', '>=', startOfMonth)
-        ))
-        setMonthlyPayments(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-      } catch (e) {
-        console.warn('Monthly payments fetch failed:', e.message)
-      }
-    }
-    loadMonthly()
-  }, [tab, paySaving])  // refetch after each new payment
-
   // Real-time messages for selected thread
   useEffect(()=>{
     if(!msgTarget)return
@@ -467,131 +442,69 @@ export default function AdminDashboard() {
   }
 
   // ════════════════════════════════════════════════════════
-  //  MEMBERSHIP MANAGEMENT — Payment + Pause/Resume
+  //  MEMBERSHIP MANAGEMENT — Extend (cash) + Pause/Resume
   // ════════════════════════════════════════════════════════
 
-  // Record a payment: creates payments/{id} + updates user's membership
-  async function recordPayment() {
-    if (!payTarget?.uid) return
-    const plan = getPlan(payForm.planId)
-    const isDropin = plan?.kind === 'dropin'
-    const amount = parseFloat(payForm.amount)
-    const duration = parseInt(payForm.durationDays, 10)
-    const label = plan ? planLabel(plan) : null
-    const discipline = plan?.discipline || payForm.discipline || null
-    if (isNaN(amount) || amount <= 0) { showToast('Enter a valid amount','error'); return }
-    // Drop-ins are record-only (no access window). Everything else needs a duration.
-    if (!isDropin && (isNaN(duration) || duration <= 0)) { showToast('Enter a valid duration','error'); return }
+  // Extend a member's access window. The gym is cash-only, so we do NOT record a
+  // revenue/ledger entry — admin takes the cash in person, then bumps the expiry.
+  // A lightweight, money-free audit entry goes to the activity feed.
+  async function extendMember() {
+    if (!extendTarget?.uid) return
+    const days = parseInt(extendForm.days, 10)
+    if (isNaN(days) || days <= 0) { showToast('Pick a valid duration','error'); return }
 
-    setPaySaving(true)
+    setExtendSaving(true)
     try {
-      const m = payTarget.membership || {}
-
-      if (isDropin) {
-        // ── RECORD-ONLY: log to the ledger, do NOT change membership/access ──
-        await addDoc(collection(db,'payments'), {
-          memberId:        payTarget.uid,
-          memberName:      payTarget.name || 'Unknown',
-          amount,
-          currency:        'PHP',
-          kind:            'dropin',
-          planLabel:       label || 'Drop-in Session',
-          discipline,
-          durationDays:    0,
-          paymentMethod:   payForm.method,
-          referenceNumber: payForm.reference.trim() || null,
-          notes:           payForm.notes.trim() || null,
-          receivedBy:      auth.currentUser.uid,
-          receivedByName:  adminProfile.name || 'Admin',
-          createdAt:       serverTimestamp(),
-        })
-        try {
-          await logActivity({
-            type: 'payment_recorded', actorId: auth.currentUser.uid,
-            actorName: adminProfile.name || 'Admin', actorRole: 'admin',
-            targetUserId: payTarget.uid, targetUserName: payTarget.name,
-            metadata: { amount, kind:'dropin', discipline, method: payForm.method },
-          })
-        } catch(_) {}
-        showToast(`💵 Drop-in recorded · ${peso(amount)} (no membership change)`)
-        setPayTarget(null)
-        setPayForm({amount:'',durationDays:'30',method:'cash',reference:'',notes:'',planId:'',discipline:'Boxing'})
-        return
-      }
-
-      // ── SUBSCRIPTION / SESSION PACK: extend the validity window ──
+      const m = extendTarget.membership || {}
+      // Stack onto remaining time if still active, otherwise start from today.
       const currentExp = m.expiresAt ? (m.expiresAt.toMillis ? m.expiresAt.toMillis() : new Date(m.expiresAt).getTime()) : null
-      const startBase = (currentExp && currentExp > Date.now()) ? currentExp : Date.now()
-      const newStarts = new Date(startBase)
-      const newExpires = new Date(startBase + duration * 86400000)
+      const startBase  = (currentExp && currentExp > Date.now()) ? currentExp : Date.now()
+      const newStarts  = new Date(startBase)
+      const newExpires = new Date(startBase + days * 86400000)
 
-      // 1. Create payment record
-      await addDoc(collection(db,'payments'), {
-        memberId:        payTarget.uid,
-        memberName:      payTarget.name || 'Unknown',
-        amount,
-        currency:        'PHP',
-        kind:            plan?.kind || 'custom',
-        planLabel:       label,
-        discipline,
-        durationDays:    duration,
-        startsAt:        newStarts,
-        expiresAt:       newExpires,
-        paymentMethod:   payForm.method,
-        referenceNumber: payForm.reference.trim() || null,
-        notes:           payForm.notes.trim() || null,
-        receivedBy:      auth.currentUser.uid,
-        receivedByName:  adminProfile.name || 'Admin',
-        createdAt:       serverTimestamp(),
-      })
-
-      // 2. Update user's membership field (label/discipline for receipts + display)
-      await updateDoc(doc(db,'users',payTarget.uid), {
-        'membership.startedAt':         m.startedAt || newStarts,  // preserve first-paid date
+      // Update the member's window (extending also unpauses).
+      await updateDoc(doc(db,'users',extendTarget.uid), {
+        'membership.startedAt':         m.startedAt || newStarts,  // preserve first-joined date
         'membership.expiresAt':         newExpires,
-        'membership.pausedAt':          null,                       // payment unpauses if paused
-        'membership.planLabel':         label,
-        'membership.discipline':        discipline,
+        'membership.pausedAt':          null,
         'membership.lastRenewedAt':     serverTimestamp(),
         'membership.lastRenewedBy':     auth.currentUser.uid,
         'membership.lastRenewedByName': adminProfile.name || 'Admin',
       })
 
-      // 3. Activity log
+      // Lightweight audit — who extended whom by how many days. NO money/revenue.
       try {
         await logActivity({
-          type: 'payment_recorded',
+          type: 'membership_extended',
           actorId: auth.currentUser.uid,
           actorName: adminProfile.name || 'Admin',
           actorRole: 'admin',
-          targetUserId: payTarget.uid,
-          targetUserName: payTarget.name,
-          metadata: { amount, durationDays: duration, planLabel: label, discipline, method: payForm.method },
+          targetUserId: extendTarget.uid,
+          targetUserName: extendTarget.name,
+          payload: { memberId: extendTarget.uid, memberName: extendTarget.name, days, newExpiry: newExpires.toISOString() },
         })
       } catch(_) {}
 
-      // 4. Optimistic local update
-      setMembers(prev => prev.map(x => x.uid === payTarget.uid ? {
+      // Optimistic local update
+      setMembers(prev => prev.map(x => x.uid === extendTarget.uid ? {
         ...x,
         membership: {
           ...(x.membership||{}),
-          startedAt:  m.startedAt || newStarts,
-          expiresAt:  newExpires,
-          pausedAt:   null,
-          planLabel:  label,
-          discipline,
+          startedAt: m.startedAt || newStarts,
+          expiresAt: newExpires,
+          pausedAt:  null,
           lastRenewedByName: adminProfile.name || 'Admin',
         }
       } : x))
 
-      showToast(`💰 ${peso(amount)} recorded${label ? ' · '+label : ''} · expires ${newExpires.toLocaleDateString()}`)
-      setPayTarget(null)
-      setPayForm({amount:'',durationDays:'30',method:'cash',reference:'',notes:'',planId:'',discipline:'Boxing'})
+      showToast(`🗓 Extended ${extendTarget.name} by ${days} day${days===1?'':'s'} · expires ${newExpires.toLocaleDateString()}`)
+      setExtendTarget(null)
+      setExtendForm({ days: '30' })
     } catch (e) {
-      console.error('Record payment failed:', e)
+      console.error('Extend failed:', e)
       showToast('❌ Failed: ' + (e.message || 'unknown'),'error')
     }
-    setPaySaving(false)
+    setExtendSaving(false)
   }
 
   // Toggle pause/resume. When resuming, push expiry forward by the paused duration.
@@ -667,88 +580,6 @@ export default function AdminDashboard() {
       console.error('Send reminder failed:', e)
       showToast('❌ Failed: ' + (e.message || 'unknown'),'error')
     }
-  }
-
-  // Open payment history drawer
-  async function openPaymentHistory(member) {
-    setPaymentHistory({ member, payments: null })   // null = loading
-    try {
-      // Query without orderBy to avoid needing a composite Firestore index
-      // (where + orderBy on different fields requires one). We sort client-side.
-      const snap = await getDocs(query(collection(db,'payments'), where('memberId','==',member.uid)))
-      const rows = snap.docs.map(d => ({ id:d.id, ...d.data() }))
-        .sort((a, b) => {
-          const aMs = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0
-          const bMs = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0
-          return bMs - aMs  // newest first
-        })
-      setPaymentHistory({ member, payments: rows })
-    } catch (e) {
-      console.error('Load payment history failed:', e)
-      setPaymentHistory({ member, payments: [] })
-    }
-  }
-
-  // Delete a payment record (admin made a mistake recording it).
-  // Implementation: SOFT delete — full record moved to /deletedPayments
-  // with deletion metadata. Preserved forever for dispute resolution.
-  //
-  // We do NOT roll back the member's expiresAt. The ledger and access
-  // window are independent — admin adjusts expiry separately if needed.
-  async function deletePayment() {
-    if (!deletePaymentTarget?.id) return
-    setDeletingPayment(true)
-    try {
-      // 1. Re-fetch the payment to ensure we have the full server-side record
-      //    (in case the local one is stale)
-      const liveSnap = await getDoc(doc(db, 'payments', deletePaymentTarget.id))
-      const liveData = liveSnap.exists() ? liveSnap.data() : deletePaymentTarget
-
-      // 2. Write the soft-delete record FIRST (so we don't lose data if
-      //    the hard delete fails mid-operation)
-      await setDoc(doc(db, 'deletedPayments', deletePaymentTarget.id), {
-        ...liveData,
-        originalId:        deletePaymentTarget.id,
-        deletedAt:         serverTimestamp(),
-        deletedBy:         auth.currentUser.uid,
-        deletedByName:     adminProfile.name || 'Admin',
-      })
-
-      // 3. Now hard-delete from /payments
-      await deleteDoc(doc(db, 'payments', deletePaymentTarget.id))
-
-      // 4. Optimistic UI update
-      setPaymentHistory(prev => prev ? {
-        ...prev,
-        payments: (prev.payments || []).filter(p => p.id !== deletePaymentTarget.id)
-      } : prev)
-      setMonthlyPayments(prev => prev.filter(p => p.id !== deletePaymentTarget.id))
-
-      // 5. Audit log
-      try {
-        await logActivity({
-          type:            'payment_deleted',
-          actorId:         auth.currentUser.uid,
-          actorName:       adminProfile.name || 'Admin',
-          actorRole:       'admin',
-          targetUserId:    liveData.memberId,
-          targetUserName:  liveData.memberName,
-          metadata: {
-            amount:          liveData.amount,
-            paymentId:       deletePaymentTarget.id,
-            paymentMethod:   liveData.paymentMethod,
-            durationDays:    liveData.durationDays,
-          },
-        })
-      } catch (_) {}
-
-      showToast('🗑 Payment archived to deletedPayments')
-      setDeletePaymentTarget(null)
-    } catch (e) {
-      console.error('Delete payment failed:', e)
-      showToast('❌ Failed: ' + (e.message || 'unknown'), 'error')
-    }
-    setDeletingPayment(false)
   }
 
   // ════════════════════════════════════════════════════════
@@ -1236,123 +1067,96 @@ export default function AdminDashboard() {
       )}
 
       {/* ════════════════════════════════════════════════════ */}
-      {/*  RECORD PAYMENT MODAL                                 */}
+      {/*  EXTEND MEMBERSHIP MODAL — cash-only, no revenue recorded */}
       {/* ════════════════════════════════════════════════════ */}
-      {payTarget && (
-        <div onClick={()=>!paySaving && setPayTarget(null)}
-          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-          <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(74,222,128,0.35)',maxWidth:500,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(74,222,128,0.15)'}}>
-            <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#4ade80,#22c55e)'}}/>
-            <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:14}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#4ade80,#22c55e)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>💰</div>
-                <div>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#4ade80'}}>RECORD PAYMENT</div>
-                  <div style={{fontSize:11,color:'#888',marginTop:2}}>{payTarget.name || 'Unknown member'}</div>
+      {extendTarget && (() => {
+        const days = parseInt(extendForm.days, 10)
+        const m = extendTarget.membership || {}
+        const currentExp = m.expiresAt ? (m.expiresAt.toMillis ? m.expiresAt.toMillis() : new Date(m.expiresAt).getTime()) : null
+        const startBase = (currentExp && currentExp > Date.now()) ? currentExp : Date.now()
+        const preview = (!isNaN(days) && days > 0) ? new Date(startBase + days * 86400000) : null
+        const valid = !isNaN(days) && days > 0
+        const PRESETS = [
+          { label: '+1 month',  days: 30 },
+          { label: '+3 months', days: 90 },
+          { label: '+6 months', days: 180 },
+          { label: '+1 year',   days: 365 },
+        ]
+        return (
+          <div onClick={()=>!extendSaving && setExtendTarget(null)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div onClick={e=>e.stopPropagation()}
+              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(74,222,128,0.35)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(74,222,128,0.15)'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#4ade80,#22c55e)'}}/>
+              <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:14}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#4ade80,#22c55e)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>🗓</div>
+                  <div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#4ade80'}}>EXTEND MEMBERSHIP</div>
+                    <div style={{fontSize:11,color:'#888',marginTop:2}}>{extendTarget.name || 'Unknown member'}</div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Current expiry context */}
-              {payTarget.membership?.expiresAt && (
+                {/* Current expiry context */}
                 <div style={{padding:'10px 14px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,fontSize:11,color:'#888'}}>
-                  Current expiry: <strong style={{color:'#f0ece8'}}>{fmtExpiry(payTarget.membership)}</strong>
-                  {(() => {
-                    const d = daysRemaining(payTarget.membership)
+                  {m.expiresAt ? (<>Current expiry: <strong style={{color:'#f0ece8'}}>{fmtExpiry(m)}</strong>{(() => {
+                    const d = daysRemaining(m)
                     if (d === null) return null
                     return <span style={{marginLeft:6,color:'#666'}}>· {d >= 0 ? `${d}d left` : `${Math.abs(d)}d ago`}</span>
-                  })()}
+                  })()}</>) : 'No active membership yet — extending starts from today.'}
                 </div>
-              )}
 
-              {/* Plan catalog — pick a preset (auto-fills amount + days) or use custom */}
-              <div>
-                <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Discipline</label>
-                <div style={{display:'flex',gap:6,marginTop:4}}>
-                  {DISCIPLINES.map(d => (
-                    <button key={d} onClick={()=>setPayForm(p=>({...p,discipline:d,planId:''}))}
-                      style={{flex:1,padding:'8px',background:payForm.discipline===d?'rgba(74,222,128,0.15)':'rgba(255,255,255,0.03)',border:`1px solid ${payForm.discipline===d?'rgba(74,222,128,0.4)':'rgba(255,255,255,0.06)'}`,borderRadius:10,color:payForm.discipline===d?'#4ade80':'#888',fontSize:10,fontWeight:700,cursor:'pointer'}}>
-                      {d}
-                    </button>
-                  ))}
-                </div>
-                <select value={payForm.planId}
-                  onChange={e=>{ const pl=getPlan(e.target.value); setPayForm(p=> pl ? {...p,planId:pl.id,amount:String(pl.amount),durationDays:String(pl.durationDays||0)} : {...p,planId:''}) }}
-                  style={{width:'100%',marginTop:8,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 12px',color:'#f0ece8',fontSize:12,fontFamily:'Montserrat,sans-serif',outline:'none',boxSizing:'border-box',cursor:'pointer'}}>
-                  <option value="">— Custom amount —</option>
-                  {PLANS.filter(p=>p.discipline===payForm.discipline).map(pl=>(
-                    <option key={pl.id} value={pl.id}>{pl.category} · {pl.name} — {peso(pl.amount)}{pl.kind==='dropin'?' (drop-in)':pl.durationDays?` · ${pl.durationDays}d`:''}</option>
-                  ))}
-                </select>
-                {getPlan(payForm.planId)?.kind === 'dropin' && (
-                  <div style={{marginTop:8,padding:'8px 12px',background:'rgba(66,165,245,0.08)',border:'1px solid rgba(66,165,245,0.25)',borderRadius:8,fontSize:10,color:'#7ba8d4',lineHeight:1.5}}>
-                    ℹ Drop-in is <strong>record-only</strong> — logged to the payments ledger; it does not change the member's access or expiry.
-                  </div>
-                )}
-              </div>
-
-              <div style={{display:'grid',gridTemplateColumns: getPlan(payForm.planId)?.kind==='dropin' ? '1fr' : '2fr 1fr',gap:10}}>
+                {/* Duration presets */}
                 <div>
-                  <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Amount (₱)</label>
-                  <input type="number" min="0" step="100" value={payForm.amount}
-                    onChange={e=>setPayForm(p=>({...p,amount:e.target.value}))}
+                  <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Add time</label>
+                  <div style={{display:'flex',gap:6,marginTop:6,flexWrap:'wrap'}}>
+                    {PRESETS.map(p => {
+                      const active = String(p.days) === String(extendForm.days)
+                      return (
+                        <button key={p.days} onClick={()=>setExtendForm({ days: String(p.days) })}
+                          style={{flex:'1 1 calc(50% - 6px)',padding:'10px',background:active?'rgba(74,222,128,0.15)':'rgba(255,255,255,0.03)',border:`1px solid ${active?'rgba(74,222,128,0.45)':'rgba(255,255,255,0.06)'}`,borderRadius:10,color:active?'#4ade80':'#aaa',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                          {p.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom days */}
+                <div>
+                  <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Or custom (days)</label>
+                  <input type="number" min="1" step="1" value={extendForm.days}
+                    onChange={e=>setExtendForm({ days: e.target.value })}
                     style={{width:'100%',marginTop:4,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 12px',color:'#f0ece8',fontSize:14,fontFamily:'Montserrat,sans-serif',outline:'none',boxSizing:'border-box'}}/>
                 </div>
-                {getPlan(payForm.planId)?.kind !== 'dropin' && (
-                  <div>
-                    <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Duration (days)</label>
-                    <input type="number" min="1" step="1" value={payForm.durationDays}
-                      onChange={e=>setPayForm(p=>({...p,durationDays:e.target.value}))}
-                      style={{width:'100%',marginTop:4,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 12px',color:'#f0ece8',fontSize:14,fontFamily:'Montserrat,sans-serif',outline:'none',boxSizing:'border-box'}}/>
+
+                {/* New expiry preview */}
+                {preview && (
+                  <div style={{padding:'12px 14px',background:'rgba(74,222,128,0.06)',border:'1px solid rgba(74,222,128,0.25)',borderRadius:10,fontSize:12,color:'#bbb'}}>
+                    New expiry: <strong style={{color:'#4ade80'}}>{preview.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</strong>
                   </div>
                 )}
-              </div>
 
-              <div>
-                <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Payment Method</label>
-                <div style={{display:'flex',gap:6,marginTop:4}}>
-                  {[
-                    {id:'cash',label:'💵 Cash'},
-                    {id:'gcash',label:'📱 GCash'},
-                    {id:'bank',label:'🏦 Bank'},
-                    {id:'other',label:'· Other'},
-                  ].map(opt => (
-                    <button key={opt.id} onClick={()=>setPayForm(p=>({...p,method:opt.id}))}
-                      style={{flex:1,padding:'8px',background:payForm.method===opt.id?'rgba(74,222,128,0.15)':'rgba(255,255,255,0.03)',border:`1px solid ${payForm.method===opt.id?'rgba(74,222,128,0.4)':'rgba(255,255,255,0.06)'}`,borderRadius:10,color:payForm.method===opt.id?'#4ade80':'#888',fontSize:10,fontWeight:700,cursor:'pointer'}}>
-                      {opt.label}
-                    </button>
-                  ))}
+                {/* Cash note */}
+                <div style={{fontSize:10,color:'#666',lineHeight:1.6}}>
+                  💵 Cash-only gym — extending updates the member's access window. No amount or revenue is recorded; a note goes to the activity log.
                 </div>
-              </div>
 
-              <div>
-                <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Reference Number (optional)</label>
-                <input value={payForm.reference} placeholder="GCash ref #, bank txn ID, etc."
-                  onChange={e=>setPayForm(p=>({...p,reference:e.target.value}))}
-                  style={{width:'100%',marginTop:4,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 12px',color:'#f0ece8',fontSize:12,fontFamily:'Montserrat,sans-serif',outline:'none',boxSizing:'border-box'}}/>
-              </div>
-
-              <div>
-                <label style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>Notes (optional)</label>
-                <textarea value={payForm.notes} placeholder="e.g. promo rate, family discount"
-                  onChange={e=>setPayForm(p=>({...p,notes:e.target.value}))} rows={2}
-                  style={{width:'100%',marginTop:4,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'10px 12px',color:'#f0ece8',fontSize:12,fontFamily:'Montserrat,sans-serif',outline:'none',resize:'vertical',boxSizing:'border-box'}}/>
-              </div>
-
-              <div style={{display:'flex',gap:10,marginTop:4}}>
-                <button onClick={()=>setPayTarget(null)} disabled={paySaving}
-                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:paySaving?'not-allowed':'pointer',opacity:paySaving?0.5:1}}>
-                  CANCEL
-                </button>
-                <button onClick={recordPayment} disabled={paySaving}
-                  style={{flex:1.4,background:'linear-gradient(135deg,#4ade80,#22c55e)',color:'#000',border:'none',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:paySaving?'not-allowed':'pointer',boxShadow:'0 4px 14px rgba(74,222,128,0.35)',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                  {paySaving ? (<><span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(0,0,0,0.3)',borderTopColor:'#000',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>SAVING…</>) : (getPlan(payForm.planId)?.kind==='dropin' ? '💵 RECORD DROP-IN' : '💰 RECORD PAYMENT')}
-                </button>
+                <div style={{display:'flex',gap:10,marginTop:4}}>
+                  <button onClick={()=>setExtendTarget(null)} disabled={extendSaving}
+                    style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:extendSaving?'not-allowed':'pointer',opacity:extendSaving?0.5:1}}>
+                    CANCEL
+                  </button>
+                  <button onClick={extendMember} disabled={extendSaving || !valid}
+                    style={{flex:1.4,background:'linear-gradient(135deg,#4ade80,#22c55e)',color:'#000',border:'none',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:(extendSaving||!valid)?'not-allowed':'pointer',opacity:(extendSaving||!valid)?0.6:1,boxShadow:'0 4px 14px rgba(74,222,128,0.35)',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                    {extendSaving ? (<><span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(0,0,0,0.3)',borderTopColor:'#000',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>SAVING…</>) : '🗓 EXTEND'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ════════════════════════════════════════════════════ */}
       {/*  PAUSE / RESUME CONFIRMATION                          */}
@@ -1388,164 +1192,6 @@ export default function AdminDashboard() {
                   <button onClick={()=>togglePause(pauseTarget)} disabled={pauseSaving}
                     style={{flex:1.3,background:isPaused?'linear-gradient(135deg,#4ade80,#22c55e)':'linear-gradient(135deg,#f5c842,#e08820)',color:'#000',border:'none',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:pauseSaving?'not-allowed':'pointer'}}>
                     {pauseSaving ? 'SAVING…' : (isPaused ? '▶ RESUME' : '⏸ PAUSE')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* ════════════════════════════════════════════════════ */}
-      {/*  PAYMENT HISTORY DRAWER                               */}
-      {/* ════════════════════════════════════════════════════ */}
-      {paymentHistory && (
-        <div onClick={()=>setPaymentHistory(null)}
-          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-          <div onClick={e=>e.stopPropagation()}
-            style={{background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(66,165,245,0.35)',maxWidth:560,width:'100%',maxHeight:'80vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
-            <div style={{padding:'18px 24px',borderBottom:'1px solid rgba(255,255,255,0.06)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#42a5f5'}}>📜 PAYMENT HISTORY</div>
-                <div style={{fontSize:11,color:'#888',marginTop:2}}>{paymentHistory.member.name}</div>
-              </div>
-              <button onClick={()=>setPaymentHistory(null)}
-                style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,width:34,height:34,color:'#888',fontSize:14,cursor:'pointer'}}>✕</button>
-            </div>
-            <div style={{flex:1,overflowY:'auto',padding:'16px 24px'}}>
-              {paymentHistory.payments === null ? (
-                <div style={{textAlign:'center',color:'#555',fontSize:12,padding:30}}>Loading…</div>
-              ) : paymentHistory.payments.length === 0 ? (
-                <div style={{textAlign:'center',color:'#555',fontSize:12,padding:30}}>No payments recorded yet</div>
-              ) : (
-                <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                  {paymentHistory.payments.map(p => {
-                    const dt = p.createdAt?.toDate ? p.createdAt.toDate() : null
-                    return (
-                      <div key={p.id} className="payment-row"
-                        style={{padding:'14px 16px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12,position:'relative',transition:'all 0.2s'}}
-                        onMouseEnter={e=>{
-                          const btn = e.currentTarget.querySelector('.payment-delete-btn')
-                          if (btn) btn.style.opacity = '1'
-                        }}
-                        onMouseLeave={e=>{
-                          const btn = e.currentTarget.querySelector('.payment-delete-btn')
-                          if (btn) btn.style.opacity = '0'
-                        }}>
-                        {/* Delete button — appears on row hover */}
-                        <button
-                          className="payment-delete-btn"
-                          onClick={()=>setDeletePaymentTarget(p)}
-                          title="Delete this payment record"
-                          style={{
-                            position:'absolute',top:10,right:10,
-                            width:28,height:28,borderRadius:8,
-                            background:'rgba(232,74,47,0.12)',
-                            border:'1px solid rgba(232,74,47,0.3)',
-                            color:'#e84a2f',cursor:'pointer',
-                            display:'flex',alignItems:'center',justifyContent:'center',
-                            fontSize:13,fontWeight:700,
-                            opacity:0,transition:'opacity 0.2s,background 0.15s',
-                          }}
-                          onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.25)'}}
-                          onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.12)'}}>
-                          🗑
-                        </button>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6,paddingRight:36}}>
-                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#4ade80',letterSpacing:'0.04em'}}>
-                            ₱{(p.amount||0).toLocaleString()}
-                          </div>
-                          <span style={{fontSize:9,padding:'2px 8px',background:'rgba(66,165,245,0.12)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase'}}>
-                            {p.paymentMethod || 'cash'}
-                          </span>
-                        </div>
-                        {p.planLabel && (
-                          <div style={{fontSize:11,color:'#f5c842',fontWeight:600,marginBottom:4}}>🥊 {p.planLabel}</div>
-                        )}
-                        <div style={{fontSize:11,color:'#888',display:'flex',gap:10,flexWrap:'wrap'}}>
-                          {p.kind === 'dropin'
-                            ? <span style={{color:'#f5c842'}}>Drop-in · no membership change</span>
-                            : <>
-                                <span>{p.durationDays} days</span>
-                                {p.startsAt && <span>· {fmtExpiry({expiresAt:p.startsAt})}–{fmtExpiry({expiresAt:p.expiresAt})}</span>}
-                              </>}
-                        </div>
-                        {p.referenceNumber && (
-                          <div style={{fontSize:10,color:'#666',marginTop:4,fontFamily:'monospace'}}>Ref: {p.referenceNumber}</div>
-                        )}
-                        {p.notes && (
-                          <div style={{fontSize:11,color:'#aaa',marginTop:6,fontStyle:'italic'}}>"{p.notes}"</div>
-                        )}
-                        <div style={{fontSize:9,color:'#555',marginTop:8,paddingTop:6,borderTop:'1px solid rgba(255,255,255,0.04)',letterSpacing:'0.04em'}}>
-                          Recorded by {p.receivedByName || 'Admin'}{dt ? ` · ${dt.toLocaleDateString()} ${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}` : ''}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════════ */}
-      {/*  DELETE PAYMENT RECORD CONFIRMATION                   */}
-      {/*  (Layered above the payment history drawer)           */}
-      {/* ════════════════════════════════════════════════════ */}
-      {deletePaymentTarget && (() => {
-        const p = deletePaymentTarget
-        const dt = p.createdAt?.toDate ? p.createdAt.toDate() : null
-        return (
-          <div onClick={()=>!deletingPayment && setDeletePaymentTarget(null)}
-            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',backdropFilter:'blur(12px)',zIndex:2100,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-            <div onClick={e=>e.stopPropagation()}
-              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.85)'}}>
-              <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
-              <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:14}}>
-                <div style={{display:'flex',alignItems:'center',gap:12}}>
-                  <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(232,74,47,0.4)'}}>🗑</div>
-                  <div>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#e84a2f'}}>DELETE PAYMENT?</div>
-                    <div style={{fontSize:10,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Cannot be undone</div>
-                  </div>
-                </div>
-
-                {/* Receipt preview */}
-                <div style={{padding:'14px 16px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'#4ade80',letterSpacing:'0.04em'}}>
-                      ₱{(p.amount||0).toLocaleString()}
-                    </div>
-                    <span style={{fontSize:9,padding:'2px 8px',background:'rgba(66,165,245,0.12)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase'}}>
-                      {p.paymentMethod || 'cash'}
-                    </span>
-                  </div>
-                  <div style={{fontSize:11,color:'#888'}}>
-                    {p.planLabel ? `${p.planLabel} · ` : ''}{p.kind === 'dropin' ? 'Drop-in' : `${p.durationDays} days`} · Recorded by {p.receivedByName || 'Admin'}
-                    {dt ? ` · ${dt.toLocaleDateString()}` : ''}
-                  </div>
-                  {p.referenceNumber && (
-                    <div style={{fontSize:10,color:'#666',marginTop:3,fontFamily:'monospace'}}>Ref: {p.referenceNumber}</div>
-                  )}
-                </div>
-
-                {/* Warning about expiry */}
-                <div style={{padding:'10px 14px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.22)',borderRadius:10,fontSize:11,color:'#bbb',lineHeight:1.6}}>
-                  ⚠ <strong style={{color:'#f5c842'}}>Heads up:</strong> Deleting this record will NOT roll back the member's expiry date. If this payment is the source of their current access, you'll want to adjust their expiry separately (e.g., via Pause/Resume or a corrected payment).
-                </div>
-
-                <div style={{display:'flex',gap:10}}>
-                  <button onClick={()=>setDeletePaymentTarget(null)} disabled={deletingPayment}
-                    style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:deletingPayment?'not-allowed':'pointer',opacity:deletingPayment?0.5:1}}>
-                    KEEP IT
-                  </button>
-                  <button onClick={deletePayment} disabled={deletingPayment}
-                    style={{flex:1.3,background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'11px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:deletingPayment?'not-allowed':'pointer',boxShadow:'0 4px 14px rgba(232,74,47,0.4)',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
-                    {deletingPayment ? (<>
-                      <span style={{display:'inline-block',width:12,height:12,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-                      DELETING…
-                    </>) : '🗑 DELETE PAYMENT'}
                   </button>
                 </div>
               </div>
@@ -2664,14 +2310,8 @@ export default function AdminDashboard() {
               )
             })()}
 
-            {/* Members list with membership status + actions */}
-            {/* ──── REVENUE THIS MONTH + EXPIRING SOON ──── */}
+            {/* Expiring-soon list with quick renewal reminders */}
             {(() => {
-              const totalRevenue = monthlyPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
-              const paymentCount = monthlyPayments.length
-              const avgPayment   = paymentCount > 0 ? Math.round(totalRevenue / paymentCount) : 0
-              const monthLabel   = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-
               // Build expiring-soon list (sorted by urgency)
               const expiringList = members
                 .filter(m => m.role === 'member')
@@ -2680,33 +2320,7 @@ export default function AdminDashboard() {
                 .sort((a, b) => a.days - b.days)
 
               return (
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1.5fr',gap:14}}>
-
-                  {/* ── Revenue This Month ── */}
-                  <div style={{position:'relative',background:'linear-gradient(135deg,rgba(74,222,128,0.06) 0%,#1a1413 60%)',borderRadius:18,border:'1px solid rgba(74,222,128,0.18)',overflow:'hidden'}}>
-                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#4ade80,#22c55e)'}}/>
-                    <div style={{padding:'18px 22px',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',alignItems:'center',gap:12}}>
-                      <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,#4ade80,#22c55e)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,boxShadow:'0 4px 12px rgba(74,222,128,0.3)'}}>💰</div>
-                      <div>
-                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.06em',color:'#f0ece8'}}>REVENUE</div>
-                        <div style={{fontSize:9,color:'#666',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:1}}>{monthLabel}</div>
-                      </div>
-                    </div>
-                    <div style={{padding:'22px 24px'}}>
-                      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,color:'#4ade80',letterSpacing:'0.02em',lineHeight:1,textShadow:'0 0 24px rgba(74,222,128,0.3)'}}>
-                        ₱{totalRevenue.toLocaleString()}
-                      </div>
-                      <div style={{fontSize:11,color:'#888',marginTop:6,display:'flex',gap:14,flexWrap:'wrap'}}>
-                        <span>📊 <strong style={{color:'#f0ece8'}}>{paymentCount}</strong> payment{paymentCount===1?'':'s'}</span>
-                        {paymentCount > 0 && <span>· Avg <strong style={{color:'#f0ece8'}}>₱{avgPayment.toLocaleString()}</strong></span>}
-                      </div>
-                      {paymentCount === 0 && (
-                        <div style={{marginTop:14,padding:'10px 14px',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)',borderRadius:10,fontSize:11,color:'#666',lineHeight:1.5}}>
-                          No payments recorded yet this month — record one via the member list below.
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                <div>
 
                   {/* ── Expiring This Week ── */}
                   <div style={{position:'relative',background:'linear-gradient(135deg,rgba(245,200,66,0.05) 0%,#1a1413 60%)',borderRadius:18,border:'1px solid rgba(245,200,66,0.2)',overflow:'hidden'}}>
@@ -2764,7 +2378,7 @@ export default function AdminDashboard() {
               <div style={{padding:'16px 22px',borderBottom:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f0ece8',letterSpacing:'0.06em'}}>💳 MEMBERSHIPS</div>
-                  <div style={{fontSize:10,color:'#666',marginTop:2}}>Record payments, pause/resume, view history</div>
+                  <div style={{fontSize:10,color:'#666',marginTop:2}}>Extend (cash), pause/resume, remind</div>
                 </div>
                 <div style={{fontSize:11,color:'#888'}}>
                   {members.filter(m=>m.role==='member').length} total members
@@ -2817,17 +2431,13 @@ export default function AdminDashboard() {
                           </div>
                           {/* Actions */}
                           <div style={{display:'flex',gap:6,flexShrink:0}}>
-                            <button onClick={()=>setPayTarget(member)} title="Record payment"
+                            <button onClick={()=>{ setExtendForm({ days: '30' }); setExtendTarget(member) }} title="Extend membership (cash)"
                               style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.3)',borderRadius:50,padding:'6px 12px',fontSize:10,fontWeight:700,color:'#4ade80',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
-                              💰 Record
+                              🗓 Extend
                             </button>
                             <button onClick={()=>setPauseTarget(member)} title={isPaused?'Resume':'Pause'}
                               style={{background:isPaused?'rgba(74,222,128,0.1)':'rgba(245,200,66,0.1)',border:`1px solid ${isPaused?'rgba(74,222,128,0.3)':'rgba(245,200,66,0.3)'}`,borderRadius:50,padding:'6px 12px',fontSize:10,fontWeight:700,color:isPaused?'#4ade80':'#f5c842',cursor:'pointer'}}>
                               {isPaused ? '▶ Resume' : '⏸ Pause'}
-                            </button>
-                            <button onClick={()=>openPaymentHistory(member)} title="Payment history"
-                              style={{background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,padding:'6px 12px',fontSize:10,fontWeight:700,color:'#42a5f5',cursor:'pointer'}}>
-                              📜 History
                             </button>
                           </div>
                         </div>

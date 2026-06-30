@@ -25,6 +25,8 @@ export const ACTIVITY_TYPES = {
   class_ended:        { icon: '🏁', color: '#22c55e', label: 'Class Ended',     verb: 'ended class' },
   // Levels
   level_change:       { icon: '🎚', color: '#c084fc', label: 'Level Update',    verb: 'changed level for' },
+  // Memberships
+  membership_extended:{ icon: '🗓', color: '#4ade80', label: 'Extended',        verb: 'extended membership for' },
   // Members
   member_signup:      { icon: '👋', color: '#22c55e', label: 'New Member',      verb: 'joined the gym' },
   member_deactivated: { icon: '⏸', color: '#fb923c', label: 'Deactivated',      verb: 'deactivated' },
@@ -91,6 +93,8 @@ function autoDescription(event) {
         : `${actor} marked class ended: ${p.className || 'a class'}${p.classDay ? ` (${p.classDay} · ${p.classTime || ''})` : ''}${p.notifiedCount ? ` — ${p.notifiedCount} member${p.notifiedCount===1?'':'s'} thanked` : ''}`
     case 'level_change':
       return `${actor} ${p.isPromote ? 'promoted' : 'moved'} ${p.memberName || 'a member'} to ${p.newLevel}${p.oldLevel ? ` (from ${p.oldLevel})` : ''}`
+    case 'membership_extended':
+      return `${actor} extended ${p.memberName || 'a member'}'s membership by ${p.days} day${p.days === 1 ? '' : 's'} (cash)`
     case 'member_signup':
       return `${actor} joined the gym${p.experience ? ` as ${p.experience}` : ''}`
     case 'member_deactivated':
