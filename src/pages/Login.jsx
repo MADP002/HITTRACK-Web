@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth'
+import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail, sendEmailVerification } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -17,6 +17,9 @@ export default function Login() {
   const [success,  setSuccess]  = useState(params.get('registered') === '1')
   const [pending]              = useState(params.get('pending') === '1')
   const [showPw, setShowPw]         = useState(false)
+  // Email-verification state (holds creds so we can resend after a blocked login)
+  const [unverifiedCreds, setUnverifiedCreds] = useState(null)
+  const [resendMsg, setResendMsg] = useState('')
   const [showReset, setShowReset]   = useState(false)
   const [resetEmail, setResetEmail] = useState('')
   const [resetStatus, setResetStatus] = useState('')
@@ -42,6 +45,21 @@ export default function Login() {
       setResetStatus('error:' + (msgs[err.code] || 'Something went wrong. Please try again.'))
       setResetLoading(false)
     }
+  }
+
+  // Resend the email-verification link. We re-authenticate briefly to get a
+  // fresh user object, send the link, then sign back out.
+  async function handleResendVerification() {
+    if (!unverifiedCreds) return
+    setLoading(true); setResendMsg('')
+    try {
+      const cred = await signInWithEmailAndPassword(auth, unverifiedCreds.email, unverifiedCreds.password)
+      await sendEmailVerification(cred.user)
+      await signOut(auth)
+      setResendMsg('success:A new verification link was sent to ' + unverifiedCreds.email + '. Open it, then log in.')
+    } catch (err) {
+      setResendMsg('error:Could not resend right now. Please try logging in again to resend the verification email.')
+    } finally { setLoading(false) }
   }
 
   useEffect(() => { signOut(auth).catch(() => {}); localStorage.clear() }, [])
@@ -83,6 +101,17 @@ export default function Login() {
       const snap = await getDoc(doc(db, 'users', cred.user.uid))
       if (!snap.exists()) { setError('Account not found.'); setLoading(false); return }
       const data = snap.data()
+
+      // ── Email verification gate — enforced ONLY for accounts flagged at signup
+      // (existing users have no flag, so they're never locked out). ──
+      if (data.requiresEmailVerification && !cred.user.emailVerified) {
+        setUnverifiedCreds({ email: email.trim().toLowerCase(), password })
+        await signOut(auth)
+        setError('Please verify your email before logging in — check your inbox (and spam) for the verification link.')
+        setLoading(false); return
+      }
+      setUnverifiedCreds(null)
+
       if (data.role === 'admin') { navigate('/admin'); return }
       if (data.role === 'coach') { navigate('/coach'); return }
       if (data.role === 'coach_pending') {
@@ -178,8 +207,8 @@ export default function Login() {
             </div>
 
             {success && (
-              <div style={{ background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.25)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#4ade80', fontWeight:600, marginBottom:18 }}>
-                ✅ Account created! Please sign in.
+              <div style={{ background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.25)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#4ade80', fontWeight:600, marginBottom:18, lineHeight:1.7 }}>
+                ✅ Account created! We sent a verification link to your email — open it, then sign in.
               </div>
             )}
             {pending && (
@@ -190,6 +219,24 @@ export default function Login() {
             {error && (
               <div style={{ background:'rgba(232,74,47,0.1)', border:'1px solid rgba(232,74,47,0.25)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#e84a2f', fontWeight:600, marginBottom:18 }}>
                 ⚠ {error}
+              </div>
+            )}
+            {unverifiedCreds && (
+              <button type="button" onClick={handleResendVerification} disabled={loading}
+                style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:8, background:'rgba(66,165,245,0.08)', border:'1px solid rgba(66,165,245,0.3)', borderRadius:10, padding:'11px 14px', fontSize:12, color:'#42a5f5', fontWeight:700, cursor:loading?'default':'pointer', marginBottom:14, opacity:loading?0.7:1, transition:'all 0.2s' }}
+                onMouseEnter={e => { if(!loading) e.currentTarget.style.background='rgba(66,165,245,0.14)' }}
+                onMouseLeave={e => e.currentTarget.style.background='rgba(66,165,245,0.08)'}>
+                📧 Resend verification email
+              </button>
+            )}
+            {resendMsg && (
+              <div style={{
+                background: resendMsg.startsWith('success') ? 'rgba(74,222,128,0.1)' : 'rgba(232,74,47,0.1)',
+                border: `1px solid ${resendMsg.startsWith('success') ? 'rgba(74,222,128,0.25)' : 'rgba(232,74,47,0.25)'}`,
+                borderRadius:10, padding:'10px 14px', fontSize:12, fontWeight:600, marginBottom:18, lineHeight:1.6,
+                color: resendMsg.startsWith('success') ? '#4ade80' : '#e84a2f',
+              }}>
+                {resendMsg.startsWith('success') ? '✅' : '⚠'} {resendMsg.split(':').slice(1).join(':')}
               </div>
             )}
 

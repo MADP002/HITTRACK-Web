@@ -1949,7 +1949,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 {pending.map(p=>(
-                  <div key={p.uid} style={{display:'flex',alignItems:'center',gap:14,padding:'16px 22px',borderBottom:'1px solid rgba(255,255,255,0.04)',transition:'all 0.25s ease'}}
+                  <div key={p.uid} style={{display:'flex',alignItems:'flex-start',gap:14,padding:'16px 22px',borderBottom:'1px solid rgba(255,255,255,0.04)',transition:'all 0.25s ease'}}
                     onMouseEnter={e=>e.currentTarget.style.background='rgba(245,200,66,0.04)'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                     <div style={{position:'relative',flexShrink:0}}>
@@ -1964,6 +1964,17 @@ export default function AdminDashboard() {
                         <span>{p.email}</span>
                         <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em',textTransform:'uppercase'}}>Applied for Coach</span>
                       </div>
+                      {/* Coach credentials — admin reviews these before approving */}
+                      {(p.specialization || p.certifications || p.bio || typeof p.experienceYears==='number') && (
+                        <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:6,background:'rgba(66,165,245,0.06)',border:'1px solid rgba(66,165,245,0.18)',borderRadius:10,padding:'9px 11px'}}>
+                          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                            {p.specialization && <span style={{fontSize:10,fontWeight:700,color:'#8ab4f8',background:'rgba(66,165,245,0.12)',border:'1px solid rgba(66,165,245,0.25)',borderRadius:50,padding:'3px 9px'}}>🥋 {p.specialization}</span>}
+                            {typeof p.experienceYears==='number' && <span style={{fontSize:10,fontWeight:700,color:'#8ab4f8',background:'rgba(66,165,245,0.12)',border:'1px solid rgba(66,165,245,0.25)',borderRadius:50,padding:'3px 9px'}}>⏱ {p.experienceYears} yr{p.experienceYears===1?'':'s'} exp</span>}
+                          </div>
+                          {p.certifications && <div style={{fontSize:11,color:'#aaa',lineHeight:1.5}}><strong style={{color:'#8ab4f8',fontWeight:700}}>Certs:</strong> {p.certifications}</div>}
+                          {p.bio && <div style={{fontSize:11,color:'#aaa',lineHeight:1.5}}><strong style={{color:'#8ab4f8',fontWeight:700}}>Bio:</strong> {p.bio}</div>}
+                        </div>
+                      )}
                     </div>
                     <div style={{display:'flex',gap:8}}>
                       <button onClick={()=>setConfirm({title:'Approve Coach?',message:`Approve ${p.name} as a coach? They will be able to log in immediately.`,danger:false,onConfirm:()=>approveCoach(p.uid)})}
