@@ -114,15 +114,15 @@ export default function Login() {
       const data = snap.data()
 
       // ── Email verification gate ──
-      // Enforced ONLY for accounts flagged at SELF-signup, so:
-      //   • existing users have no flag         → never locked out
-      //   • admin-created staff (createdByAdmin) → never locked out
-      // The point of the gate is to stop people self-registering with fake
-      // emails. An admin adding a coach has already vetted them, and the
-      // admin can't complete the verification on the coach's behalf — so
-      // gating those accounts just strands them at the login screen.
-      const selfRegistered = !data.createdByAdmin
-      if (selfRegistered && data.requiresEmailVerification && !cred.user.emailVerified) {
+      // Enforced for EVERY account flagged at creation — members who
+      // self-register AND coaches created by an admin. Only pre-existing
+      // accounts (no flag) are exempt, so nobody is retroactively locked out.
+      //
+      // Coaches can't verify themselves out of a bad address, so the admin
+      // has an escape hatch: "Resend Setup Email" on the coach roster sends
+      // a password-reset link, and completing a Firebase password reset
+      // ALSO marks the address verified.
+      if (data.requiresEmailVerification && !cred.user.emailVerified) {
         setUnverifiedCreds({ email: email.trim().toLowerCase(), password })
         await signOut(auth)
         setError('Please verify your email before logging in — check your inbox (and spam) for the verification link.')

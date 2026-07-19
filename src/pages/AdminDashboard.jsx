@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, where, orderBy, onSnapshot, writeBatch } from 'firebase/firestore'
-import { signOut } from 'firebase/auth'
+import { signOut, sendPasswordResetEmail } from 'firebase/auth'
 import { auth, db, createAuthUserDetached } from '../firebase'
 import { logActivity, ACTIVITY_TYPES } from '../lib/activityLog'
 import { isClassActive, autoEndPastClasses } from '../lib/classLifecycle'
@@ -718,6 +718,32 @@ export default function AdminDashboard() {
     }catch(e){showToast('❌ Error: '+e.message,'error')}
   }
 
+  // ════════════════════════════════════════════════════════
+  //  RESEND SETUP EMAIL — the admin's escape hatch when a coach
+  //  can't get past the email-verification gate.
+  //
+  //  The client SDK can't call sendEmailVerification for ANOTHER user
+  //  (it needs that user's own auth session). But a password-reset email
+  //  can be sent to any address, and completing a Firebase password
+  //  reset ALSO marks the address as verified. So this one action both
+  //  lets the coach set their own password and clears the gate.
+  // ════════════════════════════════════════════════════════
+  async function resendCoachSetup(coach){
+    if(!coach?.email){ showToast('❌ That coach has no email on file','error'); return }
+    try{
+      await sendPasswordResetEmail(auth, coach.email)
+      showToast(`📧 Setup link sent to ${coach.email}. Opening it lets them set a password AND verifies their email.`)
+    }catch(err){
+      const map = {
+        'auth/user-not-found':'No auth account found for that email.',
+        'auth/invalid-email':'That email address looks invalid.',
+        'auth/too-many-requests':'Too many requests — wait a few minutes and try again.',
+        'auth/network-request-failed':'Network error. Check your connection.',
+      }
+      showToast(`❌ ${map[err.code] || err.code || 'Could not send the setup email.'}`,'error')
+    }
+  }
+
   async function rejectCoach(uid){
     try{
       await updateDoc(doc(db,'users',uid),{role:'coach_rejected',approved:false})
@@ -825,11 +851,10 @@ export default function AdminDashboard() {
         await setDoc(doc(db,'users',uid),{
           uid, name: coachForm.name.trim(), email,
           role:'coach', approved:true, status:'active', programSetupDone:true,
-          // Admin-created staff are pre-vetted, so login is NOT gated on
-          // email verification (the admin can't verify on their behalf).
-          // A verification link is still sent so they can confirm the
-          // address if they want. Login.jsx skips the gate for createdByAdmin.
-          requiresEmailVerification:false,
+          // Coaches must verify their email before their first login, same
+          // as members — only real addresses can be used. If they never get
+          // the link, the admin can hit "Resend Setup Email" on the roster.
+          requiresEmailVerification:true,
           experienceYears: parseInt(coachForm.experienceYears,10) || 0,
           specialization:  coachForm.specialization.trim(),
           certifications:  coachForm.certifications.trim(),
@@ -849,7 +874,7 @@ export default function AdminDashboard() {
           payload:{ coachName:coachForm.name.trim(), coachEmail:email, specialization:coachForm.specialization.trim() },
         })
       }catch(_){}
-      showToast(`✅ Coach "${coachForm.name.trim()}" created. Share the temp password — they can log in right away.`)
+      showToast(`✅ Coach "${coachForm.name.trim()}" created. They must verify the emailed link before their first login — share the temp password too.`)
       setShowAddCoach(false)
       setCoachForm({ name:'', email:'', phone:'', password:'', experienceYears:'', specialization:'', certifications:'', bio:'' })
       setCoachFormErrors({})
@@ -2211,6 +2236,17 @@ export default function AdminDashboard() {
                       <span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:isActive?'#22c55e':'#e84a2f',animation:isActive?'pulseDot 1.6s ease-in-out infinite':'none'}}/>
                       {isActive?'Active':'Inactive'}
                     </span>
+                    {/* Escape hatch for the email-verification gate — sends a
+                        password-reset link, which also verifies the address. */}
+                    <button onClick={()=>setConfirm({
+                      title:'Resend Setup Email?',
+                      message:`Send ${c.name} a setup link at ${c.email}? Opening it lets them set their own password AND verifies their email, which clears the login gate.`,
+                      danger:false,
+                      onConfirm:()=>resendCoachSetup(c)
+                    })} title="Resend setup / verification email"
+                      style={{width:34,height:34,background:'rgba(66,165,245,0.12)',color:'#42a5f5',border:'1.5px solid rgba(66,165,245,0.3)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,cursor:'pointer',transition:'all 0.2s'}}
+                      onMouseEnter={e=>{e.currentTarget.style.background='rgba(66,165,245,0.2)';e.currentTarget.style.transform='scale(1.08)'}}
+                      onMouseLeave={e=>{e.currentTarget.style.background='rgba(66,165,245,0.12)';e.currentTarget.style.transform='scale(1)'}}>📧</button>
                     <button onClick={()=>setConfirm({
                       title:isActive?'Deactivate Coach?':'Activate Coach?',
                       message:isActive?`Deactivate ${c.name}? They won't be able to log in.`:`Restore ${c.name}'s coach access.`,
