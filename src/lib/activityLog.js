@@ -34,6 +34,7 @@ export const ACTIVITY_TYPES = {
   member_deleted:     { icon: '🗑', color: '#e84a2f', label: 'Member Deleted',  verb: 'permanently deleted' },
   // Coaches (created by admin only — no public coach signup)
   coach_added:        { icon: '🥊', color: '#42a5f5', label: 'Coach Added',     verb: 'added coach' },
+  coach_deleted:      { icon: '🗑', color: '#e84a2f', label: 'Coach Deleted',   verb: 'permanently deleted coach' },
 }
 
 /**
@@ -107,6 +108,8 @@ function autoDescription(event) {
       return `${actor} permanently deleted ${p.memberName || 'a member'}`
     case 'coach_added':
       return `${actor} added coach ${p.coachName || 'a coach'}${p.specialization ? ` (${p.specialization})` : ''}`
+    case 'coach_deleted':
+      return `${actor} permanently deleted coach ${p.coachName || p.memberName || 'a coach'}`
     default:
       return `${actor} performed ${event.type}`
   }

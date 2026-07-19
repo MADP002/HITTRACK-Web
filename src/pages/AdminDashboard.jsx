@@ -819,22 +819,29 @@ export default function AdminDashboard() {
     setCoachSaving(true)
     const email = coachForm.email.trim().toLowerCase()
     try{
-      const uid = await createAuthUserDetached(email, coachForm.password)
-      await setDoc(doc(db,'users',uid),{
-        uid, name: coachForm.name.trim(), email,
-        role:'coach', approved:true, status:'active', programSetupDone:true,
-        requiresEmailVerification:true,
-        experienceYears: parseInt(coachForm.experienceYears,10) || 0,
-        specialization:  coachForm.specialization.trim(),
-        certifications:  coachForm.certifications.trim(),
-        bio:             coachForm.bio.trim(),
-        ...(coachForm.phone.trim() ? { phone: coachForm.phone.trim() } : {}),
-        createdByAdmin:  true,
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      // The profile write runs INSIDE the helper so a failure rolls the
+      // auth account back instead of orphaning it.
+      await createAuthUserDetached(email, coachForm.password, async (uid) => {
+        await setDoc(doc(db,'users',uid),{
+          uid, name: coachForm.name.trim(), email,
+          role:'coach', approved:true, status:'active', programSetupDone:true,
+          requiresEmailVerification:true,
+          experienceYears: parseInt(coachForm.experienceYears,10) || 0,
+          specialization:  coachForm.specialization.trim(),
+          certifications:  coachForm.certifications.trim(),
+          bio:             coachForm.bio.trim(),
+          ...(coachForm.phone.trim() ? { phone: coachForm.phone.trim() } : {}),
+          createdByAdmin:  true,
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        })
       })
       try{
         await logActivity({
-          type:'coach_added', actorName:'Admin', actorRole:'admin',
+          type:'coach_added',
+          // activity rules require actorId == request.auth.uid — without it
+          // the write is rejected and the event never lands.
+          actorId: auth.currentUser?.uid || '',
+          actorName: adminProfile.name || 'Admin', actorRole:'admin',
           payload:{ coachName:coachForm.name.trim(), coachEmail:email, specialization:coachForm.specialization.trim() },
         })
       }catch(_){}
@@ -844,13 +851,22 @@ export default function AdminDashboard() {
       setCoachFormErrors({})
       loadAll()
     }catch(err){
+      console.error('[addCoach] failed:', err)
       const map = {
         'auth/email-already-in-use':'That email already has an account.',
         'auth/invalid-email':'Please enter a valid email address.',
         'auth/weak-password':'Password is too weak — use 8+ characters.',
         'auth/network-request-failed':'Network error. Check your connection.',
       }
-      setCoachFormErrors({ general: map[err.code] || 'Could not create the coach account. Please try again.' })
+      // Rules rejection is the most likely non-auth failure — name it plainly
+      // instead of a generic message, so it's obvious what to fix.
+      const isPerm = err.code === 'permission-denied' || /permission/i.test(err.message || '')
+      setCoachFormErrors({
+        general: map[err.code]
+          || (isPerm
+              ? 'Permission denied by Firestore rules. Publish the latest rules (firebase deploy --only firestore:rules) — admins need create access on users/.'
+              : `Could not create the coach account: ${err.code || err.message || 'unknown error'}`),
+      })
     }finally{ setCoachSaving(false) }
   }
 
