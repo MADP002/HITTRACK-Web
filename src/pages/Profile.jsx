@@ -8,6 +8,7 @@ import MedicalCertUpload from '../components/MedicalCertUpload'
 import { useIsMobile } from '../lib/useIsMobile'
 import { computeMembershipState, daysRemaining, fmtExpiry, fmtRemaining, getStatusLabel, getStatusColor, getStatusIcon, STATUS } from '../lib/membership'
 import { getMemberLevel, levelScore, LEVEL_BONUS } from '../lib/memberLevel'
+import { clearAppStorageKeepTheme } from '../lib/theme'
 
 const LEVEL_COLOR = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#4ade80', Expert:'#42a5f5', Elite:'#c084fc' }
 const LEVEL_ICON  = { Beginner:'🥊', Intermediate:'⚡', Advanced:'🔥', Expert:'💎', Elite:'👑' }
@@ -66,9 +67,9 @@ function StatCard({icon,label,value,sub,color='#f5c842',big=false}){
       onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'}
       onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
       <div style={{position:'absolute',top:-6,right:-6,fontSize:36,opacity:0.08}}>{icon}</div>
-      <div style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase'}}>{label}</div>
+      <div style={{fontSize:10,fontWeight:700,color:'var(--t-dim3)',letterSpacing:'0.1em',textTransform:'uppercase'}}>{label}</div>
       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:big?42:28,color,lineHeight:1,textShadow:`0 0 16px ${color}44`}}>{value}</div>
-      {sub&&<div style={{fontSize:10,color:'#555',fontWeight:600}}>{sub}</div>}
+      {sub&&<div style={{fontSize:10,color:'var(--t-dim3)',fontWeight:600}}>{sub}</div>}
     </div>
   )
 }
@@ -79,10 +80,10 @@ function AnimBar({value,max=100,color,label,delay=0}){
   return(
     <div style={{display:'flex',flexDirection:'column',gap:5}}>
       <div style={{display:'flex',justifyContent:'space-between',fontSize:10}}>
-        <span style={{color:'#555',fontWeight:600}}>{label}</span>
+        <span style={{color:'var(--t-dim3)',fontWeight:600}}>{label}</span>
         <span style={{color,fontWeight:700}}>{value}</span>
       </div>
-      <div style={{height:6,background:'rgba(255,255,255,0.05)',borderRadius:50,overflow:'hidden'}}>
+      <div style={{height:6,background:'var(--t-s05)',borderRadius:50,overflow:'hidden'}}>
         <div style={{height:'100%',borderRadius:50,background:color,width:`${w}%`,transition:'width 1.2s cubic-bezier(0.4,0,0.2,1)',boxShadow:`0 0 8px ${color}66`}}/>
       </div>
     </div>
@@ -131,7 +132,7 @@ export default function Profile(){
 
   const bmi=profile.bmi||(profile.height&&profile.weight?parseFloat((profile.weight/((profile.height/100)**2)).toFixed(1)):null)
   const bmiLabel=!bmi?'—':bmi<18.5?'Underweight':bmi<25?'Normal':bmi<30?'Overweight':'Obese'
-  const bmiColor=!bmi?'#555':bmi<18.5?'#42a5f5':bmi<25?'#4ade80':bmi<30?'#f5c842':'#e84a2f'
+  const bmiColor=!bmi?'var(--t-dim3)':bmi<18.5?'#42a5f5':bmi<25?'#4ade80':bmi<30?'#f5c842':'#e84a2f'
 
   const totalWorkouts=stats.totalWorkouts||0
   const streak=stats.streak||0
@@ -231,7 +232,7 @@ export default function Profile(){
   }
 
   async function handleLogout(){
-    await signOut(auth);localStorage.clear();navigate('/login')
+    await signOut(auth);clearAppStorageKeepTheme();navigate('/login')
   }
 
   // Load this member's own payment history on demand
@@ -458,7 +459,7 @@ export default function Profile(){
     }
 
     // Clear local state + sign out + redirect
-    localStorage.clear()
+    clearAppStorageKeepTheme()
     try { await signOut(auth) } catch(_) {}
     navigate('/login?deleted=1')
   }
@@ -477,7 +478,7 @@ export default function Profile(){
     navigate('/program-builder')
   }
 
-  const inp={background:'rgba(255,255,255,0.04)',border:'1.5px solid rgba(255,255,255,0.08)',borderRadius:12,padding:'11px 14px',color:'#f0ece8',fontSize:13,fontFamily:'Montserrat,sans-serif',outline:'none',transition:'border-color 0.2s',width:'100%',boxSizing:'border-box'}
+  const inp={background:'var(--t-s04)',border:'1.5px solid var(--t-s08)',borderRadius:12,padding:'11px 14px',color:'var(--t-text)',fontSize:13,fontFamily:'Montserrat,sans-serif',outline:'none',transition:'border-color 0.2s',width:'100%',boxSizing:'border-box'}
 
   return(
     <>
@@ -490,10 +491,10 @@ export default function Profile(){
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <div style={{...glass(),padding:'36px 40px',maxWidth:380,width:'90%',textAlign:'center'}}>
             <div style={{fontSize:40,marginBottom:12}}>👋</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'#f0ece8',marginBottom:8}}>LOG OUT?</div>
-            <div style={{fontSize:13,color:'#7a7570',lineHeight:1.7,marginBottom:24}}>Are you sure you want to sign out of HITTRACK?</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'var(--t-text)',marginBottom:8}}>LOG OUT?</div>
+            <div style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.7,marginBottom:24}}>Are you sure you want to sign out of HITTRACK?</div>
             <div style={{display:'flex',gap:12,justifyContent:'center'}}>
-              <button onClick={()=>setLogoutConfirm(false)} style={{background:'transparent',color:'#555',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
+              <button onClick={()=>setLogoutConfirm(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
               <button onClick={handleLogout} style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Yes, Logout</button>
             </div>
           </div>
@@ -507,32 +508,32 @@ export default function Profile(){
         <div onClick={()=>setShowPayments(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(66,165,245,0.35)',maxWidth:520,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 30px 80px rgba(0,0,0,0.8)'}}>
-            <div style={{padding:'18px 24px',borderBottom:'1px solid rgba(255,255,255,0.06)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            style={{background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(66,165,245,0.35)',maxWidth:520,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 30px 80px rgba(0,0,0,0.8)'}}>
+            <div style={{padding:'18px 24px',borderBottom:'1px solid var(--t-s06)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#42a5f5'}}>📜 PAYMENT HISTORY</div>
-                <div style={{fontSize:10,color:'#888',letterSpacing:'0.08em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Your past renewals</div>
+                <div style={{fontSize:10,color:'var(--t-dim2)',letterSpacing:'0.08em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Your past renewals</div>
               </div>
               <button onClick={()=>setShowPayments(false)}
-                style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,width:34,height:34,color:'#888',fontSize:14,cursor:'pointer'}}>✕</button>
+                style={{background:'var(--t-s04)',border:'1px solid var(--t-s10)',borderRadius:50,width:34,height:34,color:'var(--t-dim2)',fontSize:14,cursor:'pointer'}}>✕</button>
             </div>
             <div style={{flex:1,overflowY:'auto',padding:'16px 24px'}}>
               {payments === null ? (
-                <div style={{textAlign:'center',color:'#555',fontSize:12,padding:30,display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+                <div style={{textAlign:'center',color:'var(--t-dim3)',fontSize:12,padding:30,display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
                   <span style={{display:'inline-block',width:18,height:18,border:'2px solid rgba(66,165,245,0.2)',borderTopColor:'#42a5f5',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
                   Loading…
                 </div>
               ) : payments.length === 0 ? (
-                <div style={{textAlign:'center',color:'#555',fontSize:12,padding:40,lineHeight:1.7}}>
+                <div style={{textAlign:'center',color:'var(--t-dim3)',fontSize:12,padding:40,lineHeight:1.7}}>
                   No payments recorded yet.<br/>
-                  <span style={{fontSize:11,color:'#666'}}>Your first payment will appear here.</span>
+                  <span style={{fontSize:11,color:'var(--t-dim3)'}}>Your first payment will appear here.</span>
                 </div>
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
                   {payments.map(p => {
                     const dt = p.createdAt?.toDate ? p.createdAt.toDate() : null
                     return (
-                      <div key={p.id} style={{padding:'14px 16px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12}}>
+                      <div key={p.id} style={{padding:'14px 16px',background:'var(--t-s03)',border:'1px solid var(--t-s06)',borderRadius:12}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#4ade80',letterSpacing:'0.04em'}}>
                             ₱{(p.amount||0).toLocaleString()}
@@ -544,7 +545,7 @@ export default function Profile(){
                         {p.planLabel && (
                           <div style={{fontSize:11,color:'#f5c842',fontWeight:600,marginBottom:4}}>🥊 {p.planLabel}</div>
                         )}
-                        <div style={{fontSize:11,color:'#888',display:'flex',gap:10,flexWrap:'wrap'}}>
+                        <div style={{fontSize:11,color:'var(--t-dim2)',display:'flex',gap:10,flexWrap:'wrap'}}>
                           {p.kind === 'dropin'
                             ? <span style={{color:'#f5c842'}}>Drop-in session</span>
                             : <>
@@ -553,12 +554,12 @@ export default function Profile(){
                               </>}
                         </div>
                         {p.referenceNumber && (
-                          <div style={{fontSize:10,color:'#666',marginTop:4,fontFamily:'monospace'}}>Ref: {p.referenceNumber}</div>
+                          <div style={{fontSize:10,color:'var(--t-dim3)',marginTop:4,fontFamily:'monospace'}}>Ref: {p.referenceNumber}</div>
                         )}
                         {p.notes && (
-                          <div style={{fontSize:11,color:'#aaa',marginTop:6,fontStyle:'italic'}}>"{p.notes}"</div>
+                          <div style={{fontSize:11,color:'var(--t-dim1)',marginTop:6,fontStyle:'italic'}}>"{p.notes}"</div>
                         )}
-                        <div style={{fontSize:9,color:'#555',marginTop:8,paddingTop:6,borderTop:'1px solid rgba(255,255,255,0.04)',letterSpacing:'0.04em'}}>
+                        <div style={{fontSize:9,color:'var(--t-dim3)',marginTop:8,paddingTop:6,borderTop:'1px solid var(--t-s04)',letterSpacing:'0.04em'}}>
                           Recorded by {p.receivedByName || 'Admin'}{dt ? ` · ${dt.toLocaleDateString()} ${dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}` : ''}
                         </div>
                       </div>
@@ -576,18 +577,18 @@ export default function Profile(){
         <div onClick={()=>!deleting && setDeleteConfirm(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.5)',maxWidth:500,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.85),0 0 60px rgba(232,74,47,0.3)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.5)',maxWidth:500,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.85),0 0 60px rgba(232,74,47,0.3)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'24px 28px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:50,height:50,borderRadius:14,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,boxShadow:'0 4px 16px rgba(232,74,47,0.5)'}}>⚠</div>
                 <div>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'0.05em',color:'#e84a2f'}}>DELETE ACCOUNT?</div>
-                  <div style={{fontSize:10,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action cannot be undone</div>
+                  <div style={{fontSize:10,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action cannot be undone</div>
                 </div>
               </div>
-              <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.07)',border:'1px solid rgba(232,74,47,0.22)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.65,textAlign:'left'}}>
-                <div style={{marginBottom:8,fontWeight:700,color:'#f0ece8'}}>The following will be permanently deleted:</div>
+              <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.07)',border:'1px solid rgba(232,74,47,0.22)',borderRadius:12,fontSize:12,color:'var(--t-dim1)',lineHeight:1.65,textAlign:'left'}}>
+                <div style={{marginBottom:8,fontWeight:700,color:'var(--t-text)'}}>The following will be permanently deleted:</div>
                 <div style={{display:'flex',flexDirection:'column',gap:4,fontSize:11,color:'#999'}}>
                   <div>✗ Your profile, workouts, and stats</div>
                   <div>✗ All your class bookings (slots freed up)</div>
@@ -597,7 +598,7 @@ export default function Profile(){
                   <div>✗ Forum posts you authored</div>
                   <div>✗ Your training level audit trail</div>
                 </div>
-                <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid rgba(255,255,255,0.06)',fontSize:11,color:'#888'}}>
+                <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--t-s06)',fontSize:11,color:'var(--t-dim2)'}}>
                   📝 An audit entry will be saved to <code style={{background:'rgba(0,0,0,0.4)',padding:'1px 5px',borderRadius:4,fontFamily:'monospace',color:'#e84a2f'}}>deletions/</code> for DPA 2012 compliance.
                 </div>
               </div>
@@ -605,7 +606,7 @@ export default function Profile(){
               {/* Password re-auth — required to delete Firebase Auth account
                   (so the email can be reused for new signups) */}
               <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                <label style={{fontSize:10,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'#888'}}>
+                <label style={{fontSize:10,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--t-dim2)'}}>
                   🔐 Enter your password to confirm
                 </label>
                 <input
@@ -615,9 +616,9 @@ export default function Profile(){
                   placeholder="Your current password"
                   disabled={deleting}
                   autoComplete="current-password"
-                  style={{background:'rgba(255,255,255,0.04)',border:`1.5px solid ${deleteError?'rgba(232,74,47,0.5)':'rgba(255,255,255,0.1)'}`,borderRadius:12,padding:'12px 14px',color:'#f0ece8',fontSize:13,fontFamily:'Montserrat,sans-serif',outline:'none',width:'100%',boxSizing:'border-box',transition:'border-color 0.2s'}}
+                  style={{background:'var(--t-s04)',border:`1.5px solid ${deleteError?'rgba(232,74,47,0.5)':'var(--t-s10)'}`,borderRadius:12,padding:'12px 14px',color:'var(--t-text)',fontSize:13,fontFamily:'Montserrat,sans-serif',outline:'none',width:'100%',boxSizing:'border-box',transition:'border-color 0.2s'}}
                   onFocus={e=>e.target.style.borderColor=deleteError?'rgba(232,74,47,0.7)':'#e84a2f'}
-                  onBlur={e=>e.target.style.borderColor=deleteError?'rgba(232,74,47,0.5)':'rgba(255,255,255,0.1)'}
+                  onBlur={e=>e.target.style.borderColor=deleteError?'rgba(232,74,47,0.5)':'var(--t-s10)'}
                 />
                 {deleteError && (
                   <div style={{fontSize:11,color:'#e84a2f',fontWeight:600,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
@@ -629,14 +630,14 @@ export default function Profile(){
               {deleting && deleteCounts && (
                 <div style={{padding:'12px 14px',background:'rgba(66,165,245,0.05)',border:'1px solid rgba(66,165,245,0.18)',borderRadius:10,fontSize:11,color:'#42a5f5',lineHeight:1.5,textAlign:'left'}}>
                   <div style={{fontWeight:700,marginBottom:4,letterSpacing:'0.04em'}}>🗑 Cascade in progress…</div>
-                  <div style={{fontSize:10,color:'#888'}}>
+                  <div style={{fontSize:10,color:'var(--t-dim2)'}}>
                     {deleteCounts.bookings} bookings · {deleteCounts.feedback} feedback · {deleteCounts.messages} messages · {deleteCounts.notifications} notifications · {deleteCounts.forum} forum posts
                   </div>
                 </div>
               )}
               <div style={{display:'flex',gap:10}}>
                 <button onClick={()=>{setDeleteConfirm(false); setDeletePassword(''); setDeleteError('')}} disabled={deleting}
-                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:deleting?'not-allowed':'pointer',opacity:deleting?0.5:1}}>
+                  style={{flex:1,background:'var(--t-s04)',color:'var(--t-dim1)',border:'1px solid var(--t-s10)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:deleting?'not-allowed':'pointer',opacity:deleting?0.5:1}}>
                   KEEP MY ACCOUNT
                 </button>
                 <button onClick={handleDeleteAccount} disabled={deleting || !deletePassword.trim()}
@@ -658,9 +659,9 @@ export default function Profile(){
           <div style={{...glass(),padding:'36px 40px',maxWidth:400,width:'90%',textAlign:'center'}}>
             <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'#e84a2f',marginBottom:8}}>Reset Program?</div>
-            <div style={{fontSize:13,color:'#7a7570',lineHeight:1.7,marginBottom:24}}>This unlocks your stance, level, and goal so you can redo the Program Builder. Your workout history stays safe.</div>
+            <div style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.7,marginBottom:24}}>This unlocks your stance, level, and goal so you can redo the Program Builder. Your workout history stays safe.</div>
             <div style={{display:'flex',gap:12,justifyContent:'center'}}>
-              <button onClick={()=>setResetWarning(false)} style={{background:'transparent',color:'#555',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
+              <button onClick={()=>setResetWarning(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
               <button onClick={handleRedoProgram} style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Yes, Reset</button>
             </div>
           </div>
@@ -692,10 +693,10 @@ export default function Profile(){
               {/* Name + info */}
               <div style={{paddingTop:48}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:'#f0ece8',letterSpacing:'0.04em',lineHeight:1}}>{profile.name||'Athlete'}</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:'var(--t-text)',letterSpacing:'0.04em',lineHeight:1}}>{profile.name||'Athlete'}</div>
                   {profile.nickname&&<div style={{fontSize:13,color:'#e84a2f',fontStyle:'italic'}}>"{profile.nickname}"</div>}
                 </div>
-                <div style={{fontSize:11,color:'#555',marginBottom:10}}>{profile.email||auth.currentUser?.email||''}</div>
+                <div style={{fontSize:11,color:'var(--t-dim3)',marginBottom:10}}>{profile.email||auth.currentUser?.email||''}</div>
                 {/* Quick tags */}
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                   {profile.goal&&<div style={{fontSize:10,fontWeight:700,color:'#42a5f5',background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.2)',borderRadius:50,padding:'3px 10px'}}>🎯 {profile.goal}</div>}
@@ -708,15 +709,15 @@ export default function Profile(){
               {/* Score + actions */}
               <div style={{paddingTop:48,display:'flex',flexDirection:'column',gap:10,alignItems:'flex-end'}}>
                 <div style={{background:`${lc}0e`,border:`1px solid ${lc}22`,borderRadius:14,padding:'12px 18px',textAlign:'center'}}>
-                  <div style={{fontSize:9,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:2}}>Leaderboard Score</div>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--t-dim3)',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:2}}>Leaderboard Score</div>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:lc,lineHeight:1}}>{score.toLocaleString()}</div>
-                  <div style={{fontSize:9,color:'#555',marginTop:2}}>pts</div>
+                  <div style={{fontSize:9,color:'var(--t-dim3)',marginTop:2}}>pts</div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   {!editing
                     ?<button onClick={handleEdit} style={{background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.25)',borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,color:'#f5c842',cursor:'pointer'}}>✏️ Edit</button>
                     :<><button onClick={handleSave} disabled={saving} style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{saving?'Saving...':'✓ Save'}</button>
-                      <button onClick={()=>setEditing(false)} style={{background:'transparent',color:'#555',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'7px 14px',fontSize:11,fontWeight:700,cursor:'pointer'}}>✕</button></>
+                      <button onClick={()=>setEditing(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'7px 14px',fontSize:11,fontWeight:700,cursor:'pointer'}}>✕</button></>
                   }
                 </div>
               </div>
@@ -764,7 +765,7 @@ export default function Profile(){
                       {icon}
                     </div>
                     <div style={{minWidth:0,flex:1}}>
-                      <div style={{fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:'#666',textTransform:'uppercase',marginBottom:3}}>
+                      <div style={{fontSize:9,fontWeight:800,letterSpacing:'0.14em',color:'var(--t-dim3)',textTransform:'uppercase',marginBottom:3}}>
                         Membership Status
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
@@ -776,7 +777,7 @@ export default function Profile(){
                           <span style={{fontSize:9,padding:'3px 9px',background:'rgba(245,200,66,0.12)',color:'#f5c842',border:'1px solid rgba(245,200,66,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.06em'}}>🥊 {m.planLabel}</span>
                         )}
                       </div>
-                      <div style={{fontSize:11,color:'#888',marginTop:4}}>
+                      <div style={{fontSize:11,color:'var(--t-dim2)',marginTop:4}}>
                         {state === STATUS.EXPIRED && '🔒 Bookings locked. See admin to renew.'}
                         {state === STATUS.PAUSED  && '⏸ Paused — timer is held. See admin to resume.'}
                         {state === STATUS.TRIAL   && `${remaining} · Trial`}
@@ -786,10 +787,10 @@ export default function Profile(){
                     </div>
                   </div>
                   <div style={{textAlign:isMobile?'left':'right',flexShrink:0}}>
-                    <div style={{fontSize:9,color:'#666',fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:2}}>
+                    <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:2}}>
                       {state === STATUS.PAUSED ? 'Paused Since' : state === STATUS.EXPIRED ? 'Expired On' : 'Expires'}
                     </div>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f0ece8',letterSpacing:'0.03em'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'var(--t-text)',letterSpacing:'0.03em'}}>
                       {fmtExpiry(m)}
                     </div>
                   </div>
@@ -805,8 +806,8 @@ export default function Profile(){
 
                 {/* View payment history — only shown when the member has paid at least once */}
                 {m?.startedAt && (
-                  <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
-                    <div style={{fontSize:11,color:'#666'}}>
+                  <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--t-s05)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+                    <div style={{fontSize:11,color:'var(--t-dim3)'}}>
                       💳 Want to see your payment receipts?
                     </div>
                     <button onClick={openPaymentHistory}
@@ -827,7 +828,7 @@ export default function Profile(){
           <div style={glass()}>
             <div style={{padding:'18px 22px',borderBottom:'1px solid rgba(245,200,66,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{fontSize:14,fontWeight:700}}>⚖️ Body Metrics</div>
-              <div style={{fontSize:10,color:'#555'}}>From Program Builder</div>
+              <div style={{fontSize:10,color:'var(--t-dim3)'}}>From Program Builder</div>
             </div>
             <div style={{padding:'22px'}}>
               {/* BMI Hero */}
@@ -835,7 +836,7 @@ export default function Profile(){
                 <div style={{display:'flex',gap:20,alignItems:'center',marginBottom:20,padding:'18px',background:`${bmiColor}0c`,border:`1px solid ${bmiColor}22`,borderRadius:16}}>
                   <div style={{textAlign:'center',flexShrink:0}}>
                     <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,color:bmiColor,lineHeight:1,textShadow:`0 0 20px ${bmiColor}55`}}>{bmi}</div>
-                    <div style={{fontSize:9,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',marginTop:2}}>BMI</div>
+                    <div style={{fontSize:9,fontWeight:700,color:'var(--t-dim3)',letterSpacing:'0.1em',textTransform:'uppercase',marginTop:2}}>BMI</div>
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:15,fontWeight:700,color:bmiColor,marginBottom:8}}>{bmiLabel}</div>
@@ -843,14 +844,14 @@ export default function Profile(){
                     <div style={{height:8,borderRadius:50,overflow:'hidden',background:'linear-gradient(90deg,#42a5f5 0%,#4ade80 25%,#f5c842 60%,#e84a2f 100%)',marginBottom:6,position:'relative'}}>
                       <div style={{position:'absolute',left:`${Math.min(Math.max(((bmi-10)/35)*100,0),100)}%`,top:'50%',transform:'translate(-50%,-50%)',width:14,height:14,borderRadius:'50%',background:'#fff',border:'2px solid #000',boxShadow:'0 0 8px rgba(0,0,0,0.5)'}}/>
                     </div>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'#555'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--t-dim3)'}}>
                       {['Underweight','Normal','Overweight','Obese'].map(l=><span key={l}>{l}</span>)}
                     </div>
-                    {idealMin&&<div style={{fontSize:10,color:'#555',marginTop:8}}>Ideal weight: <strong style={{color:'#4ade80'}}>{idealMin}–{idealMax} kg</strong></div>}
+                    {idealMin&&<div style={{fontSize:10,color:'var(--t-dim3)',marginTop:8}}>Ideal weight: <strong style={{color:'#4ade80'}}>{idealMin}–{idealMax} kg</strong></div>}
                   </div>
                 </div>
               ):(
-                <div style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12,padding:'16px',textAlign:'center',marginBottom:16,fontSize:11,color:'#555'}}>
+                <div style={{background:'var(--t-s02)',border:'1px solid var(--t-s06)',borderRadius:12,padding:'16px',textAlign:'center',marginBottom:16,fontSize:11,color:'var(--t-dim3)'}}>
                   Complete Program Builder to see your BMI
                 </div>
               )}
@@ -863,10 +864,10 @@ export default function Profile(){
                   {icon:'🎂',label:'Age',    val:displayAge?`${displayAge} years`:'—',color:'#fb923c'},
                   {icon:'🥊',label:'Stance', val:profile.stance||'—',color:'#f5c842'},
                 ].map((m,i)=>(
-                  <div key={i} style={{background:'rgba(255,255,255,0.03)',border:`1px solid ${m.color}18`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:10}}>
+                  <div key={i} style={{background:'var(--t-s03)',border:`1px solid ${m.color}18`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:10}}>
                     <div style={{width:32,height:32,borderRadius:10,background:`${m.color}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{m.icon}</div>
                     <div>
-                      <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:2}}>{m.label}</div>
+                      <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:2}}>{m.label}</div>
                       <div style={{fontSize:14,fontWeight:700,color:m.color}}>{m.val}</div>
                     </div>
                   </div>
@@ -887,11 +888,11 @@ export default function Profile(){
                   <div style={{fontSize:36}}>{li}</div>
                   <div style={{flex:1}}>
                     <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:lc}}>{currentLevel.toUpperCase()}</div>
-                    <div style={{fontSize:10,color:'#555',marginTop:2}}>{totalWorkouts} workouts completed</div>
+                    <div style={{fontSize:10,color:'var(--t-dim3)',marginTop:2}}>{totalWorkouts} workouts completed</div>
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:lc}}>{score}</div>
-                    <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.08em'}}>SCORE</div>
+                    <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.08em'}}>SCORE</div>
                   </div>
                 </div>
 
@@ -917,10 +918,10 @@ export default function Profile(){
                   {label:'Goal',      val:profile.goal||'—',      icon:'🎯'},
                   {label:'Stance',    val:profile.stance||'—',    icon:'🥊'},
                 ].map((f,i)=>(
-                  <div key={i} style={{background:'rgba(255,255,255,0.02)',borderRadius:10,padding:'10px 12px',border:'1px solid rgba(245,200,66,0.08)'}}>
-                    <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>{f.icon} {f.label}</div>
-                    <div style={{fontSize:12,fontWeight:700,color:'#f0ece8'}}>{f.val}</div>
-                    <div style={{fontSize:9,color:'#444',marginTop:2}}>🔒 locked</div>
+                  <div key={i} style={{background:'var(--t-s02)',borderRadius:10,padding:'10px 12px',border:'1px solid rgba(245,200,66,0.08)'}}>
+                    <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:4}}>{f.icon} {f.label}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:'var(--t-text)'}}>{f.val}</div>
+                    <div style={{fontSize:9,color:'var(--t-dim4)',marginTop:2}}>🔒 locked</div>
                   </div>
                 ))}
               </div>
@@ -946,7 +947,7 @@ export default function Profile(){
               ?<button onClick={handleEdit} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:50,padding:'8px 18px',fontSize:12,fontWeight:700,color:'#e84a2f',cursor:'pointer'}}>✏️ Edit Profile</button>
               :<div style={{display:'flex',gap:8}}>
                 <button onClick={handleSave} disabled={saving} style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'8px 18px',fontSize:12,fontWeight:700,cursor:'pointer'}}>{saving?'Saving...':'✓ Save Changes'}</button>
-                <button onClick={()=>setEditing(false)} style={{background:'transparent',color:'#555',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}}>✕ Cancel</button>
+                <button onClick={()=>setEditing(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}}>✕ Cancel</button>
               </div>
             }
           </div>
@@ -970,9 +971,9 @@ export default function Profile(){
                 const value = f.val !== undefined ? f.val : (profile[f.field] || '—')
                 return (
                   <div key={f.field}>
-                    <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:7,display:'flex',alignItems:'center',gap:5}}>
+                    <label style={{fontSize:10,fontWeight:700,color:'var(--t-dim3)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:7,display:'flex',alignItems:'center',gap:5}}>
                       {f.label}
-                      {isLocked && <span title="Locked field" style={{fontSize:9,color:'#444'}}>🔒</span>}
+                      {isLocked && <span title="Locked field" style={{fontSize:9,color:'var(--t-dim4)'}}>🔒</span>}
                     </label>
                     {editing && f.editable ? (
                       <input
@@ -983,12 +984,12 @@ export default function Profile(){
                         onChange={e=>setDraft(d=>({...d,[f.field]:e.target.value}))}
                         style={inp}
                         onFocus={e=>e.target.style.borderColor='rgba(245,200,66,0.4)'}
-                        onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}
+                        onBlur={e=>e.target.style.borderColor='var(--t-s08)'}
                       />
                     ) : (
                       <div style={{
                         fontSize:14,fontWeight:600,
-                        color:isLocked?'#888':'#f0ece8',
+                        color:isLocked?'var(--t-dim2)':'var(--t-text)',
                         padding:'11px 0',
                         borderBottom:`1px solid rgba(255,255,255,${isLocked?0.03:0.05})`
                       }}>
@@ -1003,8 +1004,8 @@ export default function Profile(){
           {/* Edit-mode helper text */}
           {editing && (
             <div style={{padding:'0 22px 18px',marginTop:-4}}>
-              <div style={{padding:'10px 14px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.18)',borderRadius:10,fontSize:11,color:'#888',lineHeight:1.55}}>
-                🔒 <strong style={{color:'#aaa'}}>Locked fields</strong> (name, email, date of birth, training days, experience, stance, goal) can only be changed by your coach or admin. Need a change? Send a message.
+              <div style={{padding:'10px 14px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.18)',borderRadius:10,fontSize:11,color:'var(--t-dim2)',lineHeight:1.55}}>
+                🔒 <strong style={{color:'var(--t-dim1)'}}>Locked fields</strong> (name, email, date of birth, training days, experience, stance, goal) can only be changed by your coach or admin. Need a change? Send a message.
               </div>
             </div>
           )}
@@ -1014,21 +1015,21 @@ export default function Profile(){
         <div style={{...glass({borderRadius:16}),border:'1px solid rgba(232,74,47,0.15)'}}>
           <div style={{padding:'16px 22px',borderBottom:'1px solid rgba(232,74,47,0.08)',fontSize:14,fontWeight:700}}>⚙️ Account Settings</div>
           <div style={{padding:'14px 22px',display:'flex',flexDirection:'column',gap:0}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 0',borderBottom:'1px solid var(--t-s04)'}}>
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:'#f0ece8',marginBottom:2}}>Logout</div>
-                <div style={{fontSize:11,color:'#555'}}>Sign out of your HITTRACK account</div>
+                <div style={{fontSize:13,fontWeight:700,color:'var(--t-text)',marginBottom:2}}>Logout</div>
+                <div style={{fontSize:11,color:'var(--t-dim3)'}}>Sign out of your HITTRACK account</div>
               </div>
-              <button onClick={()=>setLogoutConfirm(true)} style={{background:'rgba(255,255,255,0.04)',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'8px 20px',fontSize:12,fontWeight:700,color:'#f0ece8',cursor:'pointer',transition:'all 0.2s'}}
+              <button onClick={()=>setLogoutConfirm(true)} style={{background:'var(--t-s04)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'8px 20px',fontSize:12,fontWeight:700,color:'var(--t-text)',cursor:'pointer',transition:'all 0.2s'}}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(232,74,47,0.4)';e.currentTarget.style.color='#e84a2f'}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.1)';e.currentTarget.style.color='#f0ece8'}}>
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--t-s10)';e.currentTarget.style.color='var(--t-text)'}}>
                 Logout →
               </button>
             </div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 0'}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:'#e84a2f',marginBottom:2}}>Delete Account</div>
-                <div style={{fontSize:11,color:'#555'}}>Permanently delete your account and all data</div>
+                <div style={{fontSize:11,color:'var(--t-dim3)'}}>Permanently delete your account and all data</div>
               </div>
               <button onClick={()=>setDeleteConfirm(true)} style={{background:'rgba(232,74,47,0.1)',border:'1.5px solid rgba(232,74,47,0.3)',borderRadius:50,padding:'8px 20px',fontSize:12,fontWeight:700,color:'#e84a2f',cursor:'pointer',transition:'all 0.2s'}}
                 onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='scale(1.04)'}}

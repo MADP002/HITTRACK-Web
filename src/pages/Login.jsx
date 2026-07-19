@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, signOut, sendPasswordResetEmail, sendEmailV
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useIsMobile } from '../lib/useIsMobile'
+import { clearAppStorageKeepTheme } from '../lib/theme'
 
 export default function Login() {
   const navigate   = useNavigate()
@@ -62,7 +63,7 @@ export default function Login() {
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { signOut(auth).catch(() => {}); localStorage.clear() }, [])
+  useEffect(() => { signOut(auth).catch(() => {}); clearAppStorageKeepTheme() }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return

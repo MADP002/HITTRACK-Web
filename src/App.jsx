@@ -17,6 +17,7 @@ import Inbox          from './pages/Inbox'
 import Forum          from './pages/Forum'
 import CoachDashboard from './pages/CoachDashboard'
 import AdminDashboard from './pages/AdminDashboard'
+import { clearAppStorageKeepTheme } from './lib/theme'
 
 // Parse the cached profile without ever throwing — corrupt localStorage must not
 // stall the auth boot (a throw here would leave the app stuck on the loading spinner).
@@ -32,7 +33,7 @@ function useAuth() {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       // If no Firebase user — clear ALL localStorage and show login
       if (!firebaseUser) {
-        localStorage.clear()
+        clearAppStorageKeepTheme()
         setState({ loading:false, user:null, role:null, programSetupDone:false, deletedAccount:false })
         return
       }
@@ -59,7 +60,7 @@ function useAuth() {
               // Account was deleted — purge local data, set lockout flag, force sign-out
               const delData = delSnap.data()
               console.warn('Account was deleted by admin:', delData.deletedByName)
-              localStorage.clear()
+              clearAppStorageKeepTheme()
               // Set a sessionStorage flag the Login page can read to show the lockout message
               try { sessionStorage.setItem('hittrack_deleted_account', JSON.stringify({
                 memberName: delData.memberName || 'this account',

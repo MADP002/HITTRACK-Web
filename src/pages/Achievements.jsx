@@ -141,9 +141,9 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
       onMouseLeave={()=>setHovered(false)}
       style={{
         position:'relative', overflow:'hidden', cursor:'pointer',
-        background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',
+        background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',
         borderRadius:18,
-        border:`1.5px solid ${unlocked ? (hovered ? r.color : r.color+'55') : (hovered ? r.color+'30' : 'rgba(255,255,255,0.06)')}`,
+        border:`1.5px solid ${unlocked ? (hovered ? r.color : r.color+'55') : (hovered ? r.color+'30' : 'var(--t-s06)')}`,
         padding:'20px 18px 18px',
         display:'flex', flexDirection:'column', gap:10,
         minHeight:240,
@@ -165,7 +165,7 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
         <div style={{
           position:'relative', width:78, height:78, borderRadius:18,
           background: unlocked ? `linear-gradient(135deg,${r.color},${r.color}88)` : 'rgba(40,35,32,0.7)',
-          border: `2px solid ${unlocked?r.color:'rgba(255,255,255,0.08)'}`,
+          border: `2px solid ${unlocked?r.color:'var(--t-s08)'}`,
           display:'flex', alignItems:'center', justifyContent:'center',
           fontSize:36,
           boxShadow: unlocked ? `0 6px 18px ${r.glow},inset 0 2px 6px rgba(255,255,255,0.15)` : 'none',
@@ -183,17 +183,17 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
       </div>
 
       <div style={{textAlign:'center'}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:16, letterSpacing:'0.04em', color:unlocked?r.color:'#888', marginBottom:3, textShadow:unlocked?`0 0 10px ${r.glow}`:'none', lineHeight:1.2}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:16, letterSpacing:'0.04em', color:unlocked?r.color:'var(--t-dim2)', marginBottom:3, textShadow:unlocked?`0 0 10px ${r.glow}`:'none', lineHeight:1.2}}>
           {badge.title}
         </div>
-        <div style={{fontSize:10, color:'#777', lineHeight:1.5, padding:'0 4px'}}>
+        <div style={{fontSize:10, color:'var(--t-dim2)', lineHeight:1.5, padding:'0 4px'}}>
           {badge.desc}
         </div>
       </div>
 
       <div style={{marginTop:'auto', paddingTop:6, display:'flex', flexDirection:'column', gap:6}}>
         <div style={{display:'flex', justifyContent:'center'}}>
-          <span style={{fontSize:9, fontWeight:800, padding:'3px 10px', borderRadius:50, background:unlocked?`${r.color}22`:'rgba(255,255,255,0.04)', color:unlocked?r.color:'#666', border:`1px solid ${unlocked?r.color+'55':'rgba(255,255,255,0.08)'}`, letterSpacing:'0.08em'}}>
+          <span style={{fontSize:9, fontWeight:800, padding:'3px 10px', borderRadius:50, background:unlocked?`${r.color}22`:'var(--t-s04)', color:unlocked?r.color:'var(--t-dim3)', border:`1px solid ${unlocked?r.color+'55':'var(--t-s08)'}`, letterSpacing:'0.08em'}}>
             {unlocked ? '+' : ''}{badge.xp} XP
           </span>
         </div>
@@ -206,10 +206,10 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
         ) : (
           <div>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4, padding:'0 2px'}}>
-              <span style={{fontSize:8, color:'#555', fontWeight:700, letterSpacing:'0.1em'}}>PROGRESS</span>
+              <span style={{fontSize:8, color:'var(--t-dim3)', fontWeight:700, letterSpacing:'0.1em'}}>PROGRESS</span>
               <span style={{fontSize:9, color:r.color, fontWeight:700}}>{getProgressLabel(badge, stats) || `${Math.round((progress||0)*100)}%`}</span>
             </div>
-            <div style={{height:5, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden', border:'1px solid rgba(255,255,255,0.04)'}}>
+            <div style={{height:5, background:'var(--t-s04)', borderRadius:50, overflow:'hidden', border:'1px solid var(--t-s04)'}}>
               <div style={{height:'100%', background:`linear-gradient(90deg,${r.color},${r.color}aa)`, borderRadius:50, width:`${Math.min((progress||0)*100, 100)}%`, transition:'width 0.6s ease', boxShadow:`0 0 6px ${r.color}aa`}}/>
             </div>
           </div>
@@ -376,10 +376,10 @@ export default function Achievements() {
         <div style={{...glass({borderRadius:20}), padding:'24px 32px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'relative', overflow:'hidden', border:'1px solid rgba(245,200,66,0.2)', flexWrap:'wrap', gap:20}}>
           <div style={{position:'absolute', top:-40, right:200, fontSize:140, opacity:0.04, filter:'blur(2px)', userSelect:'none', animation:'trophyFloat 4s ease infinite', pointerEvents:'none'}}>🏆</div>
           <div style={{position:'relative', zIndex:1}}>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:36, letterSpacing:'0.06em', color:'#f0ece8', lineHeight:1, textShadow:'0 0 24px rgba(245,200,66,0.3)'}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:36, letterSpacing:'0.06em', color:'var(--t-text)', lineHeight:1, textShadow:'0 0 24px rgba(245,200,66,0.3)'}}>
               🏆 HALL OF CHAMPIONS
             </div>
-            <div style={{fontSize:11, color:'#777', letterSpacing:'0.18em', textTransform:'uppercase', fontWeight:700, marginTop:6}}>
+            <div style={{fontSize:11, color:'var(--t-dim2)', letterSpacing:'0.18em', textTransform:'uppercase', fontWeight:700, marginTop:6}}>
               {profile.name||'Athlete'} · Your boxing trophy room
             </div>
           </div>
@@ -389,9 +389,9 @@ export default function Achievements() {
               {label:'Total XP',   val:totalXP.toLocaleString(),             color:'#22c55e'},
               {label:'Completion', val:`${completionPct}%`,                  color:'#e84a2f'},
             ].map((st,i) => (
-              <div key={i} style={{textAlign:'center', background:'rgba(255,255,255,0.04)', border:`1px solid ${st.color}33`, borderRadius:14, padding:'12px 18px', minWidth:96}}>
+              <div key={i} style={{textAlign:'center', background:'var(--t-s04)', border:`1px solid ${st.color}33`, borderRadius:14, padding:'12px 18px', minWidth:96}}>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:st.color, lineHeight:1, textShadow:`0 0 12px ${st.color}66`}}>{st.val}</div>
-                <div style={{fontSize:8, color:'#666', fontWeight:700, letterSpacing:'0.12em', marginTop:4, textTransform:'uppercase'}}>{st.label}</div>
+                <div style={{fontSize:8, color:'var(--t-dim3)', fontWeight:700, letterSpacing:'0.12em', marginTop:4, textTransform:'uppercase'}}>{st.label}</div>
               </div>
             ))}
           </div>
@@ -404,7 +404,7 @@ export default function Achievements() {
           const prog = getProgress(featured, stats)
           return (
             <div onClick={()=>setShowcase(featured)}
-              style={{position:'relative', overflow:'hidden', cursor:'pointer', borderRadius:24, background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)', border:`2px solid ${r.color}55`, padding:'30px 36px', boxShadow:`0 20px 60px rgba(0,0,0,0.6),0 0 60px ${r.glow}`, display:'flex', gap:30, alignItems:'center', flexWrap:'wrap'}}>
+              style={{position:'relative', overflow:'hidden', cursor:'pointer', borderRadius:24, background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border:`2px solid ${r.color}55`, padding:'30px 36px', boxShadow:`0 20px 60px rgba(0,0,0,0.6),0 0 60px ${r.glow}`, display:'flex', gap:30, alignItems:'center', flexWrap:'wrap'}}>
               <div style={{position:'absolute', top:-100, right:-100, width:400, height:400, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 65%)`, pointerEvents:'none', animation:'heroGlow 4s ease-in-out infinite'}}/>
               <div style={{position:'absolute', bottom:-80, left:-80, width:320, height:320, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, pointerEvents:'none', opacity:0.5}}/>
               <div style={{position:'relative', flexShrink:0}}>
@@ -420,30 +420,30 @@ export default function Achievements() {
               </div>
               <div style={{flex:1, minWidth:260, position:'relative', zIndex:1}}>
                 <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8, flexWrap:'wrap'}}>
-                  <span style={{fontSize:9, fontWeight:800, padding:'4px 10px', borderRadius:50, background:isUnlocked?`${r.color}25`:'rgba(255,255,255,0.04)', color:isUnlocked?r.color:'#666', border:`1px solid ${isUnlocked?r.color+'55':'rgba(255,255,255,0.08)'}`, letterSpacing:'0.12em', textTransform:'uppercase'}}>
+                  <span style={{fontSize:9, fontWeight:800, padding:'4px 10px', borderRadius:50, background:isUnlocked?`${r.color}25`:'var(--t-s04)', color:isUnlocked?r.color:'var(--t-dim3)', border:`1px solid ${isUnlocked?r.color+'55':'var(--t-s08)'}`, letterSpacing:'0.12em', textTransform:'uppercase'}}>
                     {isUnlocked ? '🏆 LATEST UNLOCK' : '🎯 NEXT TARGET'}
                   </span>
                   <span style={{fontSize:9, fontWeight:800, padding:'4px 10px', borderRadius:50, background:`${r.color}22`, color:r.color, border:`1px solid ${r.color}44`, letterSpacing:'0.1em', textTransform:'uppercase'}}>
                     {Array.from({length:r.stars}).map(()=>'★').join('')} {r.name}
                   </span>
-                  <span style={{fontSize:9, fontWeight:700, color:'#666', letterSpacing:'0.1em'}}>· {featured.category} · +{featured.xp} XP</span>
+                  <span style={{fontSize:9, fontWeight:700, color:'var(--t-dim3)', letterSpacing:'0.1em'}}>· {featured.category} · +{featured.xp} XP</span>
                 </div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:42, color:isUnlocked?r.color:'#888', letterSpacing:'0.04em', lineHeight:1, marginBottom:8, textShadow:isUnlocked?`0 0 20px ${r.glow}`:'none'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:42, color:isUnlocked?r.color:'var(--t-dim2)', letterSpacing:'0.04em', lineHeight:1, marginBottom:8, textShadow:isUnlocked?`0 0 20px ${r.glow}`:'none'}}>
                   {featured.title}
                 </div>
-                <div style={{fontSize:13, color:'#aaa', lineHeight:1.6, marginBottom:14}}>{featured.desc}</div>
+                <div style={{fontSize:13, color:'var(--t-dim1)', lineHeight:1.6, marginBottom:14}}>{featured.desc}</div>
                 {isUnlocked ? (
                   <div style={{display:'flex', gap:10, alignItems:'center'}}>
                     <div style={{padding:'8px 16px', background:`linear-gradient(135deg,${r.color},${r.color}aa)`, borderRadius:50, fontSize:11, fontWeight:800, color:'#0a0808', letterSpacing:'0.1em', boxShadow:`0 4px 14px ${r.glow}`}}>✓ UNLOCKED</div>
-                    <span style={{fontSize:10, color:'#888'}}>Tap to view details 🥊</span>
+                    <span style={{fontSize:10, color:'var(--t-dim2)'}}>Tap to view details 🥊</span>
                   </div>
                 ) : (
                   <div>
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6}}>
-                      <span style={{fontSize:9, color:'#666', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase'}}>Progress</span>
+                      <span style={{fontSize:9, color:'var(--t-dim3)', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase'}}>Progress</span>
                       <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:18, color:r.color}}>{getProgressLabel(featured, stats) || `${Math.round(prog*100)}%`}</span>
                     </div>
-                    <div style={{height:10, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden', border:'1px solid rgba(255,255,255,0.04)'}}>
+                    <div style={{height:10, background:'var(--t-s04)', borderRadius:50, overflow:'hidden', border:'1px solid var(--t-s04)'}}>
                       <div style={{height:'100%', background:`linear-gradient(90deg,${r.color},${r.color}cc)`, borderRadius:50, width:`${prog*100}%`, transition:'width 0.8s ease', boxShadow:`0 0 14px ${r.color}aa`}}/>
                     </div>
                   </div>
@@ -456,16 +456,16 @@ export default function Achievements() {
         {/* XP PROGRESS BAR */}
         <div style={{...glass({borderRadius:14}), padding:'14px 22px'}}>
           <div style={{display:'flex', justifyContent:'space-between', marginBottom:8, alignItems:'baseline'}}>
-            <span style={{fontSize:10, fontWeight:800, color:'#888', letterSpacing:'0.12em', textTransform:'uppercase'}}>Overall XP Progress</span>
-            <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, color:'#f5c842', letterSpacing:'0.04em'}}>{totalXP.toLocaleString()} <span style={{color:'#666'}}>/ {totalPossibleXP.toLocaleString()} XP</span></span>
+            <span style={{fontSize:10, fontWeight:800, color:'var(--t-dim2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>Overall XP Progress</span>
+            <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, color:'#f5c842', letterSpacing:'0.04em'}}>{totalXP.toLocaleString()} <span style={{color:'var(--t-dim3)'}}>/ {totalPossibleXP.toLocaleString()} XP</span></span>
           </div>
-          <div style={{height:10, background:'rgba(255,255,255,0.06)', borderRadius:50, overflow:'hidden', position:'relative', border:'1px solid rgba(255,255,255,0.04)'}}>
-            <div style={{position:'absolute', inset:0, background:'repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,0.03) 40px,rgba(255,255,255,0.03) 41px)'}}/>
+          <div style={{height:10, background:'var(--t-s06)', borderRadius:50, overflow:'hidden', position:'relative', border:'1px solid var(--t-s04)'}}>
+            <div style={{position:'absolute', inset:0, background:'repeating-linear-gradient(90deg,transparent,transparent 40px,var(--t-s03) 40px,var(--t-s03) 41px)'}}/>
             <div style={{height:'100%', background:'linear-gradient(90deg,#e84a2f,#f5c842,#22c55e)', borderRadius:50, width:`${(totalXP/totalPossibleXP)*100}%`, transition:'width 1.2s ease', boxShadow:'0 0 20px rgba(245,200,66,0.5)'}}/>
           </div>
           <div style={{display:'flex', justifyContent:'space-between', marginTop:8}}>
             {['Beginner','Intermediate','Advanced','Expert','Legend'].map((l,i) => (
-              <span key={i} style={{fontSize:9, color:'#555', fontWeight:700, letterSpacing:'0.06em'}}>{l}</span>
+              <span key={i} style={{fontSize:9, color:'var(--t-dim3)', fontWeight:700, letterSpacing:'0.06em'}}>{l}</span>
             ))}
           </div>
         </div>
@@ -476,7 +476,7 @@ export default function Achievements() {
             const total = BADGES.filter(b => b.rarity === key).length
             const got = rarityCount[key]
             return (
-              <div key={key} style={{position:'relative', overflow:'hidden', padding:'12px 14px', background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)', border:`1px solid ${r.color}25`, borderRadius:12, display:'flex', alignItems:'center', gap:10, transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', cursor:'default'}}
+              <div key={key} style={{position:'relative', overflow:'hidden', padding:'12px 14px', background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border:`1px solid ${r.color}25`, borderRadius:12, display:'flex', alignItems:'center', gap:10, transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', cursor:'default'}}
                 onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.borderColor=r.color+'66'; e.currentTarget.style.boxShadow=`0 8px 24px ${r.glow}`}}
                 onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.borderColor=r.color+'25'; e.currentTarget.style.boxShadow='none'}}>
                 <div style={{width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${r.color},${r.color}aa)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#0a0808', flexShrink:0, fontFamily:"'Bebas Neue',sans-serif", fontSize:18, fontWeight:800, boxShadow:`0 4px 12px ${r.glow}`}}>
@@ -488,10 +488,10 @@ export default function Achievements() {
                     <span style={{fontSize:8, color:r.color, fontWeight:800}}>{Array.from({length:r.stars}).map(()=>'★').join('')}</span>
                   </div>
                   <div style={{display:'flex', alignItems:'center', gap:6}}>
-                    <div style={{flex:1, height:4, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden'}}>
+                    <div style={{flex:1, height:4, background:'var(--t-s04)', borderRadius:50, overflow:'hidden'}}>
                       <div style={{height:'100%', background:r.color, borderRadius:50, width:total>0?`${(got/total)*100}%`:'0%', transition:'width 0.6s ease', boxShadow:`0 0 6px ${r.color}88`}}/>
                     </div>
-                    <span style={{fontSize:8, color:'#666', fontWeight:700, flexShrink:0}}>{got}/{total}</span>
+                    <span style={{fontSize:8, color:'var(--t-dim3)', fontWeight:700, flexShrink:0}}>{got}/{total}</span>
                   </div>
                 </div>
               </div>
@@ -501,24 +501,24 @@ export default function Achievements() {
 
         {/* FILTERS */}
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap'}}>
-          <div style={{display:'flex', gap:4, background:'rgba(255,255,255,0.03)', borderRadius:50, padding:4, border:'1px solid rgba(255,255,255,0.06)', flexWrap:'wrap'}}>
+          <div style={{display:'flex', gap:4, background:'var(--t-s03)', borderRadius:50, padding:4, border:'1px solid var(--t-s06)', flexWrap:'wrap'}}>
             {CATEGORIES.map(cat => {
               const active = category === cat.id
               return (
                 <button key={cat.id} onClick={()=>setCategory(cat.id)}
-                  style={{display:'flex', alignItems:'center', gap:6, background:active?`${cat.color}20`:'transparent', color:active?cat.color:'#666', border:active?`1px solid ${cat.color}55`:'1px solid transparent', borderRadius:50, padding:'7px 14px', fontSize:10, fontWeight:800, cursor:'pointer', letterSpacing:'0.06em', transition:'all 0.25s'}}>
+                  style={{display:'flex', alignItems:'center', gap:6, background:active?`${cat.color}20`:'transparent', color:active?cat.color:'var(--t-dim3)', border:active?`1px solid ${cat.color}55`:'1px solid transparent', borderRadius:50, padding:'7px 14px', fontSize:10, fontWeight:800, cursor:'pointer', letterSpacing:'0.06em', transition:'all 0.25s'}}>
                   <span style={{fontSize:12}}>{cat.icon}</span>
                   {cat.id.toUpperCase()}
                 </button>
               )
             })}
           </div>
-          <div style={{display:'flex', gap:4, background:'rgba(255,255,255,0.03)', borderRadius:50, padding:4, border:'1px solid rgba(255,255,255,0.06)'}}>
+          <div style={{display:'flex', gap:4, background:'var(--t-s03)', borderRadius:50, padding:4, border:'1px solid var(--t-s06)'}}>
             {[['all','All'],['unlocked','Unlocked ✓'],['locked','Locked 🔒']].map(([val,label]) => {
               const active = showOnly === val
               return (
                 <button key={val} onClick={()=>setShowOnly(val)}
-                  style={{background:active?'rgba(34,197,94,0.15)':'transparent', color:active?'#22c55e':'#666', border:active?'1px solid rgba(34,197,94,0.3)':'1px solid transparent', borderRadius:50, padding:'7px 14px', fontSize:10, fontWeight:800, cursor:'pointer', letterSpacing:'0.06em', transition:'all 0.25s'}}>
+                  style={{background:active?'rgba(34,197,94,0.15)':'transparent', color:active?'#22c55e':'var(--t-dim3)', border:active?'1px solid rgba(34,197,94,0.3)':'1px solid transparent', borderRadius:50, padding:'7px 14px', fontSize:10, fontWeight:800, cursor:'pointer', letterSpacing:'0.06em', transition:'all 0.25s'}}>
                   {label}
                 </button>
               )
@@ -530,8 +530,8 @@ export default function Achievements() {
         {filtered.length === 0 ? (
           <div style={{...glass({borderRadius:18}), padding:'50px', textAlign:'center'}}>
             <div style={{fontSize:42, marginBottom:12, opacity:0.4}}>🔍</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:'#888', letterSpacing:'0.06em'}}>NO BADGES FOUND</div>
-            <div style={{fontSize:11, color:'#555', marginTop:6}}>Try changing your filter</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:'var(--t-dim2)', letterSpacing:'0.06em'}}>NO BADGES FOUND</div>
+            <div style={{fontSize:11, color:'var(--t-dim3)', marginTop:6}}>Try changing your filter</div>
           </div>
         ) : (
           grouped.map(({ cat, items }) => {
@@ -570,9 +570,9 @@ export default function Achievements() {
           <div onClick={()=>setShowcase(null)}
             style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', backdropFilter:'blur(12px)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'popIn 0.3s ease'}}>
             <div onClick={e=>e.stopPropagation()}
-              style={{position:'relative', background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)', borderRadius:24, border:`2px solid ${r.color}66`, maxWidth:480, width:'100%', overflow:'hidden', boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${r.glow}`, padding:'34px 32px', textAlign:'center'}}>
+              style={{position:'relative', background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', borderRadius:24, border:`2px solid ${r.color}66`, maxWidth:480, width:'100%', overflow:'hidden', boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${r.glow}`, padding:'34px 32px', textAlign:'center'}}>
               <div style={{position:'absolute', top:-80, left:'50%', transform:'translateX(-50%)', width:360, height:360, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 65%)`, pointerEvents:'none'}}/>
-              <button onClick={()=>setShowcase(null)} style={{position:'absolute', top:14, right:14, width:32, height:32, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:9, color:'#888', fontSize:14, cursor:'pointer'}}>✕</button>
+              <button onClick={()=>setShowcase(null)} style={{position:'absolute', top:14, right:14, width:32, height:32, background:'var(--t-s05)', border:'1px solid var(--t-s10)', borderRadius:9, color:'var(--t-dim2)', fontSize:14, cursor:'pointer'}}>✕</button>
               <div style={{position:'relative'}}>
                 <div style={{position:'relative', display:'inline-block', marginBottom:20}}>
                   {showcase.unlocked && <div style={{position:'absolute', inset:-20, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, animation:'pulseTrophy 2.5s ease-in-out infinite'}}/>}
@@ -589,23 +589,23 @@ export default function Achievements() {
                     +{showcase.xp} XP
                   </span>
                 </div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:36, color:showcase.unlocked?r.color:'#888', letterSpacing:'0.04em', lineHeight:1, marginBottom:8, textShadow:showcase.unlocked?`0 0 16px ${r.glow}`:'none'}}>{showcase.title}</div>
-                <div style={{fontSize:13, color:'#aaa', lineHeight:1.7, marginBottom:24}}>{showcase.desc}</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:36, color:showcase.unlocked?r.color:'var(--t-dim2)', letterSpacing:'0.04em', lineHeight:1, marginBottom:8, textShadow:showcase.unlocked?`0 0 16px ${r.glow}`:'none'}}>{showcase.title}</div>
+                <div style={{fontSize:13, color:'var(--t-dim1)', lineHeight:1.7, marginBottom:24}}>{showcase.desc}</div>
                 {showcase.unlocked ? (
                   <div style={{padding:'14px 18px', background:`linear-gradient(135deg,${r.color}22,${r.color}10)`, border:`1px solid ${r.color}55`, borderRadius:14}}>
                     <div style={{fontSize:11, fontWeight:800, color:r.color, letterSpacing:'0.1em', textTransform:'uppercase'}}>✓ Achievement Earned</div>
-                    <div style={{fontSize:10, color:'#888', marginTop:4}}>You've made it to the Hall of Champions for this milestone 🥊</div>
+                    <div style={{fontSize:10, color:'var(--t-dim2)', marginTop:4}}>You've made it to the Hall of Champions for this milestone 🥊</div>
                   </div>
                 ) : (
                   <div>
                     <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8, padding:'0 4px'}}>
-                      <span style={{fontSize:9, color:'#666', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase'}}>Progress to unlock</span>
+                      <span style={{fontSize:9, color:'var(--t-dim3)', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase'}}>Progress to unlock</span>
                       <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:20, color:r.color}}>{getProgressLabel(showcase, stats) || `${Math.round(prog*100)}%`}</span>
                     </div>
-                    <div style={{height:12, background:'rgba(255,255,255,0.04)', borderRadius:50, overflow:'hidden', border:'1px solid rgba(255,255,255,0.04)'}}>
+                    <div style={{height:12, background:'var(--t-s04)', borderRadius:50, overflow:'hidden', border:'1px solid var(--t-s04)'}}>
                       <div style={{height:'100%', background:`linear-gradient(90deg,${r.color},${r.color}cc)`, borderRadius:50, width:`${prog*100}%`, transition:'width 0.8s ease', boxShadow:`0 0 14px ${r.color}aa`}}/>
                     </div>
-                    <div style={{fontSize:11, color:'#888', marginTop:14}}>Keep training — you're on the way 🥊</div>
+                    <div style={{fontSize:11, color:'var(--t-dim2)', marginTop:14}}>Keep training — you're on the way 🥊</div>
                   </div>
                 )}
               </div>

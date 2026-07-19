@@ -11,6 +11,7 @@ import MedicalCertCard from '../components/MedicalCertCard'
 import { getMemberLevel, levelScore } from '../lib/memberLevel'
 import Forum from './Forum'
 import { computeMembershipState, daysRemaining, fmtExpiry, fmtRemaining, getStatusLabel, getStatusColor, getStatusIcon, isExpiringSoon, STATUS } from '../lib/membership'
+import { clearAppStorageKeepTheme } from '../lib/theme'
 
 const glass=(e={})=>({background:'linear-gradient(135deg,rgba(22,20,20,0.97),rgba(14,12,12,0.99))',borderRadius:16,border:'1px solid rgba(255,255,255,0.07)',boxShadow:'0 4px 24px rgba(0,0,0,0.4)',...e})
 const LEVEL_COLOR={Beginner:'#fb923c',Intermediate:'#f5c842',Advanced:'#4ade80'}
@@ -1191,7 +1192,7 @@ export default function CoachDashboard(){
     setSendingMsg(false)
   }
 
-  async function handleLogout(){await signOut(auth);localStorage.clear();navigate('/login')}
+  async function handleLogout(){await signOut(auth);clearAppStorageKeepTheme();navigate('/login')}
 
   useEffect(()=>{
     const canvas=canvasRef.current;if(!canvas)return

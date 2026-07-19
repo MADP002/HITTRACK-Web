@@ -15,6 +15,65 @@
   --input-border: #3d3333;
   --topbar:       #0d0d0d;
   --transition:   0.3s ease;
+
+  /* ── THEME TOKENS (member pages + navbar) ──────────────────────
+     Semantic surface/text tokens. Components reference these via
+     var(--t-*) in their inline styles, so flipping data-theme on
+     <html> re-themes the whole member area instantly — no reload.
+     ACCENT colors (red/gold/blue/green/purple) intentionally stay
+     the same in both themes; only surfaces and text flip.        */
+  --t-bg:     #1a1a1a;   /* page background            */
+  --t-card:   #1a1413;   /* card surface (gradient A)  */
+  --t-card2:  #0e0a0a;   /* card surface (gradient B)  */
+  --t-text:   #f0ece8;   /* primary text               */
+  --t-muted:  #7a7570;   /* secondary text             */
+  --t-muted2: #b0ada8;   /* secondary text (lighter)   */
+  --t-dim1:   #aaa;      /* dim text ramp              */
+  --t-dim2:   #888;
+  --t-dim3:   #666;
+  --t-dim4:   #444;
+  /* Translucent surfaces/borders — white veils on dark, black on light */
+  --t-s02: rgba(255,255,255,0.02);
+  --t-s03: rgba(255,255,255,0.03);
+  --t-s04: rgba(255,255,255,0.04);
+  --t-s05: rgba(255,255,255,0.05);
+  --t-s06: rgba(255,255,255,0.06);
+  --t-s08: rgba(255,255,255,0.08);
+  --t-s10: rgba(255,255,255,0.10);
+  --t-s20: rgba(255,255,255,0.20);
+}
+
+/* ── LIGHT THEME ──────────────────────────────────────────────
+   Warm light palette matching the mobile app's LIGHT palette.   */
+:root[data-theme="light"] {
+  --bg:         #f4f1ec;
+  --bg-dark:    #efeae1;
+  --bg-card:    #ffffff;
+  --bg-card2:   #efeae1;
+  --bg-input:   #eee9e0;
+  --text:       #241d19;
+  --text-muted: #6b645b;
+  --input-border: #d9d2c6;
+  --topbar:     #ffffff;
+
+  --t-bg:     #f4f1ec;
+  --t-card:   #ffffff;
+  --t-card2:  #f7f4ef;
+  --t-text:   #241d19;
+  --t-muted:  #6b645b;
+  --t-muted2: #4a453d;
+  --t-dim1:   #4a453d;
+  --t-dim2:   #6b645b;
+  --t-dim3:   #7d766c;
+  --t-dim4:   #9a938a;
+  --t-s02: rgba(0,0,0,0.02);
+  --t-s03: rgba(0,0,0,0.03);
+  --t-s04: rgba(0,0,0,0.04);
+  --t-s05: rgba(0,0,0,0.05);
+  --t-s06: rgba(0,0,0,0.07);
+  --t-s08: rgba(0,0,0,0.09);
+  --t-s10: rgba(0,0,0,0.12);
+  --t-s20: rgba(0,0,0,0.20);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,16 +96,16 @@ body {
   top: 0;
   z-index: 100;
   height: 70px;
-  background: #0d0d0d;
+  background: var(--topbar);
   display: flex;
   align-items: center;
   padding: 0 40px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--t-s05);
 }
 
 .nav-logo-icon {
   width: 42px; height: 42px;
-  background: #1a1a1a;
+  background: var(--t-bg);
   border: 2px solid var(--accent);
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
@@ -423,7 +482,7 @@ body {
 .main-grid { display: grid; grid-template-columns: 280px 1fr 260px; gap: 20px; animation: fadeUp 0.6s ease 0.1s both; }
 
 .card { background: var(--bg-card); border-radius: 16px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
-.card-title { font-size: 15px; font-weight: 700; padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.card-title { font-size: 15px; font-weight: 700; padding: 18px 20px 14px; border-bottom: 1px solid var(--t-s05); }
 
 .classes-col { display: flex; flex-direction: column; gap: 16px; }
 .class-list { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
@@ -443,7 +502,7 @@ body {
 .class-time { font-size: 11px; color: var(--accent); font-weight: 700; }
 
 .stats-col { display: flex; flex-direction: column; }
-.stats-title { font-size: 15px; font-weight: 700; padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
+.stats-title { font-size: 15px; font-weight: 700; padding: 18px 20px 14px; border-bottom: 1px solid var(--t-s05); text-align: center; }
 .stats-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 
 .stat-item {
@@ -464,7 +523,7 @@ body {
 .stats-footer:hover { color: var(--accent-2); }
 
 .progress-col { display: flex; flex-direction: column; }
-.progress-title { font-size: 15px; font-weight: 700; padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; }
+.progress-title { font-size: 15px; font-weight: 700; padding: 18px 20px 14px; border-bottom: 1px solid var(--t-s05); text-align: center; }
 .progress-body { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; flex: 1; gap: 8px; }
 
 .ring-wrap { position: relative; width: 130px; height: 130px; margin: 0 auto 10px; }

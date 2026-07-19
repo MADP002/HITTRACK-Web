@@ -11,6 +11,7 @@ import PunchAnalyticsCard from '../components/PunchAnalyticsCard'
 import MedicalCertCard from '../components/MedicalCertCard'
 import { getMemberLevel, levelScore } from '../lib/memberLevel'
 import Forum from './Forum'
+import { clearAppStorageKeepTheme } from '../lib/theme'
 
 // ── CONSTANTS ─────────────────────────────────────────
 const LEVEL_COLOR = { Beginner:'#fb923c', Intermediate:'#f5c842', Advanced:'#4ade80' }
@@ -1113,7 +1114,7 @@ export default function AdminDashboard() {
   }
 
   async function handleLogout(){
-    await signOut(auth);localStorage.clear();navigate('/login')
+    await signOut(auth);clearAppStorageKeepTheme();navigate('/login')
   }
 
   // Canvas bg

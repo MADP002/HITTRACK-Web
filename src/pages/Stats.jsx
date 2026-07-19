@@ -33,7 +33,7 @@ function Bar({ value, max=100, color, delay=0 }) {
   const [w,setW]=useState(0)
   useEffect(()=>{ const t=setTimeout(()=>setW((value/max)*100),delay+300); return()=>clearTimeout(t) },[value])
   return(
-    <div style={{flex:1,height:7,background:'rgba(255,255,255,0.06)',borderRadius:50,overflow:'hidden'}}>
+    <div style={{flex:1,height:7,background:'var(--t-s06)',borderRadius:50,overflow:'hidden'}}>
       <div style={{height:'100%',borderRadius:50,background:color,width:`${w}%`,transition:'width 1.1s cubic-bezier(0.4,0,0.2,1)',boxShadow:`0 0 10px ${color}66`}}/>
     </div>
   )
@@ -167,7 +167,7 @@ export default function Stats() {
     ? parseFloat((profile.weight/((profile.height/100)**2)).toFixed(1))
     : null)
   const bmiLabel = !bmi?'—':bmi<18.5?'Underweight':bmi<25?'Normal':bmi<30?'Overweight':'Obese'
-  const bmiColor = !bmi?'#555':bmi<18.5?'#42a5f5':bmi<25?'#4ade80':bmi<30?'#f5c842':'#e84a2f'
+  const bmiColor = !bmi?'var(--t-dim3)':bmi<18.5?'#42a5f5':bmi<25?'#4ade80':bmi<30?'#f5c842':'#e84a2f'
 
   // Division rank — matches Leaderboard (Beginner / Intermediate / Advanced)
   const myUid = auth.currentUser?.uid
@@ -264,19 +264,19 @@ export default function Stats() {
         {/* HEADER */}
         <div style={{...glass({borderRadius:18}),padding:'24px 32px',display:'flex',alignItems:'center',justifyContent:'space-between',border:'1px solid rgba(232,74,47,0.2)'}}>
           <div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,letterSpacing:'0.06em',color:'#f0ece8',lineHeight:1}}>📊 My Stats</div>
-            <div style={{fontSize:13,color:'#7a7570',marginTop:4}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,letterSpacing:'0.06em',color:'var(--t-text)',lineHeight:1}}>📊 My Stats</div>
+            <div style={{fontSize:13,color:'var(--t-muted)',marginTop:4}}>
               {profile.name||'Athlete'} · {currentLevel} · {profile.goal||'Learn Boxing'}
             </div>
           </div>
           <div style={{display:'flex',gap:12,alignItems:'center'}}>
             <div style={{textAlign:'center',background:'rgba(245,200,66,0.08)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:14,padding:'12px 20px'}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:'#f5c842',lineHeight:1}}><AnimNum target={myScore}/></div>
-              <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>MY SCORE</div>
+              <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>MY SCORE</div>
             </div>
             <div style={{textAlign:'center',background:`${lc}12`,border:`1px solid ${lc}33`,borderRadius:14,padding:'12px 20px'}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:lc,lineHeight:1}}>#{myRank}</div>
-              <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>DIV RANK</div>
+              <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>DIV RANK</div>
             </div>
           </div>
         </div>
@@ -301,7 +301,7 @@ export default function Stats() {
           <div style={glass()}>
             <div style={{padding:'18px 22px 14px',borderBottom:'1px solid rgba(245,200,66,0.08)'}}>
               <div style={{fontSize:14,fontWeight:700}}>You vs Division Average</div>
-              <div style={{fontSize:11,color:'#555',marginTop:2}}>{gymLoading ? 'Loading...' : `${currentLevel} division · ${divisionPeers.length} member${divisionPeers.length!==1?'s':''}`}</div>
+              <div style={{fontSize:11,color:'var(--t-dim3)',marginTop:2}}>{gymLoading ? 'Loading...' : `${currentLevel} division · ${divisionPeers.length} member${divisionPeers.length!==1?'s':''}`}</div>
             </div>
             <div style={{padding:'16px',display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
               <svg width="280" height="230" viewBox="0 0 280 230" style={{overflow:'visible',display:'block'}}>
@@ -316,12 +316,12 @@ export default function Stats() {
                 {[0.25,0.5,0.75,1].map((frac,fi)=>{
                   const pts=RADAR_LABELS.map((_,i)=>gridPt(i,RADAR_COUNT,frac))
                   return<polygon key={fi} points={pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
-                    fill="none" stroke={frac===1?'rgba(255,255,255,0.1)':'rgba(255,255,255,0.04)'} strokeWidth={frac===1?1:0.5}/>
+                    fill="none" stroke={frac===1?'var(--t-s10)':'var(--t-s04)'} strokeWidth={frac===1?1:0.5}/>
                 })}
 
                 {RADAR_LABELS.map((_,i)=>{
                   const end=gridPt(i,RADAR_COUNT,1)
-                  return<line key={i} x1={CX} y1={CY} x2={end.x} y2={end.y} stroke="rgba(255,255,255,0.06)" strokeWidth="1"/>
+                  return<line key={i} x1={CX} y1={CY} x2={end.x} y2={end.y} stroke="var(--t-s06)" strokeWidth="1"/>
                 })}
 
                 {/* Division avg — blue */}
@@ -333,7 +333,7 @@ export default function Stats() {
                 {avgPts.map((p,i)=>(
                   <circle key={`avg-${i}`}
                     cx={radarIn?p.x:CX} cy={radarIn?p.y:CY} r="3.5"
-                    fill="#42a5f5" stroke="#1a1a1a" strokeWidth="1"
+                    fill="#42a5f5" stroke="var(--t-bg)" strokeWidth="1"
                     style={{transition:`cx 1.2s ease ${i*0.08}s,cy 1.2s ease ${i*0.08}s`}}/>
                 ))}
 
@@ -346,14 +346,14 @@ export default function Stats() {
                 {myPts.map((p,i)=>(
                   <circle key={`me-${i}`}
                     cx={radarIn?p.x:CX} cy={radarIn?p.y:CY} r="4.5"
-                    fill={lc} stroke="#1a1a1a" strokeWidth="1.5" filter="url(#glow3)"
+                    fill={lc} stroke="var(--t-bg)" strokeWidth="1.5" filter="url(#glow3)"
                     style={{transition:`cx 1.2s ease ${i*0.1}s,cy 1.2s ease ${i*0.1}s`}}/>
                 ))}
 
                 {lblPts.map((p,i)=>(
                   <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
                     fontSize="9" fontWeight="700" fontFamily="Montserrat,sans-serif"
-                    fill="#7a7570" letterSpacing="0.06em">
+                    fill="var(--t-muted)" letterSpacing="0.06em">
                     {RADAR_LABELS[i].toUpperCase()}
                   </text>
                 ))}
@@ -361,15 +361,15 @@ export default function Stats() {
                 <text x={CX} y={CY-6} textAnchor="middle" fontSize="22" fontWeight="700"
                   fontFamily="'Bebas Neue',sans-serif" fill="#f5c842">{myScore}</text>
                 <text x={CX} y={CY+10} textAnchor="middle" fontSize="7"
-                  fontFamily="Montserrat,sans-serif" fill="#666" fontWeight="600" letterSpacing="0.1em">PTS</text>
+                  fontFamily="Montserrat,sans-serif" fill="var(--t-dim3)" fontWeight="600" letterSpacing="0.1em">PTS</text>
               </svg>
 
               {/* Legend */}
               <div style={{display:'flex',gap:16,justifyContent:'center'}}>
-                <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,color:'#aaa',fontWeight:600}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,color:'var(--t-dim1)',fontWeight:600}}>
                   <span style={{width:10,height:10,borderRadius:2,background:'rgba(245,200,66,0.25)',border:'2px solid #f5c842'}}/>You
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,color:'#aaa',fontWeight:600}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,fontSize:10,color:'var(--t-dim1)',fontWeight:600}}>
                   <span style={{width:10,height:10,borderRadius:2,background:'rgba(66,165,245,0.15)',border:'2px dashed #42a5f5'}}/>Div. avg
                 </div>
               </div>
@@ -387,20 +387,20 @@ export default function Stats() {
                   return(
                     <div key={i}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5,fontSize:10}}>
-                        <span style={{color:'#888',fontWeight:700}}>{row.label}</span>
+                        <span style={{color:'var(--t-dim2)',fontWeight:700}}>{row.label}</span>
                         <span style={{color:diff>=0?'#4ade80':'#e84a2f',fontWeight:700,fontSize:9}}>{diff>=0?'+':''}{diff} vs avg</span>
                       </div>
                       <div style={{display:'flex',flexDirection:'column',gap:4}}>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
                           <span style={{fontSize:8,color:'#f5c842',fontWeight:700,width:28,flexShrink:0}}>YOU</span>
-                          <div style={{flex:1,height:6,background:'rgba(255,255,255,0.05)',borderRadius:50,overflow:'hidden'}}>
+                          <div style={{flex:1,height:6,background:'var(--t-s05)',borderRadius:50,overflow:'hidden'}}>
                             <div style={{height:'100%',width:`${mineW}%`,background:'linear-gradient(90deg,#f5c842,#e8b020)',borderRadius:50,transition:'width 1s ease'}}/>
                           </div>
                           <span style={{fontSize:9,color:'#f5c842',fontWeight:700,minWidth:24,textAlign:'right'}}>{row.mine}</span>
                         </div>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
                           <span style={{fontSize:8,color:'#42a5f5',fontWeight:700,width:28,flexShrink:0}}>AVG</span>
-                          <div style={{flex:1,height:6,background:'rgba(255,255,255,0.05)',borderRadius:50,overflow:'hidden'}}>
+                          <div style={{flex:1,height:6,background:'var(--t-s05)',borderRadius:50,overflow:'hidden'}}>
                             <div style={{height:'100%',width:`${avgW}%`,background:'linear-gradient(90deg,#42a5f5,#2d7ab8)',borderRadius:50,transition:'width 1s ease',opacity:0.85}}/>
                           </div>
                           <span style={{fontSize:9,color:'#42a5f5',fontWeight:700,minWidth:24,textAlign:'right'}}>{row.avg}</span>
@@ -418,7 +418,7 @@ export default function Stats() {
           <div style={glass()}>
             <div style={{padding:'18px 22px 14px',borderBottom:'1px solid rgba(245,200,66,0.08)'}}>
               <div style={{fontSize:14,fontWeight:700}}>Body Metrics</div>
-              <div style={{fontSize:11,color:'#555',marginTop:2}}>From your Program Builder</div>
+              <div style={{fontSize:11,color:'var(--t-dim3)',marginTop:2}}>From your Program Builder</div>
             </div>
             <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:16}}>
 
@@ -430,17 +430,17 @@ export default function Stats() {
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:11,fontWeight:700,color:bmiColor,letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:8}}>BMI · {bmiLabel}</div>
-                    <div style={{height:6,background:'rgba(255,255,255,0.06)',borderRadius:50,overflow:'hidden'}}>
+                    <div style={{height:6,background:'var(--t-s06)',borderRadius:50,overflow:'hidden'}}>
                       <div style={{height:'100%',background:bmiColor,borderRadius:50,width:`${Math.min((bmi/40)*100,100)}%`,transition:'width 1s ease',boxShadow:`0 0 8px ${bmiColor}88`}}/>
                     </div>
                     <div style={{display:'flex',justifyContent:'space-between',marginTop:5}}>
-                      {['18.5','25','30','40'].map((l,i)=><span key={i} style={{fontSize:8,color:'#555'}}>{l}</span>)}
+                      {['18.5','25','30','40'].map((l,i)=><span key={i} style={{fontSize:8,color:'var(--t-dim3)'}}>{l}</span>)}
                     </div>
                   </div>
                 </div>
               ) : (
-                <div style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:14,padding:'16px',textAlign:'center'}}>
-                  <div style={{fontSize:11,color:'#555'}}>Complete Program Builder to see your BMI</div>
+                <div style={{background:'var(--t-s02)',border:'1px solid var(--t-s06)',borderRadius:14,padding:'16px',textAlign:'center'}}>
+                  <div style={{fontSize:11,color:'var(--t-dim3)'}}>Complete Program Builder to see your BMI</div>
                 </div>
               )}
 
@@ -454,11 +454,11 @@ export default function Stats() {
                   {label:'Level',  val:currentLevel,                              icon:LEVEL_ICON[currentLevel]||'⭐', color:lc},
                   {label:'Goal',   val:profile.goal||'—',                        icon:'🎯', color:'#4ade80'},
                 ].map((m,i)=>(
-                  <div key={i} style={{background:'rgba(255,255,255,0.03)',borderRadius:12,padding:'12px',border:`1px solid ${m.color}22`,display:'flex',flexDirection:'column',gap:4,
+                  <div key={i} style={{background:'var(--t-s03)',borderRadius:12,padding:'12px',border:`1px solid ${m.color}22`,display:'flex',flexDirection:'column',gap:4,
                     opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(12px)',transition:`all 0.4s ease ${i*60}ms`}}>
                     <div style={{fontSize:16}}>{m.icon}</div>
                     <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:m.color,letterSpacing:'0.04em',lineHeight:1.2}}>{m.val}</div>
-                    <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase'}}>{m.label}</div>
+                    <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase'}}>{m.label}</div>
                   </div>
                 ))}
               </div>
@@ -467,7 +467,7 @@ export default function Stats() {
               <div style={{background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.15)',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div style={{fontSize:11,fontWeight:700,color:'#e84a2f'}}>⚡ Training Schedule</div>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f5c842'}}>
-                  {profile.daysPerWeek||3}x <span style={{fontSize:12,color:'#555',fontFamily:'Montserrat,sans-serif',fontWeight:600}}>per week</span>
+                  {profile.daysPerWeek||3}x <span style={{fontSize:12,color:'var(--t-dim3)',fontFamily:'Montserrat,sans-serif',fontWeight:600}}>per week</span>
                 </div>
               </div>
             </div>
@@ -482,7 +482,7 @@ export default function Stats() {
           <div style={{padding:'18px 22px 14px',borderBottom:'1px solid rgba(245,200,66,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div>
               <div style={{fontSize:14,fontWeight:700}}>Score Breakdown</div>
-              <div style={{fontSize:11,color:'#555',marginTop:2}}>How your leaderboard score is calculated</div>
+              <div style={{fontSize:11,color:'var(--t-dim3)',marginTop:2}}>How your leaderboard score is calculated</div>
             </div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f5c842'}}>
               Total: <AnimNum target={myScore}/> pts
@@ -495,20 +495,20 @@ export default function Stats() {
               {icon:'⭐',label:'Division Bonus',formula:currentLevel,              points:levelBonus,             color:lc,        max:1000},
               {icon:'📅',label:'Weekly Comp.',  formula:`${weeklyPct}% × 1.5`,    points:Math.round(weeklyPct*1.5), color:'#4ade80', max:150},
             ].map((item,i,arr)=>(
-              <div key={i} style={{padding:'20px 22px',borderRight:i<arr.length-1?'1px solid rgba(255,255,255,0.05)':'none',display:'flex',flexDirection:'column',gap:10}}>
+              <div key={i} style={{padding:'20px 22px',borderRight:i<arr.length-1?'1px solid var(--t-s05)':'none',display:'flex',flexDirection:'column',gap:10}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontSize:20}}>{item.icon}</span>
                   <div>
-                    <div style={{fontSize:11,fontWeight:700,color:'#f0ece8'}}>{item.label}</div>
-                    <div style={{fontSize:10,color:'#555'}}>{item.formula}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--t-text)'}}>{item.label}</div>
+                    <div style={{fontSize:10,color:'var(--t-dim3)'}}>{item.formula}</div>
                   </div>
                 </div>
-                <div style={{height:6,background:'rgba(255,255,255,0.06)',borderRadius:50,overflow:'hidden'}}>
+                <div style={{height:6,background:'var(--t-s06)',borderRadius:50,overflow:'hidden'}}>
                   <Bar value={item.points} max={item.max} color={item.color} delay={i*100}/>
                 </div>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:item.color,letterSpacing:'0.04em'}}>
                   +<AnimNum target={item.points}/>
-                  <span style={{fontSize:11,color:'#555',fontFamily:'Montserrat,sans-serif',marginLeft:4}}>pts</span>
+                  <span style={{fontSize:11,color:'var(--t-dim3)',fontFamily:'Montserrat,sans-serif',marginLeft:4}}>pts</span>
                 </div>
               </div>
             ))}
@@ -541,10 +541,10 @@ export default function Stats() {
                 <div style={{fontSize:50,marginBottom:12,lineHeight:1}}>
                   {membershipState===STATUS.EXPIRED ? '🔒' : '⏸'}
                 </div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'0.05em',color:'#f0ece8',lineHeight:1.1,marginBottom:8}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'0.05em',color:'var(--t-text)',lineHeight:1.1,marginBottom:8}}>
                   {membershipState===STATUS.EXPIRED ? 'STATS LOCKED' : 'MEMBERSHIP PAUSED'}
                 </div>
-                <div style={{fontSize:12,color:'#aaa',lineHeight:1.7,marginBottom:18}}>
+                <div style={{fontSize:12,color:'var(--t-dim1)',lineHeight:1.7,marginBottom:18}}>
                   {membershipState===STATUS.EXPIRED
                     ? 'Your membership has expired — performance stats are members-only. Speak with the gym admin to renew and continue tracking your progress.'
                     : 'Your membership is paused. Resume your plan with the admin to see your latest workout breakdowns and progress data.'}

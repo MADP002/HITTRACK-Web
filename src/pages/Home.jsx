@@ -89,8 +89,8 @@ function BadgePopup({milestone, onClose}) {
       <div style={{...glass(),padding:'44px 52px',textAlign:'center',maxWidth:380,width:'90%',animation:'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)'}}>
         <div style={{fontSize:68,marginBottom:12}}>🏅</div>
         <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:'0.2em',color:'#f5c842',marginBottom:6}}>BADGE UNLOCKED!</div>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:'#f0ece8',marginBottom:10}}>{milestone} Workout Badge</div>
-        <div style={{fontSize:13,color:'#7a7570',lineHeight:1.7,marginBottom:28}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:'var(--t-text)',marginBottom:10}}>{milestone} Workout Badge</div>
+        <div style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.7,marginBottom:28}}>
           You completed <strong style={{color:'#f5c842'}}>{milestone} workouts</strong>! Next milestone at {milestone+10}.
         </div>
         <button onClick={onClose} style={{background:'linear-gradient(135deg,#f5c842,#e84a2f)',color:'#fff',border:'none',borderRadius:50,padding:'13px 36px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
@@ -1074,11 +1074,11 @@ export default function Home() {
         <div onClick={()=>setShowTrialWelcome(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:22,border:'1.5px solid rgba(66,165,245,0.4)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(66,165,245,0.2)',textAlign:'center'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:22,border:'1.5px solid rgba(66,165,245,0.4)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(66,165,245,0.2)',textAlign:'center'}}>
             <div style={{position:'absolute',left:0,top:0,right:0,height:5,background:'linear-gradient(90deg,#42a5f5,#4ade80,#f5c842)'}}/>
             <div style={{padding:'36px 30px 30px'}}>
               <div style={{fontSize:56,marginBottom:10,lineHeight:1}}>🎉</div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1.1,marginBottom:10}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.04em',color:'var(--t-text)',lineHeight:1.1,marginBottom:10}}>
                 WELCOME TO HITTRACK!
               </div>
               <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'8px 16px',background:'rgba(66,165,245,0.12)',border:'1px solid rgba(66,165,245,0.35)',borderRadius:50,marginBottom:18}}>
@@ -1087,7 +1087,7 @@ export default function Home() {
                   {daysLeft != null && daysLeft >= 0 ? `${daysLeft} day${daysLeft===1?'':'s'} left` : '7 days'}
                 </span>
               </div>
-              <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:24}}>
+              <div style={{fontSize:13,color:'var(--t-muted2)',lineHeight:1.7,marginBottom:24}}>
                 You{'’'}re on a <strong style={{color:'#42a5f5'}}>7-day trial</strong>. Book classes, track your workouts, and explore everything HITTRACK offers. When your trial ends, speak with the gym admin to continue your membership.
               </div>
               <button onClick={()=>setShowTrialWelcome(false)}
@@ -1106,12 +1106,12 @@ export default function Home() {
           <div style={{...glass(),padding:'32px 36px',maxWidth:420,width:'90%',textAlign:'center'}}>
             <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'#f5c842',marginBottom:8}}>Schedule Conflict!</div>
-            <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:20}}>
-              You already have <strong style={{color:'#f0ece8'}}>{conflictModal.existingWorkout?.title}</strong> on <strong style={{color:'#f0ece8'}}>{conflictModal.classData.day}</strong>. Add this class to your workout?
+            <div style={{fontSize:13,color:'var(--t-muted2)',lineHeight:1.7,marginBottom:20}}>
+              You already have <strong style={{color:'var(--t-text)'}}>{conflictModal.existingWorkout?.title}</strong> on <strong style={{color:'var(--t-text)'}}>{conflictModal.classData.day}</strong>. Add this class to your workout?
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <button onClick={handleConflictProceed} style={{background:'linear-gradient(135deg,#42a5f5,#1565c0)',color:'#fff',border:'none',borderRadius:50,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer'}}>✅ Yes, Add to My Workout</button>
-              <button onClick={() => setConflictModal(null)} style={{background:'transparent',color:'#7a7570',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer'}}>✕ Cancel</button>
+              <button onClick={() => setConflictModal(null)} style={{background:'transparent',color:'var(--t-muted)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'11px',fontSize:13,fontWeight:700,cursor:'pointer'}}>✕ Cancel</button>
             </div>
           </div>
         </div>
@@ -1132,7 +1132,7 @@ export default function Home() {
           <div onClick={()=>setLevelChangePopup(null)}
             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'popIn 0.4s ease'}}>
             <div onClick={e=>e.stopPropagation()}
-              style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:24,border:`2px solid ${lc}55`,maxWidth:440,width:'100%',overflow:'hidden',boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${lc}40`}}>
+              style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:24,border:`2px solid ${lc}55`,maxWidth:440,width:'100%',overflow:'hidden',boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${lc}40`}}>
               {/* Burst */}
               <div style={{position:'absolute',top:-50,left:'50%',transform:'translateX(-50%)',width:280,height:280,borderRadius:'50%',background:`radial-gradient(circle,${lc}30,transparent 70%)`,pointerEvents:'none'}}/>
               <div style={{position:'relative',padding:'34px 30px 28px',textAlign:'center'}}>
@@ -1140,7 +1140,7 @@ export default function Home() {
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.06em',color:lc,marginBottom:6,textShadow:`0 0 20px ${lc}66`}}>
                   {isPromote?'LEVELED UP!':'LEVEL UPDATED'}
                 </div>
-                <div style={{fontSize:11,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginBottom:24}}>
+                <div style={{fontSize:11,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginBottom:24}}>
                   By {levelChangePopup.from || 'Your Coach'}
                 </div>
 
@@ -1148,30 +1148,30 @@ export default function Home() {
                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:16,marginBottom:24}}>
                   {/* Old */}
                   <div style={{textAlign:'center',opacity:0.4}}>
-                    <div style={{width:62,height:62,borderRadius:'50%',background:'rgba(255,255,255,0.04)',border:'2px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,margin:'0 auto 6px'}}>
+                    <div style={{width:62,height:62,borderRadius:'50%',background:'var(--t-s04)',border:'2px solid var(--t-s10)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,margin:'0 auto 6px'}}>
                       {{Beginner:'🥊',Intermediate:'⚡',Advanced:'🔥'}[oldLv]||'🥊'}
                     </div>
-                    <div style={{fontSize:9,color:'#666',fontWeight:800,letterSpacing:'0.1em'}}>{oldLv.toUpperCase()}</div>
+                    <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:800,letterSpacing:'0.1em'}}>{oldLv.toUpperCase()}</div>
                   </div>
                   {/* Arrow */}
                   <div style={{fontSize:24,color:lc,opacity:0.7}}>{isPromote?'➡':'⬅'}</div>
                   {/* New */}
                   <div style={{textAlign:'center'}}>
-                    <div style={{width:74,height:74,borderRadius:'50%',background:`linear-gradient(135deg,${lc},${lc}aa)`,border:`3px solid ${lc}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 6px',boxShadow:`0 8px 24px ${lc}66,inset 0 2px 6px rgba(255,255,255,0.2)`}}>
+                    <div style={{width:74,height:74,borderRadius:'50%',background:`linear-gradient(135deg,${lc},${lc}aa)`,border:`3px solid ${lc}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 6px',boxShadow:`0 8px 24px ${lc}66,inset 0 2px 6px var(--t-s20)`}}>
                       {lvIc}
                     </div>
                     <div style={{fontSize:11,fontWeight:800,color:lc,letterSpacing:'0.1em',textShadow:`0 0 10px ${lc}66`}}>{newLv.toUpperCase()}</div>
                   </div>
                 </div>
 
-                <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:24,padding:'0 8px'}}>
+                <div style={{fontSize:13,color:'var(--t-muted2)',lineHeight:1.7,marginBottom:24,padding:'0 8px'}}>
                   {levelChangePopup.message || `You're now ${newLv}. Your training plan and leaderboard division have been updated.`}
                 </div>
 
                 <button onClick={()=>setLevelChangePopup(null)}
-                  style={{width:'100%',background:`linear-gradient(135deg,${lc},${lc}cc)`,color:'#000',border:'none',borderRadius:50,padding:'14px',fontSize:13,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',boxShadow:`0 6px 20px ${lc}50,inset 0 1px 0 rgba(255,255,255,0.2)`,transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
+                  style={{width:'100%',background:`linear-gradient(135deg,${lc},${lc}cc)`,color:'#000',border:'none',borderRadius:50,padding:'14px',fontSize:13,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',boxShadow:`0 6px 20px ${lc}50,inset 0 1px 0 var(--t-s20)`,transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow=`0 10px 30px ${lc}80,inset 0 1px 0 rgba(255,255,255,0.25)`}}
-                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow=`0 6px 20px ${lc}50,inset 0 1px 0 rgba(255,255,255,0.2)`}}>
+                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow=`0 6px 20px ${lc}50,inset 0 1px 0 var(--t-s20)`}}>
                   🥊 LET'S GO!
                 </button>
               </div>
@@ -1188,7 +1188,7 @@ export default function Home() {
         <div onClick={()=>setThanksPopup(null)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'popIn 0.4s ease'}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:24,border:'2px solid rgba(34,197,94,0.55)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 60px rgba(34,197,94,0.4)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:24,border:'2px solid rgba(34,197,94,0.55)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 60px rgba(34,197,94,0.4)'}}>
             {/* Burst */}
             <div style={{position:'absolute',top:-50,left:'50%',transform:'translateX(-50%)',width:280,height:280,borderRadius:'50%',background:'radial-gradient(circle,rgba(34,197,94,0.3),transparent 70%)',pointerEvents:'none'}}/>
             <div style={{position:'relative',padding:'34px 30px 28px',textAlign:'center'}}>
@@ -1196,7 +1196,7 @@ export default function Home() {
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,letterSpacing:'0.06em',color:'#22c55e',marginBottom:6,textShadow:'0 0 20px rgba(34,197,94,0.5)'}}>
                 THANK YOU!
               </div>
-              <div style={{fontSize:11,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginBottom:24}}>
+              <div style={{fontSize:11,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginBottom:24}}>
                 From {thanksPopup.from || 'Your Coach'}
               </div>
               {/* Class info */}
@@ -1206,13 +1206,13 @@ export default function Home() {
                   <span style={{fontSize:13,fontWeight:800,letterSpacing:'0.06em',color:'#22c55e'}}>{thanksPopup.className}</span>
                 </div>
               )}
-              <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:24,padding:'0 8px'}}>
+              <div style={{fontSize:13,color:'var(--t-muted2)',lineHeight:1.7,marginBottom:24,padding:'0 8px'}}>
                 {thanksPopup.message || `Thanks for showing up! Great work — keep stepping into the ring.`}
               </div>
               <button onClick={()=>setThanksPopup(null)}
-                style={{width:'100%',background:'linear-gradient(135deg,#22c55e,#16a34a)',color:'#fff',border:'none',borderRadius:50,padding:'14px',fontSize:13,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',boxShadow:'0 6px 20px rgba(34,197,94,0.5),inset 0 1px 0 rgba(255,255,255,0.2)',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
+                style={{width:'100%',background:'linear-gradient(135deg,#22c55e,#16a34a)',color:'#fff',border:'none',borderRadius:50,padding:'14px',fontSize:13,fontWeight:800,letterSpacing:'0.08em',cursor:'pointer',boxShadow:'0 6px 20px rgba(34,197,94,0.5),inset 0 1px 0 var(--t-s20)',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)'}}
                 onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)';e.currentTarget.style.boxShadow='0 10px 30px rgba(34,197,94,0.7),inset 0 1px 0 rgba(255,255,255,0.25)'}}
-                onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 6px 20px rgba(34,197,94,0.5),inset 0 1px 0 rgba(255,255,255,0.2)'}}>
+                onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 6px 20px rgba(34,197,94,0.5),inset 0 1px 0 var(--t-s20)'}}>
                 🥊 SEE YOU NEXT CLASS!
               </button>
             </div>
@@ -1227,22 +1227,22 @@ export default function Home() {
         <div onClick={()=>!clearingFb && setClearFbConfirm(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(232,74,47,0.25)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(232,74,47,0.25)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,boxShadow:'0 4px 14px rgba(232,74,47,0.5)'}}>🧹</div>
                 <div>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#e84a2f'}}>CLEAR ALL FEEDBACK?</div>
-                  <div style={{fontSize:9,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action is permanent</div>
+                  <div style={{fontSize:9,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action is permanent</div>
                 </div>
               </div>
-              <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.6}}>
+              <div style={{padding:'14px 16px',background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,fontSize:12,color:'var(--t-dim1)',lineHeight:1.6}}>
                 All <strong style={{color:'#e84a2f'}}>{coachFeedback.length}</strong> coach feedback entries will be permanently deleted from your view. Make sure you've read them — your coach won't be notified.
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={()=>setClearFbConfirm(false)} disabled={clearingFb}
-                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingFb?'not-allowed':'pointer',opacity:clearingFb?0.5:1}}>
+                  style={{flex:1,background:'var(--t-s04)',color:'var(--t-dim1)',border:'1px solid var(--t-s10)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:clearingFb?'not-allowed':'pointer',opacity:clearingFb?0.5:1}}>
                   KEEP THEM
                 </button>
                 <button onClick={clearAllFeedback} disabled={clearingFb}
@@ -1265,12 +1265,12 @@ export default function Home() {
         <div onClick={() => setCancelConfirm(null)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e => e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'1px solid rgba(232,74,47,0.3)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(232,74,47,0.15)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'1px solid rgba(232,74,47,0.3)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(232,74,47,0.15)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'30px 32px',textAlign:'center'}}>
               <div style={{width:64,height:64,margin:'0 auto 16px',borderRadius:'50%',background:'linear-gradient(135deg,rgba(232,74,47,0.2),rgba(232,74,47,0.05))',border:'2px solid rgba(232,74,47,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,boxShadow:'0 6px 20px rgba(232,74,47,0.3)'}}>🥊</div>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#e84a2f',letterSpacing:'0.04em',marginBottom:6}}>CANCEL BOOKING?</div>
-              <div style={{fontSize:9,color:'#666',letterSpacing:'0.18em',textTransform:'uppercase',fontWeight:700,marginBottom:16}}>This action will free up your spot</div>
+              <div style={{fontSize:9,color:'var(--t-dim3)',letterSpacing:'0.18em',textTransform:'uppercase',fontWeight:700,marginBottom:16}}>This action will free up your spot</div>
               {/* Class info card */}
               <div style={{background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:12,padding:'14px 16px',marginBottom:18,textAlign:'left',display:'flex',gap:12,alignItems:'center'}}>
                 <div style={{width:46,height:46,borderRadius:11,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#fff',flexShrink:0,boxShadow:'0 4px 12px rgba(232,74,47,0.4)'}}>
@@ -1278,18 +1278,18 @@ export default function Home() {
                   <div style={{fontSize:7,fontWeight:800,letterSpacing:'0.06em',marginTop:2,opacity:0.85}}>{cancelConfirm.classData.time}</div>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:'#f0ece8',marginBottom:3}}>{cancelConfirm.classData.name}</div>
-                  <div style={{fontSize:10,color:'#888'}}>👨‍🏫 {cancelConfirm.classData.coach||'Coach'}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:'var(--t-text)',marginBottom:3}}>{cancelConfirm.classData.name}</div>
+                  <div style={{fontSize:10,color:'var(--t-dim2)'}}>👨‍🏫 {cancelConfirm.classData.coach||'Coach'}</div>
                 </div>
               </div>
-              <div style={{fontSize:11,color:'#888',lineHeight:1.7,marginBottom:22}}>
+              <div style={{fontSize:11,color:'var(--t-dim2)',lineHeight:1.7,marginBottom:22}}>
                 Are you sure you want to cancel? Someone else may grab your spot — first come, first served.
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={() => setCancelConfirm(null)}
-                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#888',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',transition:'all 0.2s'}}
-                  onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.08)';e.currentTarget.style.color='#f0ece8'}}
-                  onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)';e.currentTarget.style.color='#888'}}>
+                  style={{flex:1,background:'var(--t-s04)',color:'var(--t-dim2)',border:'1px solid var(--t-s10)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',transition:'all 0.2s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.background='var(--t-s08)';e.currentTarget.style.color='var(--t-text)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.background='var(--t-s04)';e.currentTarget.style.color='var(--t-dim2)'}}>
                   KEEP MY SPOT
                 </button>
                 <button onClick={() => { cancelBooking(cancelConfirm.classData); setCancelConfirm(null) }}
@@ -1313,18 +1313,18 @@ export default function Home() {
         <div onClick={() => setAdaptiveOpen(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e => e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'1px solid rgba(192,132,252,0.3)',maxWidth:680,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(192,132,252,0.15)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'1px solid rgba(192,132,252,0.3)',maxWidth:680,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(192,132,252,0.15)'}}>
             {/* Left accent stripe */}
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#c084fc,#42a5f5)'}}/>
             {/* Header */}
             <div style={{padding:'20px 28px',borderBottom:'1px solid rgba(192,132,252,0.15)',background:'linear-gradient(135deg,rgba(192,132,252,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',gap:12}}>
               <div style={{width:42,height:42,borderRadius:11,background:'linear-gradient(135deg,#c084fc,#7b1fa2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,boxShadow:'0 4px 14px rgba(192,132,252,0.4)'}}>🧠</div>
               <div style={{flex:1}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>ADAPTIVE COACH — REASONING</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'var(--t-text)'}}>ADAPTIVE COACH — REASONING</div>
                 <div style={{fontSize:9,color:'#9d8ec0',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Rule-based decisions · Fully auditable</div>
               </div>
               <button onClick={() => setAdaptiveOpen(false)}
-                style={{width:32,height:32,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:9,color:'#888',fontSize:16,cursor:'pointer'}}>✕</button>
+                style={{width:32,height:32,background:'var(--t-s05)',border:'1px solid var(--t-s10)',borderRadius:9,color:'var(--t-dim2)',fontSize:16,cursor:'pointer'}}>✕</button>
             </div>
 
             {/* Body — scrollable */}
@@ -1345,7 +1345,7 @@ export default function Home() {
                   ].map((s,i) => (
                     <div key={i} style={{padding:'10px 12px',background:`${s.color}10`,border:`1px solid ${s.color}25`,borderRadius:10}}>
                       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:s.color,lineHeight:1}}>{s.val}</div>
-                      <div style={{fontSize:8,color:'#666',fontWeight:700,letterSpacing:'0.12em',marginTop:3}}>{s.label.toUpperCase()}</div>
+                      <div style={{fontSize:8,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.12em',marginTop:3}}>{s.label.toUpperCase()}</div>
                     </div>
                   ))}
                 </div>
@@ -1366,16 +1366,16 @@ export default function Home() {
                   ].map((p,i)=>(
                     <div key={i} style={{textAlign:'center',padding:'6px 10px',background:`${p.c}12`,border:`1px solid ${p.c}30`,borderRadius:8,minWidth:60}}>
                       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,color:p.c,lineHeight:1}}>{p.val}</div>
-                      <div style={{fontSize:7,color:'#888',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',marginTop:3}}>{p.lbl}</div>
+                      <div style={{fontSize:7,color:'var(--t-dim2)',fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase',marginTop:3}}>{p.lbl}</div>
                     </div>
                   ))}
-                  <span style={{fontSize:18,color:'#555',fontWeight:700}}>=</span>
+                  <span style={{fontSize:18,color:'var(--t-dim3)',fontWeight:700}}>=</span>
                   <div style={{textAlign:'center',padding:'6px 12px',background:'rgba(192,132,252,0.18)',border:'1px solid rgba(192,132,252,0.45)',borderRadius:8}}>
                     <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#c084fc',lineHeight:1}}>{diffParts.total}</div>
                     <div style={{fontSize:7,color:'#9d8ec0',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>/ 10</div>
                   </div>
                 </div>
-                <div style={{fontSize:9,color:'#666',marginTop:6,fontStyle:'italic'}}>Higher level, longer streaks, better weekly completion, and total workouts each push the load up.</div>
+                <div style={{fontSize:9,color:'var(--t-dim3)',marginTop:6,fontStyle:'italic'}}>Higher level, longer streaks, better weekly completion, and total workouts each push the load up.</div>
               </div>
 
               {/* Active rules */}
@@ -1385,7 +1385,7 @@ export default function Home() {
                   Rules Fired This Session ({adaptiveDecisions.length})
                 </div>
                 {adaptiveDecisions.length === 0 ? (
-                  <div style={{padding:'20px',textAlign:'center',background:'rgba(255,255,255,0.02)',borderRadius:10,border:'1px dashed rgba(255,255,255,0.06)',fontSize:11,color:'#666'}}>
+                  <div style={{padding:'20px',textAlign:'center',background:'var(--t-s02)',borderRadius:10,border:'1px dashed var(--t-s06)',fontSize:11,color:'var(--t-dim3)'}}>
                     No rules fired — engine is observing.
                   </div>
                 ) : (
@@ -1401,14 +1401,14 @@ export default function Home() {
                             <span style={{fontSize:8,fontWeight:800,padding:'3px 8px',borderRadius:50,background:`${sevColor}22`,color:sevColor,letterSpacing:'0.1em',fontFamily:'monospace'}}>{d.rule}</span>
                             <span style={{fontSize:11,fontWeight:700,color:sevColor}}>{d.title}</span>
                           </div>
-                          <div style={{fontSize:11,color:'#a8a29e',lineHeight:1.6,marginBottom:8}}>{d.message}</div>
+                          <div style={{fontSize:11,color:'var(--t-muted2)',lineHeight:1.6,marginBottom:8}}>{d.message}</div>
                           {RULE_ACTION[d.rule] && (
                             <div style={{display:'inline-flex',alignItems:'center',gap:6,fontSize:9,fontWeight:800,color:'#22c55e',background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:50,padding:'4px 10px',marginBottom:8,letterSpacing:'0.04em'}}>
                               ⚡ APPLIED · {RULE_ACTION[d.rule]}
                             </div>
                           )}
                           {d.dataUsed && (
-                            <div style={{fontSize:9,color:'#666',fontFamily:'monospace',background:'rgba(0,0,0,0.4)',padding:'6px 9px',borderRadius:6,wordBreak:'break-word'}}>
+                            <div style={{fontSize:9,color:'var(--t-dim3)',fontFamily:'monospace',background:'rgba(0,0,0,0.4)',padding:'6px 9px',borderRadius:6,wordBreak:'break-word'}}>
                               <span style={{color:sevColor,fontWeight:700}}>data:</span> {JSON.stringify(d.dataUsed)}
                             </div>
                           )}
@@ -1431,19 +1431,19 @@ export default function Home() {
                       Adaptation Timeline
                     </div>
                     <button onClick={clearAdaptiveTimeline}
-                      style={{background:'transparent',border:'1px solid rgba(255,255,255,0.12)',borderRadius:50,padding:'4px 12px',fontSize:9,fontWeight:700,color:'#888',cursor:'pointer',letterSpacing:'0.06em'}}
+                      style={{background:'transparent',border:'1px solid var(--t-s10)',borderRadius:50,padding:'4px 12px',fontSize:9,fontWeight:700,color:'var(--t-dim2)',cursor:'pointer',letterSpacing:'0.06em'}}
                       onMouseEnter={e=>{e.currentTarget.style.color='#ccc';e.currentTarget.style.borderColor='rgba(255,255,255,0.25)'}}
-                      onMouseLeave={e=>{e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'}}>
+                      onMouseLeave={e=>{e.currentTarget.style.color='var(--t-dim2)';e.currentTarget.style.borderColor='var(--t-s10)'}}>
                       Clear
                     </button>
                   </div>
-                  <div style={{fontSize:10,color:'#777',marginBottom:10,lineHeight:1.5}}>Every change your coach made to your plan, automatically — newest first.</div>
+                  <div style={{fontSize:10,color:'var(--t-dim2)',marginBottom:10,lineHeight:1.5}}>Every change your coach made to your plan, automatically — newest first.</div>
                   {(() => {
                     // Hide entries before the clear cutoff, then collapse consecutive
                     // identical decisions into one row with a ×count.
                     const visible = adaptiveLog.filter(l => ((l.createdAt?.seconds || 0) * 1000) > adaptiveClearedAt)
                     if (visible.length === 0) return (
-                      <div style={{padding:'16px',textAlign:'center',background:'rgba(255,255,255,0.02)',borderRadius:10,border:'1px dashed rgba(255,255,255,0.06)',fontSize:11,color:'#666'}}>
+                      <div style={{padding:'16px',textAlign:'center',background:'var(--t-s02)',borderRadius:10,border:'1px dashed var(--t-s06)',fontSize:11,color:'var(--t-dim3)'}}>
                         Timeline cleared — new adaptations will appear here.
                       </div>
                     )
@@ -1462,11 +1462,11 @@ export default function Home() {
                                          :                                '#42a5f5'
                           const ms = (log.createdAt?.seconds || 0) * 1000
                           return (
-                            <div key={log.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',background:'rgba(255,255,255,0.02)',borderRadius:8,borderLeft:`2px solid ${sevColor}`}}>
+                            <div key={log.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',background:'var(--t-s02)',borderRadius:8,borderLeft:`2px solid ${sevColor}`}}>
                               <span style={{width:7,height:7,borderRadius:'50%',background:sevColor,flexShrink:0,boxShadow:`0 0 6px ${sevColor}`}}/>
                               <span style={{flex:1,fontSize:11,color:'#c9c5c1',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{log.title}</span>
                               {log.count > 1 && <span style={{fontSize:9,fontWeight:800,color:sevColor,flexShrink:0}}>×{log.count}</span>}
-                              <span style={{fontSize:9,color:'#666',flexShrink:0}}>{relTime(ms)}</span>
+                              <span style={{fontSize:9,color:'var(--t-dim3)',flexShrink:0}}>{relTime(ms)}</span>
                             </div>
                           )
                         })}
@@ -1508,7 +1508,7 @@ export default function Home() {
           } else if (state === STATUS.PAUSED) {
             cfg = { color:'#9ca3af', bg:'rgba(156,163,175,0.06)', border:'rgba(156,163,175,0.3)', icon:'⏸', title:'Membership paused', body:'Your expiry timer is frozen. See the admin to resume access.', cta:null }
           } else if (state === STATUS.NONE) {
-            cfg = { color:'#888', bg:'rgba(255,255,255,0.03)', border:'rgba(255,255,255,0.1)', icon:'⚪', title:'No active membership', body:'Speak with the gym admin to set up your plan.', cta:null }
+            cfg = { color:'var(--t-dim2)', bg:'var(--t-s03)', border:'var(--t-s10)', icon:'⚪', title:'No active membership', body:'Speak with the gym admin to set up your plan.', cta:null }
           } else if (state === STATUS.TRIAL) {
             cfg = { color:'#42a5f5', bg:'rgba(66,165,245,0.07)', border:'rgba(66,165,245,0.3)', icon:'🎁', title:`Trial · ${days} day${days===1?'':'s'} left`, body:`Your 7-day trial ends ${fmtExpiry(profile.membership)}. Speak with admin to continue after.`, cta:null }
           } else {
@@ -1536,7 +1536,7 @@ export default function Home() {
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.05em',color:cfg.color,lineHeight:1.1}}>
                     {cfg.title}
                   </div>
-                  <div style={{fontSize:11,color:'#aaa',marginTop:3,lineHeight:1.5}}>
+                  <div style={{fontSize:11,color:'var(--t-dim1)',marginTop:3,lineHeight:1.5}}>
                     {cfg.body}
                   </div>
                 </div>
@@ -1550,10 +1550,10 @@ export default function Home() {
           <div style={{display:'flex',alignItems:'center',gap:16}}>
             <span style={{fontSize:36}}>{streak > 0 ? '🔥' : '⭕'}</span>
             <div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'var(--t-text)'}}>
                 {streak > 0 ? `${streak} Day Streak!` : 'Complete your first workout to start a streak!'}
               </div>
-              <div style={{fontSize:13,color:'#7a7570',marginTop:2}}>
+              <div style={{fontSize:13,color:'var(--t-muted)',marginTop:2}}>
                 {streak > 0 ? 'Keep going — train today to maintain your streak.' : 'Check off exercises below to log your first workout.'}
               </div>
             </div>
@@ -1569,9 +1569,9 @@ export default function Home() {
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={s.heroAvatar}>{(profile.name||'A')[0].toUpperCase()}</div>
               <div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'0.06em',color:'#7a7570'}}>HIT<span style={{color:'#e84a2f'}}>TRACK</span></div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:'0.06em',color:'var(--t-muted)'}}>HIT<span style={{color:'#e84a2f'}}>TRACK</span></div>
                 <div style={{fontSize:18,fontWeight:700}}>Welcome, <em style={{color:'#e84a2f',fontStyle:'normal'}}>{profile.name||'Athlete'}!</em></div>
-                <div style={{fontSize:11,color:'#555',marginTop:2}}>{date}</div>
+                <div style={{fontSize:11,color:'var(--t-dim3)',marginTop:2}}>{date}</div>
               </div>
             </div>
             {/* Profile tags from Program Builder — real data */}
@@ -1582,21 +1582,21 @@ export default function Home() {
                 {icon:'🎯',val:profile.goal||'—',       label:'Goal'},
               ].map((b,i) => (
                 <div key={i} style={{background:'rgba(245,200,66,0.07)',border:'1px solid rgba(245,200,66,0.15)',borderRadius:8,padding:'6px 10px',flex:1}}>
-                  <div style={{fontSize:9,color:'#555',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase'}}>{b.label}</div>
+                  <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase'}}>{b.label}</div>
                   <div style={{fontSize:11,fontWeight:700,color:'#f5c842',marginTop:2}}>{b.icon} {b.val}</div>
                 </div>
               ))}
             </div>
             {/* Stats from Firestore */}
-            <div style={{display:'flex',background:'rgba(255,255,255,0.03)',borderRadius:12,padding:'10px',border:'1px solid rgba(245,200,66,0.08)'}}>
+            <div style={{display:'flex',background:'var(--t-s03)',borderRadius:12,padding:'10px',border:'1px solid rgba(245,200,66,0.08)'}}>
               {[
                 {val:totalWorkouts,       label:'🥊 Workouts',  color:totalWorkouts>0?'#4ade80':'#f5c842'},
                 {val:`${completedThisWeek}/7`, label:'📅 This Week', color:'#f5c842'},
                 {val:streak,              label:'🔥 Streak',    color:streak>0?'#e84a2f':'#f5c842'},
               ].map((st,i,arr) => (
-                <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,borderRight:i<arr.length-1?'1px solid rgba(255,255,255,0.08)':'none'}}>
+                <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,borderRight:i<arr.length-1?'1px solid var(--t-s08)':'none'}}>
                   <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:st.color}}>{st.val}</span>
-                  <span style={{fontSize:9,color:'#555',fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase'}}>{st.label}</span>
+                  <span style={{fontSize:9,color:'var(--t-dim3)',fontWeight:600,letterSpacing:'0.06em',textTransform:'uppercase'}}>{st.label}</span>
                 </div>
               ))}
             </div>
@@ -1604,16 +1604,16 @@ export default function Home() {
                 NOT the skill level; the canonical level is the "Skill Level" pill below. */}
             <div>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-                <span style={{fontSize:10,fontWeight:700,color:'#7a7570',textTransform:'uppercase',letterSpacing:'0.08em'}}>🏅 Workout Milestones</span>
+                <span style={{fontSize:10,fontWeight:700,color:'var(--t-muted)',textTransform:'uppercase',letterSpacing:'0.08em'}}>🏅 Workout Milestones</span>
                 <span style={{fontSize:10,fontWeight:700,color:'#f5c842'}}>{toNext} to next badge</span>
               </div>
               <div style={{height:8,background:'#2a2424',borderRadius:50,overflow:'hidden'}}>
                 <div style={{height:'100%',background:'linear-gradient(90deg,#e84a2f,#f5c842)',borderRadius:50,width:`${levelPct}%`,transition:'width 0.6s ease'}}/>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',marginTop:5}}>
-                <span style={{fontSize:9,fontWeight:700,color:'#555'}}>{milestoneFloor}</span>
+                <span style={{fontSize:9,fontWeight:700,color:'var(--t-dim3)'}}>{milestoneFloor}</span>
                 <span style={{fontSize:9,fontWeight:700,color:'#f5c842'}}>{totalWorkouts} workouts</span>
-                <span style={{fontSize:9,fontWeight:700,color:'#555'}}>🏅 {nextBadgeAt}</span>
+                <span style={{fontSize:9,fontWeight:700,color:'var(--t-dim3)'}}>🏅 {nextBadgeAt}</span>
               </div>
             </div>
             <div style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',borderRadius:50,padding:'10px',textAlign:'center',boxShadow:'0 4px 20px rgba(232,74,47,0.3)'}}>
@@ -1656,7 +1656,7 @@ export default function Home() {
                 <div style={{width:32,height:32,borderRadius:9,background:'linear-gradient(135deg,#c084fc,#7b1fa2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,boxShadow:'0 4px 12px rgba(192,132,252,0.4)'}}>🧠</div>
                 <div style={{flex:1}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>ADAPTIVE COACH</div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'var(--t-text)'}}>ADAPTIVE COACH</div>
                     <div style={{display:'flex',alignItems:'center',gap:5,fontSize:9,fontWeight:800,color:'#22c55e',letterSpacing:'0.08em'}}>
                       <span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#22c55e',animation:'pulseDot 1.6s ease-in-out infinite'}}/>
                       ACTIVE
@@ -1687,7 +1687,7 @@ export default function Home() {
                         <div style={{width:5,height:5,borderRadius:'50%',background:sevColor,marginTop:7,flexShrink:0,boxShadow:`0 0 8px ${sevColor}`}}/>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:11,fontWeight:700,color:sevColor,letterSpacing:'0.02em'}}>{d.title}</div>
-                          <div style={{fontSize:10,color:'#a8a29e',lineHeight:1.5,marginTop:2}}>{d.message}</div>
+                          <div style={{fontSize:10,color:'var(--t-muted2)',lineHeight:1.5,marginTop:2}}>{d.message}</div>
                         </div>
                       </div>
                     )
@@ -1719,13 +1719,13 @@ export default function Home() {
                       {weekStart && <div style={{width:1,background:'rgba(245,200,66,0.15)',margin:'0 5px',flexShrink:0}}/>}
                       <div onClick={() => setSelDay(i)}
                         style={{minWidth:40,textAlign:'center',padding:'7px 3px',borderRadius:11,cursor:'pointer',flexShrink:0,marginRight:3,
-                          border:`1.5px solid ${i===selDay?'#f5c842':done?'rgba(74,222,128,0.4)':part?'rgba(232,74,47,0.35)':isActive?'rgba(232,74,47,0.2)':'rgba(255,255,255,0.05)'}`,
-                          background:i===selDay?'rgba(245,200,66,0.1)':d.isToday?'rgba(232,74,47,0.06)':done?'rgba(74,222,128,0.04)':'rgba(255,255,255,0.02)',
+                          border:`1.5px solid ${i===selDay?'#f5c842':done?'rgba(74,222,128,0.4)':part?'rgba(232,74,47,0.35)':isActive?'rgba(232,74,47,0.2)':'var(--t-s05)'}`,
+                          background:i===selDay?'rgba(245,200,66,0.1)':d.isToday?'rgba(232,74,47,0.06)':done?'rgba(74,222,128,0.04)':'var(--t-s02)',
                           boxShadow:i===selDay?'0 0 10px rgba(245,200,66,0.2)':'none',
                           transition:'all 0.15s'}}
                       >
-                        <div style={{fontSize:9,fontWeight:700,color:i===selDay?'#f5c842':d.isToday?'#e84a2f':done?'#4ade80':isActive?'#b0ada8':'#444'}}>{d.dayName.slice(0,2).toUpperCase()}</div>
-                        <div style={{fontSize:12,fontWeight:700,color:i===selDay?'#f5c842':d.isToday?'#f0ece8':done?'#4ade80':isActive?'#f0ece8':'#333',marginTop:1}}>{d.date.getDate()}</div>
+                        <div style={{fontSize:9,fontWeight:700,color:i===selDay?'#f5c842':d.isToday?'#e84a2f':done?'#4ade80':isActive?'var(--t-muted2)':'var(--t-dim4)'}}>{d.dayName.slice(0,2).toUpperCase()}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:i===selDay?'#f5c842':d.isToday?'var(--t-text)':done?'#4ade80':isActive?'var(--t-text)':'var(--t-dim4)',marginTop:1}}>{d.date.getDate()}</div>
                         <div style={{width:5,height:5,borderRadius:'50%',margin:'3px auto 0',background:done?'#4ade80':part?'#e84a2f':isActive?'rgba(232,74,47,0.4)':'transparent'}}/>
                       </div>
                     </div>
@@ -1735,7 +1735,7 @@ export default function Home() {
               {/* Week dots */}
               <div style={{display:'flex',justifyContent:'center',gap:4,marginTop:5}}>
                 {[0,1,2,3].map(w => (
-                  <div key={w} style={{height:3,borderRadius:50,transition:'all 0.3s',width:Math.floor(selDay/7)===w?24:8,background:Math.floor(selDay/7)===w?'#f5c842':'rgba(255,255,255,0.1)'}}/>
+                  <div key={w} style={{height:3,borderRadius:50,transition:'all 0.3s',width:Math.floor(selDay/7)===w?24:8,background:Math.floor(selDay/7)===w?'#f5c842':'var(--t-s10)'}}/>
                 ))}
               </div>
             </div>
@@ -1756,20 +1756,20 @@ export default function Home() {
               return (
                 <div style={{marginTop:2}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <span style={{fontSize:10,fontWeight:700,color:'#7a7570',textTransform:'uppercase',letterSpacing:'0.08em'}}>📆 Last 14 Days</span>
-                    <span style={{fontSize:10,fontWeight:700,color:trainedCount>0?'#4ade80':'#7a7570'}}>{trainedCount} trained</span>
+                    <span style={{fontSize:10,fontWeight:700,color:'var(--t-muted)',textTransform:'uppercase',letterSpacing:'0.08em'}}>📆 Last 14 Days</span>
+                    <span style={{fontSize:10,fontWeight:700,color:trainedCount>0?'#4ade80':'var(--t-muted)'}}>{trainedCount} trained</span>
                   </div>
                   <div style={{display:'flex',gap:3}}>
                     {days.map((x,i) => (
                       <div key={i} title={`${x.ds}${x.trained?' · trained':' · no session'}`} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                        <div style={{width:'100%',height:22,borderRadius:5,background:x.trained?'rgba(74,222,128,0.22)':'rgba(255,255,255,0.035)',border:`1px solid ${x.isToday?'#f5c842':x.trained?'rgba(74,222,128,0.5)':'rgba(255,255,255,0.06)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#4ade80'}}>
+                        <div style={{width:'100%',height:22,borderRadius:5,background:x.trained?'rgba(74,222,128,0.22)':'rgba(255,255,255,0.035)',border:`1px solid ${x.isToday?'#f5c842':x.trained?'rgba(74,222,128,0.5)':'var(--t-s06)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#4ade80'}}>
                           {x.trained?'✓':''}
                         </div>
-                        <span style={{fontSize:7,color:x.isToday?'#f5c842':'#555',fontWeight:700}}>{x.d.getDate()}</span>
+                        <span style={{fontSize:7,color:x.isToday?'#f5c842':'var(--t-dim3)',fontWeight:700}}>{x.d.getDate()}</span>
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:9,color:'#555',marginTop:5,fontStyle:'italic'}}>Green = you trained (web or mobile). Gaps are days with no session.</div>
+                  <div style={{fontSize:9,color:'var(--t-dim3)',marginTop:5,fontStyle:'italic'}}>Green = you trained (web or mobile). Gaps are days with no session.</div>
                 </div>
               )
             })()}
@@ -1779,7 +1779,7 @@ export default function Home() {
               <button style={{...s.ghostBtn,padding:'5px 12px',fontSize:11,opacity:selDay===0?0.3:1}} onClick={() => setSelDay(i => Math.max(0,i-1))} disabled={selDay===0}>← Back</button>
               <div style={{textAlign:'center'}}>
                 <div style={{fontSize:10,fontWeight:700,color:selDayData?.isToday?'#e84a2f':'#f5c842',letterSpacing:'0.08em'}}>{selDayData?.isToday?'TODAY':`DAY +${selDay}`}</div>
-                <div style={{fontSize:13,fontWeight:700,color:'#f0ece8'}}>{selDayData?.dayName}, {selDayData?.dateStr}</div>
+                <div style={{fontSize:13,fontWeight:700,color:'var(--t-text)'}}>{selDayData?.dayName}, {selDayData?.dateStr}</div>
               </div>
               <button style={{...s.ghostBtn,padding:'5px 12px',fontSize:11,opacity:selDay===27?0.3:1}} onClick={() => setSelDay(i => Math.min(27,i+1))} disabled={selDay===27}>Next →</button>
             </div>
@@ -1806,21 +1806,21 @@ export default function Home() {
                     )}
                   </div>
                   {/* Smart auto-title (POWER DAY / CARDIO BURN / etc.) */}
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'0.05em',color:'#f0ece8',lineHeight:1,textShadow:'0 0 18px rgba(232,74,47,0.4)',marginBottom:6}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:'0.05em',color:'var(--t-text)',lineHeight:1,textShadow:'0 0 18px rgba(232,74,47,0.4)',marginBottom:6}}>
                     {workout.title}
                   </div>
                   {/* Subtitle: date · duration · calories · session focus */}
-                  <div style={{display:'flex',alignItems:'center',gap:8,fontSize:10,color:'#888',flexWrap:'wrap'}}>
-                    <span style={{fontWeight:700,color:'#aaa'}}>{selDayData?.dayName}, {selDayData?.dateStr}</span>
-                    <span style={{color:'#444'}}>·</span>
+                  <div style={{display:'flex',alignItems:'center',gap:8,fontSize:10,color:'var(--t-dim2)',flexWrap:'wrap'}}>
+                    <span style={{fontWeight:700,color:'var(--t-dim1)'}}>{selDayData?.dayName}, {selDayData?.dateStr}</span>
+                    <span style={{color:'var(--t-dim4)'}}>·</span>
                     <span style={{color:'#f5c842',fontWeight:700}}>⏱ {workout.duration}</span>
                     {workout.totalCalories>0 && (<>
-                      <span style={{color:'#444'}}>·</span>
+                      <span style={{color:'var(--t-dim4)'}}>·</span>
                       <span style={{color:'#e84a2f',fontWeight:700}}>🔥 ~{workout.totalCalories} cal</span>
                     </>)}
                     {workout.subtitle && (<>
-                      <span style={{color:'#444'}}>·</span>
-                      <span style={{color:'#888',fontStyle:'italic'}}>{workout.subtitle}</span>
+                      <span style={{color:'var(--t-dim4)'}}>·</span>
+                      <span style={{color:'var(--t-dim2)',fontStyle:'italic'}}>{workout.subtitle}</span>
                     </>)}
                   </div>
                 </div>
@@ -1829,7 +1829,7 @@ export default function Home() {
                   <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderRadius:12,background:'linear-gradient(135deg,rgba(120,113,108,0.1),rgba(80,75,70,0.06))',border:'1px solid rgba(120,113,108,0.25)'}}>
                     <div style={{fontSize:24}}>🔒</div>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:11,fontWeight:800,color:'#a8a29e',letterSpacing:'0.08em',textTransform:'uppercase'}}>Locked · Unlocks {selDayData?.dateStr}</div>
+                      <div style={{fontSize:11,fontWeight:800,color:'var(--t-muted2)',letterSpacing:'0.08em',textTransform:'uppercase'}}>Locked · Unlocks {selDayData?.dateStr}</div>
                       <div style={{fontSize:10,color:'#78716c',marginTop:2}}>Future workouts can't be checked early — come back on the scheduled day. The Adaptive Coach watches for missed days.</div>
                     </div>
                   </div>
@@ -1838,7 +1838,7 @@ export default function Home() {
                   <div style={{height:5,background:'#2a2424',borderRadius:50,overflow:'hidden',marginBottom:4}}>
                     <div style={{height:'100%',borderRadius:50,background:workoutDone?'linear-gradient(90deg,#4ade80,#22c55e)':'linear-gradient(90deg,#e84a2f,#f5c842)',width:`${allExercises.length>0?(completedCount/allExercises.length)*100:0}%`,transition:'width 0.4s ease'}}/>
                   </div>
-                  <div style={{fontSize:10,color:workoutDone?'#4ade80':'#7a7570',fontWeight:600}}>{workoutDone?'✅ Workout Complete!':selDay>0?`${allExercises.length} exercises planned`:`${completedCount}/${allExercises.length} done`}</div>
+                  <div style={{fontSize:10,color:workoutDone?'#4ade80':'var(--t-muted)',fontWeight:600}}>{workoutDone?'✅ Workout Complete!':selDay>0?`${allExercises.length} exercises planned`:`${completedCount}/${allExercises.length} done`}</div>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:8,flex:1}}>
                   {allExercises.map((ex,i) => {
@@ -1859,25 +1859,25 @@ export default function Home() {
                       strength:     '#c084fc', // purple — strength
                       recovery:     '#78716c', // gray — recovery
                     }
-                    const typeColor = isRich ? (TYPE_COLOR[ex.type] || '#888') : '#42a5f5'
+                    const typeColor = isRich ? (TYPE_COLOR[ex.type] || 'var(--t-dim2)') : '#42a5f5'
                     return (
                     <div key={i} onClick={() => effectiveLocked ? null : toggleEx(selDay,i)}
                       style={{display:'flex',gap:11,padding:isRich?'12px 13px':'10px 12px',borderRadius:11,cursor:effectiveLocked?'not-allowed':'pointer',
-                        background:effectiveLocked?'rgba(255,255,255,0.015)':checked[i]?'rgba(74,222,128,0.05)':isExtra?'rgba(66,165,245,0.04)':'rgba(255,255,255,0.02)',
-                        border:`1px solid ${effectiveLocked?'rgba(255,255,255,0.04)':checked[i]?'rgba(74,222,128,0.18)':isExtra?'rgba(66,165,245,0.15)':isRich?typeColor+'18':'rgba(255,255,255,0.04)'}`,
+                        background:effectiveLocked?'rgba(255,255,255,0.015)':checked[i]?'rgba(74,222,128,0.05)':isExtra?'rgba(66,165,245,0.04)':'var(--t-s02)',
+                        border:`1px solid ${effectiveLocked?'var(--t-s04)':checked[i]?'rgba(74,222,128,0.18)':isExtra?'rgba(66,165,245,0.15)':isRich?typeColor+'18':'var(--t-s04)'}`,
                         opacity:effectiveLocked?0.55:1,
                         transition:'all 0.25s',
                         position:'relative',
                         overflow:'hidden'}}>
                       {/* Left checkmark/index circle */}
-                      <div style={{width:28,height:28,borderRadius:'50%',background:isSeqLocked?'#1e1818':isLocked?'#1a1818':checked[i]?'#4ade80':isRich?typeColor+'20':'#2a2424',border:isSeqLocked?'2px dashed rgba(245,200,66,0.3)':isLocked?'2px dashed #555':checked[i]?'none':isRich?`2px solid ${typeColor}55`:'2px solid #444',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:isSeqLocked?'#f5c842':isLocked?'#666':checked[i]?'#fff':isRich?typeColor:'#555',flexShrink:0,transform:checked[i]&&!effectiveLocked?'scale(1.1)':'scale(1)',transition:'all 0.25s',marginTop:2}}>
+                      <div style={{width:28,height:28,borderRadius:'50%',background:isSeqLocked?'#1e1818':isLocked?'#1a1818':checked[i]?'#4ade80':isRich?typeColor+'20':'#2a2424',border:isSeqLocked?'2px dashed rgba(245,200,66,0.3)':isLocked?'2px dashed var(--t-dim3)':checked[i]?'none':isRich?`2px solid ${typeColor}55`:'2px solid var(--t-dim4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:isSeqLocked?'#f5c842':isLocked?'var(--t-dim3)':checked[i]?'#fff':isRich?typeColor:'var(--t-dim3)',flexShrink:0,transform:checked[i]&&!effectiveLocked?'scale(1.1)':'scale(1)',transition:'all 0.25s',marginTop:2}}>
                         {isSeqLocked?'🔒':isLocked?'🔒':checked[i]?'✓':i+1}
                       </div>
                       {/* Body */}
                       <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:isRich?5:0}}>
                         {/* Name row */}
                         <div style={{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap'}}>
-                          <span style={{fontSize:13,fontWeight:isRich?700:500,color:isLocked?'#666':checked[i]?'#7a7570':'#f0ece8',textDecoration:checked[i]&&!isLocked?'line-through':'none',transition:'all 0.25s',letterSpacing:isRich?'0.01em':0}}>{exName}</span>
+                          <span style={{fontSize:13,fontWeight:isRich?700:500,color:isLocked?'var(--t-dim3)':checked[i]?'var(--t-muted)':'var(--t-text)',textDecoration:checked[i]&&!isLocked?'line-through':'none',transition:'all 0.25s',letterSpacing:isRich?'0.01em':0}}>{exName}</span>
                           {isRich && !checked[i] && !isLocked && (
                             <span style={{fontSize:7,fontWeight:800,padding:'2px 7px',borderRadius:50,background:typeColor+'18',color:typeColor,border:`1px solid ${typeColor}30`,letterSpacing:'0.1em',textTransform:'uppercase'}}>{ex.type}</span>
                           )}
@@ -1887,7 +1887,7 @@ export default function Home() {
                         {isRich && !checked[i] && !isLocked && (
                           <>
                             {/* Stats line */}
-                            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',fontSize:10,color:'#888'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',fontSize:10,color:'var(--t-dim2)'}}>
                               {ex.rounds > 1 && (<>
                                 <span style={{color:typeColor,fontWeight:700}}>{ex.rounds} rounds × {fmtDuration(ex.duration_per_round)}</span>
                               </>)}
@@ -1895,11 +1895,11 @@ export default function Home() {
                                 <span style={{color:typeColor,fontWeight:700}}>{fmtDuration(ex.duration_per_round)}</span>
                               )}
                               {ex.rest_seconds > 0 && ex.rounds > 1 && (<>
-                                <span style={{color:'#444'}}>·</span>
-                                <span><span style={{color:'#666'}}>rest</span> <span style={{color:'#aaa',fontWeight:600}}>{fmtDuration(ex.rest_seconds)}</span></span>
+                                <span style={{color:'var(--t-dim4)'}}>·</span>
+                                <span><span style={{color:'var(--t-dim3)'}}>rest</span> <span style={{color:'var(--t-dim1)',fontWeight:600}}>{fmtDuration(ex.rest_seconds)}</span></span>
                               </>)}
                               {ex.est_calories > 0 && (<>
-                                <span style={{color:'#444'}}>·</span>
+                                <span style={{color:'var(--t-dim4)'}}>·</span>
                                 <span style={{color:'#e84a2f',fontWeight:600}}>🔥 ~{ex.est_calories} cal</span>
                               </>)}
                             </div>
@@ -1913,7 +1913,7 @@ export default function Home() {
                             {ex.cues && ex.cues.length > 0 && (
                               <div style={{display:'flex',flexDirection:'column',gap:2,marginTop:1}}>
                                 {ex.cues.map((cue, ci) => (
-                                  <div key={ci} style={{fontSize:9,color:'#888',display:'flex',gap:5,alignItems:'flex-start',lineHeight:1.5}}>
+                                  <div key={ci} style={{fontSize:9,color:'var(--t-dim2)',display:'flex',gap:5,alignItems:'flex-start',lineHeight:1.5}}>
                                     <span style={{color:typeColor,fontWeight:700,flexShrink:0}}>▸</span>
                                     <span>{cue}</span>
                                   </div>
@@ -1924,7 +1924,7 @@ export default function Home() {
                         )}
                       </div>
                       {/* Status text */}
-                      <div style={{fontSize:10,color:isSeqLocked?'#f5c84288':isLocked?'#444':checked[i]?'#4ade80':'#555',fontWeight:600,flexShrink:0,marginTop:2}}>{isSeqLocked?'finish prev':isLocked?'locked':checked[i]?'done':'tap'}</div>
+                      <div style={{fontSize:10,color:isSeqLocked?'#f5c84288':isLocked?'var(--t-dim4)':checked[i]?'#4ade80':'var(--t-dim3)',fontWeight:600,flexShrink:0,marginTop:2}}>{isSeqLocked?'finish prev':isLocked?'locked':checked[i]?'done':'tap'}</div>
                     </div>
                     )
                   })}
@@ -1938,11 +1938,11 @@ export default function Home() {
             ) : (
               <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'16px 0'}}>
                 <div style={{fontSize:44}}>😴</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#f0ece8'}}>Rest Day</div>
-                <div style={{fontSize:12,color:'#555',textAlign:'center',lineHeight:1.7,maxWidth:240}}>Recovery is essential. Your body rebuilds stronger on rest days.</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'var(--t-text)'}}>Rest Day</div>
+                <div style={{fontSize:12,color:'var(--t-dim3)',textAlign:'center',lineHeight:1.7,maxWidth:240}}>Recovery is essential. Your body rebuilds stronger on rest days.</div>
                 <div style={{width:'100%',background:'rgba(192,132,252,0.06)',border:'1px solid rgba(192,132,252,0.15)',borderRadius:14,padding:'14px',textAlign:'center'}}>
                   <div style={{fontSize:12,color:'#c084fc',fontWeight:700,marginBottom:6}}>🎲 Feeling Motivated?</div>
-                  <div style={{fontSize:11,color:'#7a7570',marginBottom:10,lineHeight:1.6}}>Generate an adaptive workout based on your {profile.experience||'Beginner'} level and {profile.goal||'Learn Boxing'} goal!</div>
+                  <div style={{fontSize:11,color:'var(--t-muted)',marginBottom:10,lineHeight:1.6}}>Generate an adaptive workout based on your {profile.experience||'Beginner'} level and {profile.goal||'Learn Boxing'} goal!</div>
                   <button style={{background:'linear-gradient(135deg,#7b1fa2,#c084fc)',color:'#fff',border:'none',borderRadius:50,padding:'10px 24px',fontSize:12,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 14px rgba(192,132,252,0.4)',transition:'all 0.2s'}}
                     onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 8px 24px rgba(192,132,252,0.5)'}}
                     onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 4px 14px rgba(192,132,252,0.4)'}}
@@ -1985,7 +1985,7 @@ export default function Home() {
               40:'#c084fc', 50:'#f5c842', 60:'#e84a2f',
             }
             return (
-              <div style={{position:'relative',overflow:'hidden',borderRadius:20,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:`1.5px solid ${tier.color}30`,padding:'20px 22px',display:'flex',flexDirection:'column',gap:14,boxShadow:`0 12px 40px rgba(0,0,0,0.5),0 0 30px ${tier.color}15`}}>
+              <div style={{position:'relative',overflow:'hidden',borderRadius:20,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:`1.5px solid ${tier.color}30`,padding:'20px 22px',display:'flex',flexDirection:'column',gap:14,boxShadow:`0 12px 40px rgba(0,0,0,0.5),0 0 30px ${tier.color}15`}}>
                 {/* Animated radial glow background */}
                 <div style={{position:'absolute',top:-60,right:-60,width:240,height:240,borderRadius:'50%',background:`radial-gradient(circle,${tier.color}20,transparent 65%)`,pointerEvents:'none',animation:'badgeGlowPulse 3.5s ease-in-out infinite'}}/>
                 <div style={{position:'absolute',bottom:-80,left:-80,width:200,height:200,borderRadius:'50%',background:`radial-gradient(circle,${tier.color}15,transparent 70%)`,pointerEvents:'none',opacity:0.6}}/>
@@ -1998,10 +1998,10 @@ export default function Home() {
                     <span style={{fontSize:13}}>{tier.icon}</span>
                     <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,letterSpacing:'0.12em',color:tier.color,textShadow:`0 0 8px ${tier.color}88`}}>{tier.name}</span>
                   </div>
-                  <button style={{background:'transparent',color:'#888',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'4px 10px',fontSize:9,fontWeight:800,cursor:'pointer',letterSpacing:'0.05em',transition:'all 0.2s',whiteSpace:'nowrap'}}
+                  <button style={{background:'transparent',color:'var(--t-dim2)',border:'1px solid var(--t-s10)',borderRadius:50,padding:'4px 10px',fontSize:9,fontWeight:800,cursor:'pointer',letterSpacing:'0.05em',transition:'all 0.2s',whiteSpace:'nowrap'}}
                     onClick={() => navigate('/achievements')}
                     onMouseEnter={e=>{e.currentTarget.style.color=tier.color;e.currentTarget.style.borderColor=tier.color+'55';e.currentTarget.style.transform='translateX(2px)'}}
-                    onMouseLeave={e=>{e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)';e.currentTarget.style.transform='translateX(0)'}}>
+                    onMouseLeave={e=>{e.currentTarget.style.color='var(--t-dim2)';e.currentTarget.style.borderColor='var(--t-s10)';e.currentTarget.style.transform='translateX(0)'}}>
                     HALL →
                   </button>
                 </div>
@@ -2012,7 +2012,7 @@ export default function Home() {
                     {featuredEarned && (
                       <div style={{position:'absolute',inset:-8,borderRadius:'50%',background:`radial-gradient(circle,${MILESTONE_COLOR[featuredVal]},transparent 70%)`,opacity:0.5,animation:'pulseTrophy 2.5s ease-in-out infinite',pointerEvents:'none'}}/>
                     )}
-                    <div style={{position:'relative',width:60,height:60,borderRadius:16,background:featuredEarned?`linear-gradient(135deg,${MILESTONE_COLOR[featuredVal]},${MILESTONE_COLOR[featuredVal]}88)`:'rgba(40,35,32,0.7)',border:`2px solid ${featuredEarned?MILESTONE_COLOR[featuredVal]:'rgba(255,255,255,0.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,boxShadow:featuredEarned?`0 6px 18px ${MILESTONE_COLOR[featuredVal]}55,inset 0 2px 6px rgba(255,255,255,0.2)`:'none',filter:featuredEarned?'none':'grayscale(0.7) brightness(0.55)'}}>
+                    <div style={{position:'relative',width:60,height:60,borderRadius:16,background:featuredEarned?`linear-gradient(135deg,${MILESTONE_COLOR[featuredVal]},${MILESTONE_COLOR[featuredVal]}88)`:'rgba(40,35,32,0.7)',border:`2px solid ${featuredEarned?MILESTONE_COLOR[featuredVal]:'var(--t-s08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,boxShadow:featuredEarned?`0 6px 18px ${MILESTONE_COLOR[featuredVal]}55,inset 0 2px 6px var(--t-s20)`:'none',filter:featuredEarned?'none':'grayscale(0.7) brightness(0.55)'}}>
                       🏅
                       {!featuredEarned && (
                         <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.45)',borderRadius:16}}>
@@ -2022,13 +2022,13 @@ export default function Home() {
                     </div>
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:8,color:featuredEarned?MILESTONE_COLOR[featuredVal]:'#666',letterSpacing:'0.14em',fontWeight:800,textTransform:'uppercase',marginBottom:3}}>
+                    <div style={{fontSize:8,color:featuredEarned?MILESTONE_COLOR[featuredVal]:'var(--t-dim3)',letterSpacing:'0.14em',fontWeight:800,textTransform:'uppercase',marginBottom:3}}>
                       {featuredEarned?'✓ Latest Earned':'🎯 Next Target'}
                     </div>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:featuredEarned?MILESTONE_COLOR[featuredVal]:'#aaa',letterSpacing:'0.04em',lineHeight:1.1,textShadow:featuredEarned?`0 0 12px ${MILESTONE_COLOR[featuredVal]}66`:'none'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:featuredEarned?MILESTONE_COLOR[featuredVal]:'var(--t-dim1)',letterSpacing:'0.04em',lineHeight:1.1,textShadow:featuredEarned?`0 0 12px ${MILESTONE_COLOR[featuredVal]}66`:'none'}}>
                       {featuredVal} WORKOUT BADGE
                     </div>
-                    <div style={{fontSize:9,color:'#777',marginTop:3,letterSpacing:'0.04em'}}>
+                    <div style={{fontSize:9,color:'var(--t-dim2)',marginTop:3,letterSpacing:'0.04em'}}>
                       {earnedCount} of {MILESTONE_BADGES.length} unlocked
                     </div>
                   </div>
@@ -2037,14 +2037,14 @@ export default function Home() {
                 {/* Progress to next */}
                 <div style={{position:'relative',zIndex:1}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:5}}>
-                    <span style={{fontSize:8,color:'#666',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase'}}>
+                    <span style={{fontSize:8,color:'var(--t-dim3)',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase'}}>
                       {pct>=100 && totalWorkouts>=60?'All earned!':`To ${nextMilestone}`}
                     </span>
                     <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:tier.color}}>
-                      {totalWorkouts}<span style={{color:'#444',fontSize:10}}>/{nextMilestone}</span>
+                      {totalWorkouts}<span style={{color:'var(--t-dim4)',fontSize:10}}>/{nextMilestone}</span>
                     </span>
                   </div>
-                  <div style={{position:'relative',height:7,background:'rgba(255,255,255,0.04)',borderRadius:50,overflow:'hidden',border:'1px solid rgba(255,255,255,0.05)'}}>
+                  <div style={{position:'relative',height:7,background:'var(--t-s04)',borderRadius:50,overflow:'hidden',border:'1px solid var(--t-s05)'}}>
                     <div style={{height:'100%',background:`linear-gradient(90deg,${tier.color},${tier.color}cc)`,borderRadius:50,width:`${pct}%`,transition:'width 0.8s ease',boxShadow:`0 0 10px ${tier.color}aa`}}/>
                     {pct > 0 && pct < 100 && (
                       <div style={{position:'absolute',top:0,bottom:0,width:30,background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)',animation:'shine 2.5s ease-in-out infinite',left:`calc(${pct}% - 30px)`}}/>
@@ -2056,7 +2056,7 @@ export default function Home() {
                 <div style={{display:'flex',gap:5,alignItems:'center',justifyContent:'space-between',position:'relative',zIndex:1}}>
                   {MILESTONE_BADGES.slice(0,6).map((m,i) => {
                     const earned = totalWorkouts >= m
-                    const c = MILESTONE_COLOR[m] || '#888'
+                    const c = MILESTONE_COLOR[m] || 'var(--t-dim2)'
                     const isNext = !earned && m === nextMilestone
                     return (
                       <div key={i} title={`${m} workouts${earned?' — earned':isNext?' — next!':''}`}
@@ -2067,11 +2067,11 @@ export default function Home() {
                           {earned && (
                             <div style={{position:'absolute',inset:-4,borderRadius:'50%',background:`radial-gradient(circle,${c}55,transparent 70%)`,pointerEvents:'none'}}/>
                           )}
-                          <div style={{position:'relative',width:30,height:30,borderRadius:'50%',background:earned?`linear-gradient(135deg,${c},${c}aa)`:isNext?'rgba(245,200,66,0.08)':'rgba(255,255,255,0.04)',border:`2px solid ${earned?c:isNext?'rgba(245,200,66,0.4)':'rgba(255,255,255,0.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:earned?'#0a0808':isNext?'#f5c842':'#444',fontWeight:800,boxShadow:earned?`0 0 12px ${c}88,inset 0 1px 4px rgba(255,255,255,0.2)`:isNext?'0 0 8px rgba(245,200,66,0.3)':'none',animation:isNext?'pulseTrophy 2s ease-in-out infinite':'none'}}>
+                          <div style={{position:'relative',width:30,height:30,borderRadius:'50%',background:earned?`linear-gradient(135deg,${c},${c}aa)`:isNext?'rgba(245,200,66,0.08)':'var(--t-s04)',border:`2px solid ${earned?c:isNext?'rgba(245,200,66,0.4)':'var(--t-s08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:earned?'#0a0808':isNext?'#f5c842':'var(--t-dim4)',fontWeight:800,boxShadow:earned?`0 0 12px ${c}88,inset 0 1px 4px var(--t-s20)`:isNext?'0 0 8px rgba(245,200,66,0.3)':'none',animation:isNext?'pulseTrophy 2s ease-in-out infinite':'none'}}>
                             {earned?'✓':isNext?'🎯':m}
                           </div>
                         </div>
-                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:9,color:earned?c:isNext?'#f5c842':'#444',letterSpacing:'0.06em',textShadow:earned?`0 0 6px ${c}66`:'none'}}>{m}</div>
+                        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:9,color:earned?c:isNext?'#f5c842':'var(--t-dim4)',letterSpacing:'0.06em',textShadow:earned?`0 0 6px ${c}66`:'none'}}>{m}</div>
                       </div>
                     )
                   })}
@@ -2087,11 +2087,11 @@ export default function Home() {
           {/* ════════════════════════════════════════════════ */}
           {/*  UPCOMING CLASSES — Cinematic boxing fight cards */}
           {/* ════════════════════════════════════════════════ */}
-          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.12)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(245,200,66,0.12)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#f5c842)'}}/>
-            <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid var(--t-s05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.06em',color:'#f0ece8'}}>📋 UPCOMING CLASSES</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:'0.06em',color:'var(--t-text)'}}>📋 UPCOMING CLASSES</div>
                 {classes.length>0&&<span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{classes.length}</span>}
               </div>
               {classStatuses.filter(s=>s==='booked').length>0&&(
@@ -2102,12 +2102,12 @@ export default function Home() {
               )}
             </div>
             {loadingClasses ? (
-              <div style={{padding:30,textAlign:'center',color:'#555',fontSize:11}}>Loading…</div>
+              <div style={{padding:30,textAlign:'center',color:'var(--t-dim3)',fontSize:11}}>Loading…</div>
             ) : classes.length === 0 ? (
               <div style={{padding:'30px 20px',textAlign:'center'}}>
                 <div style={{fontSize:34,marginBottom:8,opacity:0.4}}>📋</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:'#888',letterSpacing:'0.06em',marginBottom:4}}>NO CLASSES SCHEDULED</div>
-                <div style={{fontSize:10,color:'#555'}}>Check back soon — your coach is planning sessions 🥊</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:'var(--t-dim2)',letterSpacing:'0.06em',marginBottom:4}}>NO CLASSES SCHEDULED</div>
+                <div style={{fontSize:10,color:'var(--t-dim3)'}}>Check back soon — your coach is planning sessions 🥊</div>
               </div>
             ) : (
               <div style={{padding:'10px',display:'flex',flexDirection:'column',gap:8}}>
@@ -2120,9 +2120,9 @@ export default function Home() {
                   const isTodayCls = isClassToday(c)
                   return (
                     <div key={c.id}
-                      style={{position:'relative',display:'flex',alignItems:'center',gap:12,background:isBooked?'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(20,15,14,0.7))':'linear-gradient(135deg,rgba(40,30,28,0.5),rgba(20,15,14,0.7))',borderRadius:14,padding:'12px 14px',border:`1px solid ${isBooked?'rgba(34,197,94,0.3)':'rgba(255,255,255,0.06)'}`,transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',cursor:'default'}}
+                      style={{position:'relative',display:'flex',alignItems:'center',gap:12,background:isBooked?'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(20,15,14,0.7))':'linear-gradient(135deg,rgba(40,30,28,0.5),rgba(20,15,14,0.7))',borderRadius:14,padding:'12px 14px',border:`1px solid ${isBooked?'rgba(34,197,94,0.3)':'var(--t-s06)'}`,transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',cursor:'default'}}
                       onMouseEnter={e=>{e.currentTarget.style.transform='translateX(3px)';e.currentTarget.style.borderColor=isBooked?'rgba(34,197,94,0.5)':`${lc}55`;e.currentTarget.style.boxShadow=`0 6px 20px ${isBooked?'rgba(34,197,94,0.2)':lc+'22'}`}}
-                      onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=isBooked?'rgba(34,197,94,0.3)':'rgba(255,255,255,0.06)';e.currentTarget.style.boxShadow='none'}}>
+                      onMouseLeave={e=>{e.currentTarget.style.transform='translateX(0)';e.currentTarget.style.borderColor=isBooked?'rgba(34,197,94,0.3)':'var(--t-s06)';e.currentTarget.style.boxShadow='none'}}>
                       {/* Left accent stripe for booked */}
                       {isBooked&&<div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'linear-gradient(180deg,#22c55e,transparent)',borderRadius:'14px 0 0 14px'}}/>}
                       {/* Day badge */}
@@ -2133,17 +2133,17 @@ export default function Home() {
                       {/* Info */}
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3,flexWrap:'wrap'}}>
-                          <span style={{fontSize:13,fontWeight:700,color:isBooked?'#22c55e':'#f0ece8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
+                          <span style={{fontSize:13,fontWeight:700,color:isBooked?'#22c55e':'var(--t-text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
                           {isBooked&&<span style={{fontSize:7,fontWeight:800,padding:'2px 6px',borderRadius:50,background:'rgba(34,197,94,0.2)',color:'#22c55e',letterSpacing:'0.1em',flexShrink:0}}>BOOKED</span>}
                           {isTodayCls&&!isBooked&&<span style={{fontSize:7,fontWeight:800,padding:'2px 6px',borderRadius:50,background:'rgba(74,222,128,0.12)',color:'#4ade80',border:'1px solid rgba(74,222,128,0.25)',letterSpacing:'0.1em',flexShrink:0}}>TODAY</span>}
                         </div>
-                        <div style={{display:'flex',gap:5,fontSize:10,alignItems:'center',flexWrap:'wrap',color:'#888'}}>
-                          {c.coach&&<><span style={{color:'#e84a2f',fontWeight:700}}>👨‍🏫 {c.coach}</span><span style={{color:'#444'}}>·</span></>}
+                        <div style={{display:'flex',gap:5,fontSize:10,alignItems:'center',flexWrap:'wrap',color:'var(--t-dim2)'}}>
+                          {c.coach&&<><span style={{color:'#e84a2f',fontWeight:700}}>👨‍🏫 {c.coach}</span><span style={{color:'var(--t-dim4)'}}>·</span></>}
                           <span style={{fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:50,background:`${lc}15`,color:lc,letterSpacing:'0.06em',textTransform:'uppercase'}}>{c.level||'Beginner'}</span>
-                          {c.createdBy&&<><span style={{color:'#444'}}>·</span><span style={{fontSize:9,color:c.createdByRole==='admin'?'#c084fc':'#888',fontWeight:600}}>by {c.createdBy}</span></>}
+                          {c.createdBy&&<><span style={{color:'var(--t-dim4)'}}>·</span><span style={{fontSize:9,color:c.createdByRole==='admin'?'#c084fc':'var(--t-dim2)',fontWeight:600}}>by {c.createdBy}</span></>}
                         </div>
                         {c.description && (
-                          <div style={{fontSize:10,color:'#888',lineHeight:1.5,marginTop:4,fontStyle:'italic'}}>📝 {c.description}</div>
+                          <div style={{fontSize:10,color:'var(--t-dim2)',lineHeight:1.5,marginTop:4,fontStyle:'italic'}}>📝 {c.description}</div>
                         )}
                         {!isBooked && spotsLeft !== null && spotsLeft <= 3 && spotsLeft > 0 && (
                           <div style={{fontSize:9,color:'#f5c842',fontWeight:700,marginTop:4,letterSpacing:'0.04em'}}>⚠️ Only {spotsLeft} spot{spotsLeft===1?'':'s'} left!</div>
@@ -2157,8 +2157,8 @@ export default function Home() {
                         disabled={!isBooked && (spotsLeft === 0 || membershipBlocked)}
                         title={!isBooked && membershipBlocked ? (membershipState === STATUS.EXPIRED ? 'Renew membership to book' : 'Membership paused') : undefined}
                         style={{
-                          background:isBooked?'rgba(34,197,94,0.12)':(membershipBlocked && !isBooked)?'rgba(232,74,47,0.06)':spotsLeft===0?'rgba(255,255,255,0.04)':'linear-gradient(135deg,#e84a2f,#c93820)',
-                          color:isBooked?'#22c55e':(membershipBlocked && !isBooked)?'#666':spotsLeft===0?'#444':'#fff',
+                          background:isBooked?'rgba(34,197,94,0.12)':(membershipBlocked && !isBooked)?'rgba(232,74,47,0.06)':spotsLeft===0?'var(--t-s04)':'linear-gradient(135deg,#e84a2f,#c93820)',
+                          color:isBooked?'#22c55e':(membershipBlocked && !isBooked)?'var(--t-dim3)':spotsLeft===0?'var(--t-dim4)':'#fff',
                           border:isBooked?'1px solid rgba(34,197,94,0.3)':(membershipBlocked && !isBooked)?'1px solid rgba(232,74,47,0.2)':'none',
                           borderRadius:50,padding:'8px 14px',fontSize:10,fontWeight:800,letterSpacing:'0.05em',
                           cursor:(!isBooked && (spotsLeft===0 || membershipBlocked))?'not-allowed':'pointer',
@@ -2193,12 +2193,12 @@ export default function Home() {
         <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:16}}>
 
           {/* COACH FEEDBACK */}
-          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(232,74,47,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(232,74,47,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
-            <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid var(--t-s05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:30,height:30,borderRadius:9,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,boxShadow:'0 4px 12px rgba(232,74,47,0.3)'}}>💬</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>COACH FEEDBACK</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'var(--t-text)'}}>COACH FEEDBACK</div>
                 {coachFeedback.length>0&&<span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(232,74,47,0.15)',color:'#e84a2f',letterSpacing:'0.08em'}}>{coachFeedback.length}</span>}
               </div>
               {coachFeedback.length >= 2 && (
@@ -2213,13 +2213,13 @@ export default function Home() {
             {coachFeedback.length===0?(
               <div style={{padding:'30px 16px',textAlign:'center'}}>
                 <div style={{fontSize:28,marginBottom:6,opacity:0.4}}>📭</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:'#888',letterSpacing:'0.06em',marginBottom:3}}>NO FEEDBACK YET</div>
-                <div style={{fontSize:9,color:'#555',letterSpacing:'0.04em'}}>Keep training — your coach will leave notes here</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:'var(--t-dim2)',letterSpacing:'0.06em',marginBottom:3}}>NO FEEDBACK YET</div>
+                <div style={{fontSize:9,color:'var(--t-dim3)',letterSpacing:'0.04em'}}>Keep training — your coach will leave notes here</div>
               </div>
             ):(
               <div style={{display:'flex',flexDirection:'column',maxHeight:280,overflowY:'auto'}}>
                 {coachFeedback.map((fb,i)=>(
-                  <div key={fb.id||i} style={{position:'relative',padding:'12px 16px',borderBottom:i<coachFeedback.length-1?'1px solid rgba(255,255,255,0.04)':'none',transition:'background 0.2s'}}
+                  <div key={fb.id||i} style={{position:'relative',padding:'12px 16px',borderBottom:i<coachFeedback.length-1?'1px solid var(--t-s04)':'none',transition:'background 0.2s'}}
                     onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.04)';const btn=e.currentTarget.querySelector('.fb-del');if(btn)btn.style.opacity='1'}}
                     onMouseLeave={e=>{e.currentTarget.style.background='transparent';const btn=e.currentTarget.querySelector('.fb-del');if(btn)btn.style.opacity='0'}}>
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
@@ -2227,7 +2227,7 @@ export default function Home() {
                         <div style={{width:26,height:26,borderRadius:'50%',background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'1.5px solid rgba(232,74,47,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}}>🥊</div>
                         <div>
                           <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.02em'}}>{fb.coachName||'Coach'}</div>
-                          <div style={{fontSize:8,color:'#555',letterSpacing:'0.05em'}}>{fb.createdAt?.seconds?new Date(fb.createdAt.seconds*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div>
+                          <div style={{fontSize:8,color:'var(--t-dim3)',letterSpacing:'0.05em'}}>{fb.createdAt?.seconds?new Date(fb.createdAt.seconds*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div>
                         </div>
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -2239,12 +2239,12 @@ export default function Home() {
                         <button className="fb-del"
                           onClick={()=>deleteFeedback(fb.id)}
                           title="Delete this feedback"
-                          style={{opacity:0,width:22,height:22,background:'rgba(120,113,108,0.12)',color:'#a8a29e',border:'1px solid rgba(120,113,108,0.3)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,cursor:'pointer',transition:'all 0.2s ease',padding:0,flexShrink:0}}
+                          style={{opacity:0,width:22,height:22,background:'rgba(120,113,108,0.12)',color:'var(--t-muted2)',border:'1px solid rgba(120,113,108,0.3)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,cursor:'pointer',transition:'all 0.2s ease',padding:0,flexShrink:0}}
                           onMouseEnter={e=>{e.stopPropagation();e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.4)';e.currentTarget.style.transform='scale(1.12)'}}
-                          onMouseLeave={e=>{e.stopPropagation();e.currentTarget.style.background='rgba(120,113,108,0.12)';e.currentTarget.style.color='#a8a29e';e.currentTarget.style.borderColor='rgba(120,113,108,0.3)';e.currentTarget.style.transform='scale(1)'}}>🗑</button>
+                          onMouseLeave={e=>{e.stopPropagation();e.currentTarget.style.background='rgba(120,113,108,0.12)';e.currentTarget.style.color='var(--t-muted2)';e.currentTarget.style.borderColor='rgba(120,113,108,0.3)';e.currentTarget.style.transform='scale(1)'}}>🗑</button>
                       </div>
                     </div>
-                    <div style={{fontSize:11,color:'#b0ada8',lineHeight:1.6,paddingLeft:34,fontStyle:'italic'}}>&ldquo;{fb.text}&rdquo;</div>
+                    <div style={{fontSize:11,color:'var(--t-muted2)',lineHeight:1.6,paddingLeft:34,fontStyle:'italic'}}>&ldquo;{fb.text}&rdquo;</div>
                   </div>
                 ))}
               </div>
@@ -2260,7 +2260,7 @@ export default function Home() {
                   <div style={{fontSize:26,flexShrink:0}}>🎉</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.05em',color:'#f0ece8'}}>{p.title}</span>
+                      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.05em',color:'var(--t-text)'}}>{p.title}</span>
                       {p.highlight && (
                         <span style={{fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:50,background:'rgba(192,132,252,0.22)',color:'#d8b4fe',border:'1px solid rgba(192,132,252,0.45)',letterSpacing:'0.06em'}}>{p.highlight}</span>
                       )}
@@ -2278,19 +2278,19 @@ export default function Home() {
           )}
 
           {/* GYM ANNOUNCEMENTS — always visible */}
-          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
-            <div style={{padding:'14px 18px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(245,200,66,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{padding:'14px 18px',borderBottom:'1px solid var(--t-s05)',background:'linear-gradient(135deg,rgba(245,200,66,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:30,height:30,borderRadius:9,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,boxShadow:'0 4px 12px rgba(245,200,66,0.3)'}}>📢</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'#f0ece8'}}>GYM ANNOUNCEMENTS</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:'0.06em',color:'var(--t-text)'}}>GYM ANNOUNCEMENTS</div>
                 <span style={{fontSize:8,fontWeight:800,padding:'2px 7px',borderRadius:50,background:'rgba(245,200,66,0.15)',color:'#f5c842',letterSpacing:'0.08em'}}>{visibleAnnouncements.length}</span>
               </div>
               {visibleAnnouncements.length > 0 && (
                 <button onClick={clearAllAnnouncements} title="Clear all announcements"
-                  style={{fontSize:9,fontWeight:700,padding:'5px 12px',borderRadius:50,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',color:'#888',cursor:'pointer',transition:'all 0.2s',letterSpacing:'0.04em'}}
+                  style={{fontSize:9,fontWeight:700,padding:'5px 12px',borderRadius:50,background:'var(--t-s04)',border:'1px solid var(--t-s10)',color:'var(--t-dim2)',cursor:'pointer',transition:'all 0.2s',letterSpacing:'0.04em'}}
                   onMouseEnter={e=>{e.currentTarget.style.color='#f5c842';e.currentTarget.style.borderColor='rgba(245,200,66,0.3)'}}
-                  onMouseLeave={e=>{e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}}>
+                  onMouseLeave={e=>{e.currentTarget.style.color='var(--t-dim2)';e.currentTarget.style.borderColor='var(--t-s10)'}}>
                   Clear All
                 </button>
               )}
@@ -2302,22 +2302,22 @@ export default function Home() {
                   const dateStr = ts ? ts.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : ''
                   const timeStr = ts ? ts.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }) : ''
                   return(
-                    <div key={n.id} style={{padding:'12px 16px',borderBottom:i<visibleAnnouncements.length-1?'1px solid rgba(255,255,255,0.04)':'none',display:'flex',gap:10,alignItems:'flex-start',transition:'background 0.2s',position:'relative'}}
+                    <div key={n.id} style={{padding:'12px 16px',borderBottom:i<visibleAnnouncements.length-1?'1px solid var(--t-s04)':'none',display:'flex',gap:10,alignItems:'flex-start',transition:'background 0.2s',position:'relative'}}
                       onMouseEnter={e=>e.currentTarget.style.background='rgba(245,200,66,0.04)'}
                       onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                       <div style={{width:26,height:26,borderRadius:8,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0,boxShadow:'0 3px 10px rgba(245,200,66,0.3)'}}>📢</div>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:11,fontWeight:700,color:'#f0ece8',marginBottom:3,letterSpacing:'0.01em'}}>{n.title}</div>
-                        <div style={{fontSize:10,color:'#888',lineHeight:1.55,marginBottom:4}}>{n.message}</div>
-                        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:9,color:'#555',letterSpacing:'0.04em',flexWrap:'wrap'}}>
-                          <span>From <strong style={{color:'#777'}}>{n.from}</strong></span>
-                          {dateStr && <><span style={{color:'#333'}}>·</span><span>{dateStr} at {timeStr}</span></>}
+                        <div style={{fontSize:11,fontWeight:700,color:'var(--t-text)',marginBottom:3,letterSpacing:'0.01em'}}>{n.title}</div>
+                        <div style={{fontSize:10,color:'var(--t-dim2)',lineHeight:1.55,marginBottom:4}}>{n.message}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:9,color:'var(--t-dim3)',letterSpacing:'0.04em',flexWrap:'wrap'}}>
+                          <span>From <strong style={{color:'var(--t-dim2)'}}>{n.from}</strong></span>
+                          {dateStr && <><span style={{color:'var(--t-dim4)'}}>·</span><span>{dateStr} at {timeStr}</span></>}
                         </div>
                       </div>
                       <button onClick={(e)=>{e.stopPropagation();dismissAnnouncement(n.id)}} title="Dismiss"
-                        style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'#555',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.2s'}}
+                        style={{width:22,height:22,borderRadius:'50%',background:'var(--t-s04)',border:'1px solid var(--t-s08)',color:'var(--t-dim3)',fontSize:10,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.2s'}}
                         onMouseEnter={e=>{e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.3)';e.currentTarget.style.background='rgba(232,74,47,0.1)'}}
-                        onMouseLeave={e=>{e.currentTarget.style.color='#555';e.currentTarget.style.borderColor='rgba(255,255,255,0.08)';e.currentTarget.style.background='rgba(255,255,255,0.04)'}}>
+                        onMouseLeave={e=>{e.currentTarget.style.color='var(--t-dim3)';e.currentTarget.style.borderColor='var(--t-s08)';e.currentTarget.style.background='var(--t-s04)'}}>
                         ✕
                       </button>
                     </div>
@@ -2327,7 +2327,7 @@ export default function Home() {
             ) : (
               <div style={{padding:'30px 20px',textAlign:'center'}}>
                 <div style={{fontSize:28,marginBottom:8,opacity:0.4}}>📢</div>
-                <div style={{fontSize:11,color:'#555',letterSpacing:'0.04em'}}>No announcements right now</div>
+                <div style={{fontSize:11,color:'var(--t-dim3)',letterSpacing:'0.04em'}}>No announcements right now</div>
               </div>
             )}
           </div>
@@ -2343,14 +2343,14 @@ export default function Home() {
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
                 <span style={{fontSize:9,fontWeight:800,letterSpacing:'0.15em',color:'#f5c842'}}>💡 {tip.category.toUpperCase()}</span>
-                <span style={{fontSize:8,color:'#555',fontWeight:700,letterSpacing:'0.08em'}}>{tipIdx+1}/{TIPS.length}</span>
+                <span style={{fontSize:8,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.08em'}}>{tipIdx+1}/{TIPS.length}</span>
               </div>
-              <div style={{fontSize:12,color:'#b0ada8',lineHeight:1.55}}>{tip.text}</div>
+              <div style={{fontSize:12,color:'var(--t-muted2)',lineHeight:1.55}}>{tip.text}</div>
             </div>
             <div style={{display:'flex',gap:5,flexShrink:0}}>
               <button style={{...s.navBtn,width:26,height:26,fontSize:14}} onClick={() => setTipIdx(i => (i-1+TIPS.length)%TIPS.length)}>‹</button>
               <button style={{...s.navBtn,width:26,height:26,fontSize:14}} onClick={() => setTipIdx(i => (i+1)%TIPS.length)}>›</button>
-              <button title="Dismiss" style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'#555',fontSize:11,cursor:'pointer',fontWeight:700}} onClick={() => setTipVisible(false)}>✕</button>
+              <button title="Dismiss" style={{width:26,height:26,borderRadius:'50%',background:'var(--t-s04)',border:'1px solid var(--t-s08)',color:'var(--t-dim3)',fontSize:11,cursor:'pointer',fontWeight:700}} onClick={() => setTipVisible(false)}>✕</button>
             </div>
           </div>
         )}
@@ -2377,6 +2377,6 @@ const s = {
   bottomGrid:{display:'grid',gridTemplateColumns:'1fr',gap:16},
   heroAvatar:{width:52,height:52,borderRadius:'50%',border:'2.5px solid #e84a2f',background:'linear-gradient(135deg,#2a2020,#3a2828)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#e84a2f',fontFamily:"'Bebas Neue',sans-serif",flexShrink:0,boxShadow:'0 0 16px rgba(232,74,47,0.3)'},
   accentBtn: {background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'10px 22px',fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'},
-  ghostBtn:  {background:'transparent',color:'#7a7570',border:'1.5px solid rgba(255,255,255,0.12)',borderRadius:50,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'},
-  navBtn:    {width:30,height:30,borderRadius:'50%',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#f0ece8',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,lineHeight:1},
+  ghostBtn:  {background:'transparent',color:'var(--t-muted)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'},
+  navBtn:    {width:30,height:30,borderRadius:'50%',background:'var(--t-s06)',border:'1px solid var(--t-s10)',color:'var(--t-text)',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,lineHeight:1},
 }
