@@ -1066,13 +1066,13 @@ export default function Home() {
                 WELCOME TO HITTRACK!
               </div>
               <div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'8px 16px',background:'rgba(66,165,245,0.12)',border:'1px solid rgba(66,165,245,0.35)',borderRadius:50,marginBottom:18}}>
-                <span style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',color:'#42a5f5',textTransform:'uppercase'}}>Free Trial</span>
+                <span style={{fontSize:9,fontWeight:800,letterSpacing:'0.1em',color:'#42a5f5',textTransform:'uppercase'}}>Trial</span>
                 <span style={{fontSize:11,color:'#cdd5dc',fontWeight:600}}>
                   {daysLeft != null && daysLeft >= 0 ? `${daysLeft} day${daysLeft===1?'':'s'} left` : '7 days'}
                 </span>
               </div>
               <div style={{fontSize:13,color:'#b0ada8',lineHeight:1.7,marginBottom:24}}>
-                You{'’'}re on a <strong style={{color:'#42a5f5'}}>7-day free trial</strong>. Book classes, track your workouts, and explore everything HITTRACK offers. When your trial ends, speak with the gym admin to continue your membership.
+                You{'’'}re on a <strong style={{color:'#42a5f5'}}>7-day trial</strong>. Book classes, track your workouts, and explore everything HITTRACK offers. When your trial ends, speak with the gym admin to continue your membership.
               </div>
               <button onClick={()=>setShowTrialWelcome(false)}
                 style={{width:'100%',background:'linear-gradient(135deg,#42a5f5,#1e6db8)',color:'#fff',border:'none',borderRadius:50,padding:'14px',fontSize:14,fontWeight:800,letterSpacing:'0.04em',cursor:'pointer',boxShadow:'0 6px 20px rgba(66,165,245,0.4)'}}>
@@ -1494,7 +1494,7 @@ export default function Home() {
           } else if (state === STATUS.NONE) {
             cfg = { color:'#888', bg:'rgba(255,255,255,0.03)', border:'rgba(255,255,255,0.1)', icon:'⚪', title:'No active membership', body:'Speak with the gym admin to set up your plan.', cta:null }
           } else if (state === STATUS.TRIAL) {
-            cfg = { color:'#42a5f5', bg:'rgba(66,165,245,0.07)', border:'rgba(66,165,245,0.3)', icon:'🎁', title:`Free Trial · ${days} day${days===1?'':'s'} left`, body:`Your 7-day trial ends ${fmtExpiry(profile.membership)}. Speak with admin to continue after.`, cta:null }
+            cfg = { color:'#42a5f5', bg:'rgba(66,165,245,0.07)', border:'rgba(66,165,245,0.3)', icon:'🎁', title:`Trial · ${days} day${days===1?'':'s'} left`, body:`Your 7-day trial ends ${fmtExpiry(profile.membership)}. Speak with admin to continue after.`, cta:null }
           } else {
             // ACTIVE but expiring soon
             cfg = { color:'#f5c842', bg:'rgba(245,200,66,0.08)', border:'rgba(245,200,66,0.35)', icon:'⚠', title:`Expiring in ${days} day${days===1?'':'s'}`, body:`Membership expires ${fmtExpiry(profile.membership)}. Renew with admin before access is locked.`, cta:null }

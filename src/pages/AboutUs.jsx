@@ -71,7 +71,7 @@ const DEFAULTS = {
   mapQuery: 'Makati, Metro Manila, Philippines',
   // Real Wild Bout rate card. Keep amounts in sync with src/lib/plans.js.
   plans: [
-    { name:'Free Trial', price:'0', period:'7 days', highlight:false, perks:['Full gym access','One intro class','Try before you commit'] },
+    { name:'Trial', price:'0', period:'7 days', highlight:false, perks:['Full gym access','One intro class','Try before you commit'] },
     { name:'Boxing — Monthly', price:'15,600', period:'per month', highlight:true, perks:['2 sessions per day','Personal instructor','3 months ₱42,900 · 6 months ₱81,900','Session packs from ₱3,500'] },
     { name:'Muay Thai — Monthly', price:'20,800', period:'per month', highlight:false, perks:['2 sessions per day','Personal instructor','3 months ₱58,500 · 6 months ₱113,100','Session packs from ₱4,500'] },
   ],
@@ -504,7 +504,7 @@ export default function AboutUs() {
           <div style={{textAlign:'center',marginBottom:28}}>
             <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Join The Gym</div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'#f0ece8'}}>Membership Plans</div>
-            <div style={{fontSize:12,color:'#7a7570',marginTop:6}}>Start with a free trial. Plans are activated by gym admin — speak with the front desk to subscribe.</div>
+            <div style={{fontSize:12,color:'#7a7570',marginTop:6}}>Start with a trial. Plans are activated by gym admin — speak with the front desk to subscribe.</div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:18,alignItems:'stretch'}}>
             {plans.map((plan,i)=>{
@@ -542,7 +542,7 @@ export default function AboutUs() {
                       color:plan.highlight?'#fff':'#f0ece8',border:plan.highlight?'none':'1px solid rgba(255,255,255,0.1)',
                       borderRadius:50,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer',
                       boxShadow:plan.highlight?'0 6px 20px rgba(232,74,47,0.4)':'none',transition:'all 0.25s'}}>
-                    {isFree ? 'Start Free Trial' : 'Get Started'}
+                    {isFree ? 'Start Trial' : 'Get Started'}
                   </button>
                 </div>
               )

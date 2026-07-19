@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc, serverTimestamp, query, where, orderBy, onSnapshot, writeBatch } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
-import { auth, db } from '../firebase'
+import { auth, db, createAuthUserDetached } from '../firebase'
 import { logActivity, ACTIVITY_TYPES } from '../lib/activityLog'
 import { isClassActive, autoEndPastClasses } from '../lib/classLifecycle'
 import { computeMembershipState, daysRemaining, fmtExpiry, fmtRemaining, getStatusLabel, getStatusColor, getStatusIcon, computeResumeExpiry, DEFAULT_MONTHLY_DAYS, STATUS } from '../lib/membership'
@@ -151,6 +151,11 @@ export default function AdminDashboard() {
   const [members,setMembers]   = useState([])
   const [coaches,setCoaches]   = useState([])
   const [pending,setPending]   = useState([])
+  // Admin-created coach accounts (coaches are no longer created via public signup)
+  const [showAddCoach,setShowAddCoach] = useState(false)
+  const [coachSaving,setCoachSaving]   = useState(false)
+  const [coachFormErrors,setCoachFormErrors] = useState({})
+  const [coachForm,setCoachForm] = useState({ name:'', email:'', phone:'', password:'', experienceYears:'', specialization:'', certifications:'', bio:'' })
   const [classes,setClasses]   = useState([])
   const [bookings,setBookings] = useState([])
   const [notifs,setNotifs]     = useState([])
@@ -699,6 +704,65 @@ export default function AdminDashboard() {
       showToast('🗑 Coach application rejected')
       loadAll()
     }catch(e){showToast('❌ Error','error')}
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  ADMIN-CREATED COACH ACCOUNTS
+  //  Coaches are NOT created through public signup — the admin adds
+  //  them here, so not just anyone can become a coach. The Auth account
+  //  is created on a detached secondary app (see firebase.js) so the
+  //  admin's own session is never signed out. The coach is created
+  //  already-approved (role 'coach') and must verify their email before
+  //  they can log in; they should change the temp password after.
+  // ════════════════════════════════════════════════════════
+  function validateCoachForm(){
+    const f = coachForm, e = {}
+    if(!f.name.trim())  e.name  = 'Full name is required.'
+    if(!f.email.trim()) e.email = 'Email is required.'
+    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = 'Enter a valid email address.'
+    if(!f.password)          e.password = 'Set a temporary password.'
+    else if(f.password.length < 8) e.password = 'Must be at least 8 characters.'
+    const yrs = parseInt(f.experienceYears,10)
+    if(!String(f.experienceYears).trim() || isNaN(yrs) || yrs < 0) e.experienceYears = 'Enter years of experience.'
+    if(!f.specialization.trim()) e.specialization = 'Enter a specialization (e.g. Boxing).'
+    if(!f.certifications.trim()) e.certifications = 'List at least one certification.'
+    setCoachFormErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  async function createCoach(){
+    if(!validateCoachForm()) return
+    setCoachSaving(true)
+    const email = coachForm.email.trim().toLowerCase()
+    try{
+      const uid = await createAuthUserDetached(email, coachForm.password)
+      await setDoc(doc(db,'users',uid),{
+        uid, name: coachForm.name.trim(), email,
+        role:'coach', approved:true, status:'active', programSetupDone:true,
+        requiresEmailVerification:true,
+        experienceYears: parseInt(coachForm.experienceYears,10) || 0,
+        specialization:  coachForm.specialization.trim(),
+        certifications:  coachForm.certifications.trim(),
+        bio:             coachForm.bio.trim(),
+        ...(coachForm.phone.trim() ? { phone: coachForm.phone.trim() } : {}),
+        createdByAdmin:  true,
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      })
+      try{ await logActivity(ACTIVITY_TYPES.COACH_ADDED ?? 'coach_added',{ actorName:'Admin', targetName:coachForm.name.trim(), detail:`Coach account created for ${email}` }) }catch(_){}
+      showToast(`✅ Coach "${coachForm.name.trim()}" created. Share the temp password — they must verify their email before logging in.`)
+      setShowAddCoach(false)
+      setCoachForm({ name:'', email:'', phone:'', password:'', experienceYears:'', specialization:'', certifications:'', bio:'' })
+      setCoachFormErrors({})
+      loadAll()
+    }catch(err){
+      const map = {
+        'auth/email-already-in-use':'That email already has an account.',
+        'auth/invalid-email':'Please enter a valid email address.',
+        'auth/weak-password':'Password is too weak — use 8+ characters.',
+        'auth/network-request-failed':'Network error. Check your connection.',
+      }
+      setCoachFormErrors({ general: map[err.code] || 'Could not create the coach account. Please try again.' })
+    }finally{ setCoachSaving(false) }
   }
 
   // ════════════════════════════════════════════════════════
@@ -2000,10 +2064,17 @@ export default function AdminDashboard() {
               <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#42a5f5,#2563eb)'}}/>
               <div style={{padding:'16px 22px',borderBottom:'1px solid rgba(255,255,255,0.05)',background:'linear-gradient(135deg,rgba(66,165,245,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{width:38,height:38,borderRadius:10,background:'linear-gradient(135deg,#42a5f5,#2563eb)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,boxShadow:'0 4px 14px rgba(66,165,245,0.3)'}}>🥊</div>
-                <div>
+                <div style={{flex:1}}>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.06em',color:'#f0ece8'}}>COACH ROSTER</div>
                   <div style={{fontSize:9,color:'#666',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:1}}>{coaches.length} approved coach{coaches.length===1?'':'es'}</div>
                 </div>
+                {/* Coaches are created by admin only — public signup is members-only */}
+                <button onClick={()=>{setCoachFormErrors({});setShowAddCoach(true)}}
+                  style={{background:'linear-gradient(135deg,#42a5f5,#2563eb)',color:'#fff',border:'none',borderRadius:50,padding:'10px 20px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:'pointer',boxShadow:'0 4px 14px rgba(66,165,245,0.35)',transition:'all 0.25s cubic-bezier(0.34,1.56,0.64,1)',flexShrink:0}}
+                  onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.04)';e.currentTarget.style.boxShadow='0 6px 20px rgba(66,165,245,0.5)'}}
+                  onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)';e.currentTarget.style.boxShadow='0 4px 14px rgba(66,165,245,0.35)'}}>
+                  ＋ ADD COACH
+                </button>
               </div>
               {coaches.length===0?(
                 <div style={{padding:'50px 30px',textAlign:'center'}}>
@@ -2684,6 +2755,71 @@ export default function AdminDashboard() {
       {deleteNotifId&&<ConfirmModal title="Delete Announcement?" message="This will permanently remove the announcement for everyone." onConfirm={deleteNotificationConfirmed} onCancel={()=>setDeleteNotifId(null)}/>}
 
       {/* ── NOTIFICATION MODAL ── */}
+      {/* ── ADD COACH (admin-only coach account creation) ── */}
+      {showAddCoach&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div style={{...glass(),padding:'34px 38px',width:'100%',maxWidth:560,maxHeight:'88vh',overflowY:'auto',border:'1px solid rgba(66,165,245,0.3)'}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:26,color:'#f0ece8',marginBottom:4,letterSpacing:'0.06em'}}>🥊 ADD COACH</div>
+            <div style={{fontSize:12,color:'#555',marginBottom:20,lineHeight:1.6}}>
+              Coach accounts are created here by an admin — they can't be self-registered. The coach gets a
+              verification email and must verify before their first login. Share the temporary password with them.
+            </div>
+
+            {coachFormErrors.general&&(
+              <div style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#e84a2f',fontWeight:600,marginBottom:16}}>
+                ⚠ {coachFormErrors.general}
+              </div>
+            )}
+
+            {[
+              {k:'name',           label:'Full Name',                 ph:'e.g. Juan Dela Cruz'},
+              {k:'email',          label:'Email Address',             ph:'coach@email.com',   type:'email'},
+              {k:'phone',          label:'Phone Number (optional)',   ph:'09171234567'},
+              {k:'password',       label:'Temporary Password',        ph:'8+ characters',     type:'text'},
+              {k:'experienceYears',label:'Years of Experience',       ph:'e.g. 5',            numeric:true},
+              {k:'specialization', label:'Specialization / Discipline',ph:'e.g. Boxing, Muay Thai'},
+            ].map(f=>(
+              <div key={f.k} style={{marginBottom:14}}>
+                <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>{f.label}</label>
+                <input type={f.type||'text'} placeholder={f.ph} value={coachForm[f.k]}
+                  onChange={e=>{
+                    const v = f.numeric ? e.target.value.replace(/\D/g,'').slice(0,2) : e.target.value
+                    setCoachForm(p=>({...p,[f.k]:v})); setCoachFormErrors(er=>({...er,[f.k]:'',general:''}))
+                  }}
+                  style={{...inp,borderColor:coachFormErrors[f.k]?'#e84a2f':'rgba(255,255,255,0.12)'}}
+                  onFocus={e=>{if(!coachFormErrors[f.k])e.target.style.borderColor='#42a5f5'}}
+                  onBlur={e=>e.target.style.borderColor=coachFormErrors[f.k]?'#e84a2f':'rgba(255,255,255,0.12)'}/>
+                {coachFormErrors[f.k]&&<div style={{fontSize:11,color:'#e84a2f',marginTop:5}}>⚠ {coachFormErrors[f.k]}</div>}
+              </div>
+            ))}
+
+            {[
+              {k:'certifications',label:'Certifications / Credentials',ph:'e.g. Certified Boxing Instructor (2020); first-aid certified'},
+              {k:'bio',           label:'Short Bio (optional)',        ph:'Coaching style and background'},
+            ].map(f=>(
+              <div key={f.k} style={{marginBottom:14}}>
+                <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>{f.label}</label>
+                <textarea placeholder={f.ph} rows={2} value={coachForm[f.k]}
+                  onChange={e=>{setCoachForm(p=>({...p,[f.k]:e.target.value})); setCoachFormErrors(er=>({...er,[f.k]:'',general:''}))}}
+                  style={{...inp,resize:'vertical',borderColor:coachFormErrors[f.k]?'#e84a2f':'rgba(255,255,255,0.12)'}}
+                  onFocus={e=>{if(!coachFormErrors[f.k])e.target.style.borderColor='#42a5f5'}}
+                  onBlur={e=>e.target.style.borderColor=coachFormErrors[f.k]?'#e84a2f':'rgba(255,255,255,0.12)'}/>
+                {coachFormErrors[f.k]&&<div style={{fontSize:11,color:'#e84a2f',marginTop:5}}>⚠ {coachFormErrors[f.k]}</div>}
+              </div>
+            ))}
+
+            <div style={{display:'flex',gap:10,marginTop:18}}>
+              <button onClick={createCoach} disabled={coachSaving}
+                style={{background:'linear-gradient(135deg,#42a5f5,#1565c0)',color:'#fff',border:'none',borderRadius:50,padding:'12px 28px',fontSize:13,fontWeight:700,cursor:coachSaving?'default':'pointer',opacity:coachSaving?0.7:1,boxShadow:'0 4px 16px rgba(66,165,245,0.3)'}}>
+                {coachSaving?'Creating…':'Create Coach Account 🥊'}
+              </button>
+              <button onClick={()=>{setShowAddCoach(false);setCoachFormErrors({})}} disabled={coachSaving}
+                style={{background:'transparent',color:'#555',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px 22px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showNotif&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div style={{...glass(),padding:'36px 40px',width:'100%',maxWidth:500,border:`1px solid ${editingNotifId?'rgba(66,165,245,0.3)':'rgba(245,200,66,0.25)'}`}}>

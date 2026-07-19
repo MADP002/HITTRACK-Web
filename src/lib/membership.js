@@ -97,7 +97,7 @@ export function getStatusLabel(state) {
   return {
     legacy:  'Legacy Member',
     none:    'No Membership',
-    trial:   'Free Trial',
+    trial:   'Trial',
     active:  'Active',
     paused:  'Paused',
     expired: 'Expired',

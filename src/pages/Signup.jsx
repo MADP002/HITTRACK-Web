@@ -80,10 +80,9 @@ export default function Signup() {
   const navigate  = useNavigate()
   const canvasRef = useRef(null)
   const isMobile  = useIsMobile()
-  const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'', phone:'', dob:'',
-    // Coach credentials (only used/validated when role === 'coach')
-    coachExp:'', coachSpecialty:'', coachCerts:'', coachBio:'' })
-  const [role, setRole]       = useState('member')
+  // Public signup is MEMBERS ONLY. Coach accounts are created by an admin from
+  // the admin dashboard (Coaches tab) so not just anyone can become a coach.
+  const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'', phone:'', dob:'' })
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -206,16 +205,8 @@ export default function Signup() {
     { const pe = validatePassword(form.password); if (pe) errs.password = pe }
     if (!form.confirm) errs.confirm = 'Please confirm your password.'
     else if (form.password !== form.confirm) errs.confirm = 'Passwords do not match.'
-    // ── Coach credentials — required so not just anyone can register as a coach ──
-    if (role === 'coach') {
-      const yrs = parseInt(form.coachExp, 10)
-      if (!form.coachExp.trim() || isNaN(yrs) || yrs < 0) errs.coachExp = 'Enter your years of coaching experience.'
-      if (!form.coachSpecialty.trim()) errs.coachSpecialty = 'Enter your specialization (e.g. Boxing, Muay Thai).'
-      if (!form.coachCerts.trim()) errs.coachCerts = 'List at least one certification or credential.'
-    }
     setFieldErrors(errs)
-    setTouched({ name:true, email:true, dob:true, phone:true, password:true, confirm:true,
-      coachExp:true, coachSpecialty:true, coachCerts:true })
+    setTouched({ name:true, email:true, dob:true, phone:true, password:true, confirm:true })
     return Object.values(errs).every(v => !v)
   }
 
@@ -241,21 +232,7 @@ export default function Signup() {
       }
       if (form.phone.trim()) userData.phone = form.phone.trim()
 
-      if (role === 'coach') {
-        await setDoc(doc(db, 'users', cred.user.uid), {
-          ...userData,
-          role: 'coach_pending',
-          approved: false, programSetupDone: true,
-          // Coach credentials — admin reviews these before approving.
-          experienceYears: parseInt(form.coachExp, 10) || 0,
-          specialization:  form.coachSpecialty.trim(),
-          certifications:  form.coachCerts.trim(),
-          bio:             form.coachBio.trim(),
-          // Coaches don't have memberships — they're staff, not paying members.
-        })
-        await auth.signOut()
-        navigate('/login?pending=1')
-      } else {
+      {
         // ════════════════════════════════════════════════════
         //  TRIAL ABUSE PROTECTION
         //  Each email gets ONE free trial. If they signed up
@@ -335,13 +312,6 @@ export default function Signup() {
 
   const strength = getPasswordStrength(form.password)
 
-  // Coach-credential field styling (mirrors the generic field look)
-  const coachLabelStyle = { fontSize:10, fontWeight:700, color:'#555', letterSpacing:'0.1em', textTransform:'uppercase', display:'block', marginBottom:6 }
-  const coachRowStyle   = { display:'flex', alignItems:'center', background:'rgba(255,255,255,0.04)', border:'1.5px solid rgba(255,255,255,0.08)', borderRadius:10, padding:'11px 14px', gap:8 }
-  const coachInputStyle = { flex:1, width:'100%', background:'none', border:'none', outline:'none', color:'#f0ece8', fontSize:13, fontFamily:"'Montserrat',sans-serif" }
-  const coachErrStyle   = { fontSize:11, color:'#e84a2f', marginTop:5, paddingLeft:2, display:'flex', alignItems:'center', gap:4 }
-  const coachBorder     = (field) => (fieldErrors[field] ? '#e84a2f' : 'rgba(255,255,255,0.08)')
-
   const fields = [
     { field:'name',     label:'Full Name',        type:'text',     ph:'e.g. Lowell Aguinaldo' },
     { field:'email',    label:'Email Address',     type:'email',    ph:'your@email.com' },
@@ -404,76 +374,14 @@ export default function Signup() {
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:'#f0ece8',letterSpacing:'0.06em',lineHeight:1}}>JOIN WILD BOUT GYM</div>
             </div>
 
-            {/* Role selector */}
-            <div style={{display:'flex',gap:8,marginBottom:20,background:'rgba(255,255,255,0.03)',borderRadius:12,padding:4,border:'1px solid rgba(255,255,255,0.06)'}}>
-              {[{id:'member',label:'👊 Member'},{id:'coach',label:'🥊 Coach'}].map(r=>(
-                <button key={r.id} type="button" onClick={()=>{setRole(r.id); setFieldErrors(fe=>({...fe,coachExp:'',coachSpecialty:'',coachCerts:''}))}}
-                  style={{flex:1,padding:'10px',borderRadius:10,border:'none',fontSize:12,fontWeight:700,cursor:'pointer',transition:'all 0.2s',letterSpacing:'0.04em',
-                    background:role===r.id?'#e84a2f':'transparent',
-                    color:role===r.id?'#fff':'#555',
-                    boxShadow:role===r.id?'0 4px 12px rgba(232,74,47,0.4)':'none'}}>
-                  {r.label}
-                </button>
-              ))}
+            {/* Coaching staff are onboarded by an admin, not through public signup. */}
+            <div style={{background:'rgba(66,165,245,0.08)',border:'1px solid rgba(66,165,245,0.2)',borderRadius:10,padding:'10px 14px',fontSize:11,color:'#42a5f5',marginBottom:16,lineHeight:1.7}}>
+              ℹ️ Applying as a <strong>coach</strong>? Coach accounts are created by the gym admin — please speak with the front desk.
             </div>
 
-            {role==='coach'&&(
-              <div style={{background:'rgba(66,165,245,0.08)',border:'1px solid rgba(66,165,245,0.2)',borderRadius:10,padding:'10px 14px',fontSize:11,color:'#42a5f5',marginBottom:16,lineHeight:1.7}}>
-                ℹ️ Coach accounts require <strong>admin approval</strong> before you can log in. You'll be notified once approved.
-              </div>
-            )}
-
-            {error && <div style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#e84a2f',fontWeight:600,marginBottom:16}}>⚠ {error}</div>}
+            {error &&<div style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#e84a2f',fontWeight:600,marginBottom:16}}>⚠ {error}</div>}
 
             <form onSubmit={handleSignup} style={{display:'flex',flexDirection:'column',gap:14}}>
-              {/* ── COACH CREDENTIALS (coach signups only) — admin reviews before approving ── */}
-              {role === 'coach' && (
-                <div style={{display:'flex',flexDirection:'column',gap:14,paddingBottom:16,marginBottom:2,borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-                  <div style={{fontSize:12,fontWeight:800,color:'#42a5f5',letterSpacing:'0.06em',textTransform:'uppercase'}}>🥊 Coach Credentials</div>
-
-                  {/* Years of experience */}
-                  <div>
-                    <label style={coachLabelStyle}>Years of Experience</label>
-                    <div style={{...coachRowStyle,borderColor:coachBorder('coachExp')}}>
-                      <input type="text" inputMode="numeric" placeholder="e.g. 5" value={form.coachExp}
-                        onChange={e => update('coachExp', e.target.value.replace(/\D/g,'').slice(0,2))}
-                        style={coachInputStyle}/>
-                    </div>
-                    {fieldErrors.coachExp && <div style={coachErrStyle}><span style={{fontSize:12}}>⚠</span> {fieldErrors.coachExp}</div>}
-                  </div>
-
-                  {/* Specialization */}
-                  <div>
-                    <label style={coachLabelStyle}>Specialization / Discipline</label>
-                    <div style={{...coachRowStyle,borderColor:coachBorder('coachSpecialty')}}>
-                      <input type="text" placeholder="e.g. Boxing, Muay Thai" value={form.coachSpecialty}
-                        onChange={e => update('coachSpecialty', e.target.value)} style={coachInputStyle}/>
-                    </div>
-                    {fieldErrors.coachSpecialty && <div style={coachErrStyle}><span style={{fontSize:12}}>⚠</span> {fieldErrors.coachSpecialty}</div>}
-                  </div>
-
-                  {/* Certifications */}
-                  <div>
-                    <label style={coachLabelStyle}>Certifications / Credentials</label>
-                    <div style={{...coachRowStyle,borderColor:coachBorder('coachCerts'),alignItems:'stretch'}}>
-                      <textarea placeholder="e.g. Certified Boxing Instructor (2020); first-aid certified" value={form.coachCerts}
-                        onChange={e => update('coachCerts', e.target.value)} rows={2}
-                        style={{...coachInputStyle,resize:'vertical',minHeight:44,lineHeight:1.5}}/>
-                    </div>
-                    {fieldErrors.coachCerts && <div style={coachErrStyle}><span style={{fontSize:12}}>⚠</span> {fieldErrors.coachCerts}</div>}
-                  </div>
-
-                  {/* Bio (optional) */}
-                  <div>
-                    <label style={coachLabelStyle}>Short Bio <span style={{textTransform:'none',color:'#444',fontWeight:500,letterSpacing:0}}>(optional)</span></label>
-                    <div style={{...coachRowStyle,alignItems:'stretch'}}>
-                      <textarea placeholder="Tell members about your coaching style and background" value={form.coachBio}
-                        onChange={e => update('coachBio', e.target.value)} rows={2}
-                        style={{...coachInputStyle,resize:'vertical',minHeight:44,lineHeight:1.5}}/>
-                    </div>
-                  </div>
-                </div>
-              )}
               {fields.map(f => {
                 const hasErr = touched[f.field] && fieldErrors[f.field]
                 const borderColor = hasErr ? '#e84a2f' : 'rgba(255,255,255,0.08)'
@@ -521,7 +429,7 @@ export default function Signup() {
 
                     {/* Minor warning — members only (Issue #11). The parent/guardian
                         training-waiver rule does not apply to coach signups. */}
-                    {f.field === 'dob' && isMinor && !hasErr && role === 'member' && (
+                    {f.field === 'dob' && isMinor && !hasErr && (
                       <div style={{
                         marginTop:8,padding:'10px 12px',
                         background:'rgba(245,200,66,0.08)',
@@ -573,7 +481,7 @@ export default function Signup() {
                 style={{background:'#e84a2f',color:'#fff',border:'none',borderRadius:10,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em',boxShadow:'0 6px 24px rgba(232,74,47,0.4)',opacity:loading?0.7:1,transition:'all 0.2s',marginTop:6}}
                 onMouseEnter={e=>{if(!loading)e.target.style.background='#d43d24'}}
                 onMouseLeave={e=>e.target.style.background='#e84a2f'}>
-                {loading?'Creating Account...':`Create ${role==='coach'?'Coach':'Member'} Account`}
+                {loading?'Creating Account...':'Create Member Account'}
               </button>
             </form>
 
