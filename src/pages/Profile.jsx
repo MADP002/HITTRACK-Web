@@ -55,7 +55,7 @@ function fmtDOB(dobStr) {
 }
 
 const glass=(e={})=>({
-  background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
+  background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',
   boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden',...e,
@@ -484,7 +484,7 @@ export default function Profile(){
     <>
       <Navbar user={{name:profile.name||'Athlete'}}/>
 
-      {toast&&<div style={{position:'fixed',top:20,right:20,zIndex:2000,background:'rgba(74,222,128,0.15)',border:'1px solid rgba(74,222,128,0.4)',borderRadius:12,padding:'12px 20px',fontSize:13,fontWeight:700,color:'#4ade80'}}>{toast}</div>}
+      {toast&&<div style={{position:'fixed',top:20,right:20,zIndex:2000,background:'rgba(74,222,128,0.15)',border:'1px solid rgba(74,222,128,0.4)',borderRadius:12,padding:'12px 20px',fontSize:13,fontWeight:700,color:'var(--a-green2)'}}>{toast}</div>}
 
       {/* Logout confirm */}
       {logoutConfirm&&(
@@ -511,7 +511,7 @@ export default function Profile(){
             style={{background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(66,165,245,0.35)',maxWidth:520,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 30px 80px rgba(0,0,0,0.8)'}}>
             <div style={{padding:'18px 24px',borderBottom:'1px solid var(--t-s06)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#42a5f5'}}>📜 PAYMENT HISTORY</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'var(--a-blue)'}}>📜 PAYMENT HISTORY</div>
                 <div style={{fontSize:10,color:'var(--t-dim2)',letterSpacing:'0.08em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Your past renewals</div>
               </div>
               <button onClick={()=>setShowPayments(false)}
@@ -535,19 +535,19 @@ export default function Profile(){
                     return (
                       <div key={p.id} style={{padding:'14px 16px',background:'var(--t-s03)',border:'1px solid var(--t-s06)',borderRadius:12}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#4ade80',letterSpacing:'0.04em'}}>
+                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'var(--a-green2)',letterSpacing:'0.04em'}}>
                             ₱{(p.amount||0).toLocaleString()}
                           </div>
-                          <span style={{fontSize:9,padding:'2px 8px',background:'rgba(66,165,245,0.12)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase'}}>
+                          <span style={{fontSize:9,padding:'2px 8px',background:'rgba(66,165,245,0.12)',color:'var(--a-blue)',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.08em',textTransform:'uppercase'}}>
                             {p.paymentMethod || 'cash'}
                           </span>
                         </div>
                         {p.planLabel && (
-                          <div style={{fontSize:11,color:'#f5c842',fontWeight:600,marginBottom:4}}>🥊 {p.planLabel}</div>
+                          <div style={{fontSize:11,color:'var(--a-gold)',fontWeight:600,marginBottom:4}}>🥊 {p.planLabel}</div>
                         )}
                         <div style={{fontSize:11,color:'var(--t-dim2)',display:'flex',gap:10,flexWrap:'wrap'}}>
                           {p.kind === 'dropin'
-                            ? <span style={{color:'#f5c842'}}>Drop-in session</span>
+                            ? <span style={{color:'var(--a-gold)'}}>Drop-in session</span>
                             : <>
                                 <span>{p.durationDays} days</span>
                                 {p.startsAt && <span>· {fmtExpiry({expiresAt:p.startsAt})}–{fmtExpiry({expiresAt:p.expiresAt})}</span>}
@@ -583,7 +583,7 @@ export default function Profile(){
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:50,height:50,borderRadius:14,background:'linear-gradient(135deg,#e84a2f,#c93820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,boxShadow:'0 4px 16px rgba(232,74,47,0.5)'}}>⚠</div>
                 <div>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'0.05em',color:'#e84a2f'}}>DELETE ACCOUNT?</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'0.05em',color:'var(--a-red)'}}>DELETE ACCOUNT?</div>
                   <div style={{fontSize:10,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>This action cannot be undone</div>
                 </div>
               </div>
@@ -599,7 +599,7 @@ export default function Profile(){
                   <div>✗ Your training level audit trail</div>
                 </div>
                 <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--t-s06)',fontSize:11,color:'var(--t-dim2)'}}>
-                  📝 An audit entry will be saved to <code style={{background:'rgba(0,0,0,0.4)',padding:'1px 5px',borderRadius:4,fontFamily:'monospace',color:'#e84a2f'}}>deletions/</code> for DPA 2012 compliance.
+                  📝 An audit entry will be saved to <code style={{background:'rgba(0,0,0,0.4)',padding:'1px 5px',borderRadius:4,fontFamily:'monospace',color:'var(--a-red)'}}>deletions/</code> for DPA 2012 compliance.
                 </div>
               </div>
 
@@ -621,14 +621,14 @@ export default function Profile(){
                   onBlur={e=>e.target.style.borderColor=deleteError?'rgba(232,74,47,0.5)':'var(--t-s10)'}
                 />
                 {deleteError && (
-                  <div style={{fontSize:11,color:'#e84a2f',fontWeight:600,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{fontSize:11,color:'var(--a-red)',fontWeight:600,marginTop:2,display:'flex',alignItems:'center',gap:6}}>
                     <span>⚠</span><span>{deleteError}</span>
                   </div>
                 )}
               </div>
 
               {deleting && deleteCounts && (
-                <div style={{padding:'12px 14px',background:'rgba(66,165,245,0.05)',border:'1px solid rgba(66,165,245,0.18)',borderRadius:10,fontSize:11,color:'#42a5f5',lineHeight:1.5,textAlign:'left'}}>
+                <div style={{padding:'12px 14px',background:'rgba(66,165,245,0.05)',border:'1px solid rgba(66,165,245,0.18)',borderRadius:10,fontSize:11,color:'var(--a-blue)',lineHeight:1.5,textAlign:'left'}}>
                   <div style={{fontWeight:700,marginBottom:4,letterSpacing:'0.04em'}}>🗑 Cascade in progress…</div>
                   <div style={{fontSize:10,color:'var(--t-dim2)'}}>
                     {deleteCounts.bookings} bookings · {deleteCounts.feedback} feedback · {deleteCounts.messages} messages · {deleteCounts.notifications} notifications · {deleteCounts.forum} forum posts
@@ -658,7 +658,7 @@ export default function Profile(){
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <div style={{...glass(),padding:'36px 40px',maxWidth:400,width:'90%',textAlign:'center'}}>
             <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'#e84a2f',marginBottom:8}}>Reset Program?</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:'var(--a-red)',marginBottom:8}}>Reset Program?</div>
             <div style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.7,marginBottom:24}}>This unlocks your stance, level, and goal so you can redo the Program Builder. Your workout history stays safe.</div>
             <div style={{display:'flex',gap:12,justifyContent:'center'}}>
               <button onClick={()=>setResetWarning(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'10px 24px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
@@ -673,13 +673,13 @@ export default function Profile(){
         {/* ── HERO MINI PROFILE CARD ── */}
         <div style={{...glass({borderRadius:24}),padding:'0',overflow:'hidden',position:'relative'}}>
           {/* Banner gradient */}
-          <div style={{height:100,background:`linear-gradient(135deg,${lc}33,rgba(232,74,47,0.2),rgba(14,12,12,0.95))`,position:'relative'}}>
+          <div style={{height:100,background:`linear-gradient(135deg,${lc}33,rgba(232,74,47,0.2),var(--t-card2))`,position:'relative'}}>
             <div style={{position:'absolute',inset:0,backgroundImage:'repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,0.01) 20px,rgba(255,255,255,0.01) 21px)',pointerEvents:'none'}}/>
             <div style={{position:'absolute',top:16,right:24,display:'flex',gap:8}}>
               <div style={{fontSize:9,fontWeight:700,color:lc,background:`${lc}18`,border:`1px solid ${lc}30`,borderRadius:50,padding:'4px 12px',letterSpacing:'0.1em',textTransform:'uppercase'}}>
                 {li} {currentLevel}
               </div>
-              {profile.stance&&<div style={{fontSize:9,fontWeight:700,color:'#f5c842',background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:50,padding:'4px 12px',textTransform:'uppercase'}}>🥊 {profile.stance}</div>}
+              {profile.stance&&<div style={{fontSize:9,fontWeight:700,color:'var(--a-gold)',background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:50,padding:'4px 12px',textTransform:'uppercase'}}>🥊 {profile.stance}</div>}
             </div>
           </div>
 
@@ -694,15 +694,15 @@ export default function Profile(){
               <div style={{paddingTop:48}}>
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:'var(--t-text)',letterSpacing:'0.04em',lineHeight:1}}>{profile.name||'Athlete'}</div>
-                  {profile.nickname&&<div style={{fontSize:13,color:'#e84a2f',fontStyle:'italic'}}>"{profile.nickname}"</div>}
+                  {profile.nickname&&<div style={{fontSize:13,color:'var(--a-red)',fontStyle:'italic'}}>"{profile.nickname}"</div>}
                 </div>
                 <div style={{fontSize:11,color:'var(--t-dim3)',marginBottom:10}}>{profile.email||auth.currentUser?.email||''}</div>
                 {/* Quick tags */}
                 <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  {profile.goal&&<div style={{fontSize:10,fontWeight:700,color:'#42a5f5',background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.2)',borderRadius:50,padding:'3px 10px'}}>🎯 {profile.goal}</div>}
-                  {profile.daysPerWeek&&<div style={{fontSize:10,fontWeight:700,color:'#4ade80',background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:50,padding:'3px 10px'}}>📅 {profile.daysPerWeek}x/week</div>}
-                  {displayAge&&<div style={{fontSize:10,fontWeight:700,color:'#c084fc',background:'rgba(192,132,252,0.1)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:50,padding:'3px 10px'}}>🎂 {displayAge} yrs</div>}
-                  {profile.injuries&&profile.injuries!=='None'&&<div style={{fontSize:10,fontWeight:700,color:'#f5c842',background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:50,padding:'3px 10px'}}>⚠️ {profile.injuries}</div>}
+                  {profile.goal&&<div style={{fontSize:10,fontWeight:700,color:'var(--a-blue)',background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.2)',borderRadius:50,padding:'3px 10px'}}>🎯 {profile.goal}</div>}
+                  {profile.daysPerWeek&&<div style={{fontSize:10,fontWeight:700,color:'var(--a-green2)',background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:50,padding:'3px 10px'}}>📅 {profile.daysPerWeek}x/week</div>}
+                  {displayAge&&<div style={{fontSize:10,fontWeight:700,color:'var(--a-purple)',background:'rgba(192,132,252,0.1)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:50,padding:'3px 10px'}}>🎂 {displayAge} yrs</div>}
+                  {profile.injuries&&profile.injuries!=='None'&&<div style={{fontSize:10,fontWeight:700,color:'var(--a-gold)',background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:50,padding:'3px 10px'}}>⚠️ {profile.injuries}</div>}
                 </div>
               </div>
 
@@ -715,7 +715,7 @@ export default function Profile(){
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   {!editing
-                    ?<button onClick={handleEdit} style={{background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.25)',borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,color:'#f5c842',cursor:'pointer'}}>✏️ Edit</button>
+                    ?<button onClick={handleEdit} style={{background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.25)',borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,color:'var(--a-gold)',cursor:'pointer'}}>✏️ Edit</button>
                     :<><button onClick={handleSave} disabled={saving} style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'7px 16px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{saving?'Saving...':'✓ Save'}</button>
                       <button onClick={()=>setEditing(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'7px 14px',fontSize:11,fontWeight:700,cursor:'pointer'}}>✕</button></>
                   }
@@ -771,10 +771,10 @@ export default function Profile(){
                       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                         <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:'0.04em',color, lineHeight:1}}>{label}</span>
                         {state === STATUS.TRIAL && (
-                          <span style={{fontSize:9,padding:'2px 7px',background:'rgba(66,165,245,0.15)',color:'#42a5f5',border:'1px solid rgba(66,165,245,0.35)',borderRadius:50,fontWeight:700,letterSpacing:'0.08em'}}>FREE</span>
+                          <span style={{fontSize:9,padding:'2px 7px',background:'rgba(66,165,245,0.15)',color:'var(--a-blue)',border:'1px solid rgba(66,165,245,0.35)',borderRadius:50,fontWeight:700,letterSpacing:'0.08em'}}>FREE</span>
                         )}
                         {m?.planLabel && (state === STATUS.ACTIVE || state === STATUS.PAUSED) && (
-                          <span style={{fontSize:9,padding:'3px 9px',background:'rgba(245,200,66,0.12)',color:'#f5c842',border:'1px solid rgba(245,200,66,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.06em'}}>🥊 {m.planLabel}</span>
+                          <span style={{fontSize:9,padding:'3px 9px',background:'rgba(245,200,66,0.12)',color:'var(--a-gold)',border:'1px solid rgba(245,200,66,0.3)',borderRadius:50,fontWeight:700,letterSpacing:'0.06em'}}>🥊 {m.planLabel}</span>
                         )}
                       </div>
                       <div style={{fontSize:11,color:'var(--t-dim2)',marginTop:4}}>
@@ -798,7 +798,7 @@ export default function Profile(){
 
                 {/* Renewal warning bar — only when active/trial and < 7 days */}
                 {expiringSoon && (
-                  <div style={{marginTop:14,padding:'10px 14px',background:'rgba(245,200,66,0.08)',border:'1px solid rgba(245,200,66,0.3)',borderRadius:10,display:'flex',alignItems:'center',gap:10,fontSize:11,color:'#f5c842',lineHeight:1.5}}>
+                  <div style={{marginTop:14,padding:'10px 14px',background:'rgba(245,200,66,0.08)',border:'1px solid rgba(245,200,66,0.3)',borderRadius:10,display:'flex',alignItems:'center',gap:10,fontSize:11,color:'var(--a-gold)',lineHeight:1.5}}>
                     <span style={{fontSize:14}}>⚠</span>
                     <span><strong>Membership expiring soon</strong> — speak with the gym admin to renew before your access is locked.</span>
                   </div>
@@ -811,7 +811,7 @@ export default function Profile(){
                       💳 Want to see your payment receipts?
                     </div>
                     <button onClick={openPaymentHistory}
-                      style={{background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,padding:'7px 14px',fontSize:10,fontWeight:700,color:'#42a5f5',cursor:'pointer',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>
+                      style={{background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,padding:'7px 14px',fontSize:10,fontWeight:700,color:'var(--a-blue)',cursor:'pointer',letterSpacing:'0.06em',whiteSpace:'nowrap'}}>
                       📜 VIEW HISTORY
                     </button>
                   </div>
@@ -847,7 +847,7 @@ export default function Profile(){
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--t-dim3)'}}>
                       {['Underweight','Normal','Overweight','Obese'].map(l=><span key={l}>{l}</span>)}
                     </div>
-                    {idealMin&&<div style={{fontSize:10,color:'var(--t-dim3)',marginTop:8}}>Ideal weight: <strong style={{color:'#4ade80'}}>{idealMin}–{idealMax} kg</strong></div>}
+                    {idealMin&&<div style={{fontSize:10,color:'var(--t-dim3)',marginTop:8}}>Ideal weight: <strong style={{color:'var(--a-green2)'}}>{idealMin}–{idealMax} kg</strong></div>}
                   </div>
                 </div>
               ):(
@@ -859,10 +859,10 @@ export default function Profile(){
               {/* Body stats grid */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:isMobile?8:10}}>
                 {[
-                  {icon:'📏',label:'Height',val:profile.height?`${profile.height} cm`:'—',color:'#42a5f5'},
-                  {icon:'⚖️',label:'Weight',val:profile.weight?`${profile.weight} kg`:'—',color:'#c084fc'},
-                  {icon:'🎂',label:'Age',    val:displayAge?`${displayAge} years`:'—',color:'#fb923c'},
-                  {icon:'🥊',label:'Stance', val:profile.stance||'—',color:'#f5c842'},
+                  {icon:'📏',label:'Height',val:profile.height?`${profile.height} cm`:'—',color:'var(--a-blue)'},
+                  {icon:'⚖️',label:'Weight',val:profile.weight?`${profile.weight} kg`:'—',color:'var(--a-purple)'},
+                  {icon:'🎂',label:'Age',    val:displayAge?`${displayAge} years`:'—',color:'var(--a-orange)'},
+                  {icon:'🥊',label:'Stance', val:profile.stance||'—',color:'var(--a-gold)'},
                 ].map((m,i)=>(
                   <div key={i} style={{background:'var(--t-s03)',border:`1px solid ${m.color}18`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:10}}>
                     <div style={{width:32,height:32,borderRadius:10,background:`${m.color}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{m.icon}</div>
@@ -910,7 +910,7 @@ export default function Profile(){
             <div style={glass()}>
               <div style={{padding:'14px 20px',borderBottom:'1px solid rgba(245,200,66,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <div style={{fontSize:13,fontWeight:700}}>🔒 Program Settings</div>
-                <button onClick={()=>setResetWarning(true)} style={{background:'transparent',border:'1px dashed rgba(232,74,47,0.3)',borderRadius:50,padding:'5px 12px',fontSize:10,color:'#e84a2f',cursor:'pointer',fontWeight:600}}>↺ Re-do Program</button>
+                <button onClick={()=>setResetWarning(true)} style={{background:'transparent',border:'1px dashed rgba(232,74,47,0.3)',borderRadius:50,padding:'5px 12px',fontSize:10,color:'var(--a-red)',cursor:'pointer',fontWeight:600}}>↺ Re-do Program</button>
               </div>
               <div style={{padding:isMobile?'14px 16px':'16px 20px',display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr 1fr',gap:isMobile?10:12}}>
                 {[
@@ -944,7 +944,7 @@ export default function Profile(){
           <div style={{padding:'16px 22px',borderBottom:'1px solid rgba(245,200,66,0.08)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div style={{fontSize:14,fontWeight:700}}>👤 Personal Information</div>
             {!editing
-              ?<button onClick={handleEdit} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:50,padding:'8px 18px',fontSize:12,fontWeight:700,color:'#e84a2f',cursor:'pointer'}}>✏️ Edit Profile</button>
+              ?<button onClick={handleEdit} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:50,padding:'8px 18px',fontSize:12,fontWeight:700,color:'var(--a-red)',cursor:'pointer'}}>✏️ Edit Profile</button>
               :<div style={{display:'flex',gap:8}}>
                 <button onClick={handleSave} disabled={saving} style={{background:'linear-gradient(135deg,#e84a2f,#c93820)',color:'#fff',border:'none',borderRadius:50,padding:'8px 18px',fontSize:12,fontWeight:700,cursor:'pointer'}}>{saving?'Saving...':'✓ Save Changes'}</button>
                 <button onClick={()=>setEditing(false)} style={{background:'transparent',color:'var(--t-dim3)',border:'1.5px solid var(--t-s10)',borderRadius:50,padding:'8px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}}>✕ Cancel</button>
@@ -1028,10 +1028,10 @@ export default function Profile(){
             </div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 0'}}>
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:'#e84a2f',marginBottom:2}}>Delete Account</div>
+                <div style={{fontSize:13,fontWeight:700,color:'var(--a-red)',marginBottom:2}}>Delete Account</div>
                 <div style={{fontSize:11,color:'var(--t-dim3)'}}>Permanently delete your account and all data</div>
               </div>
-              <button onClick={()=>setDeleteConfirm(true)} style={{background:'rgba(232,74,47,0.1)',border:'1.5px solid rgba(232,74,47,0.3)',borderRadius:50,padding:'8px 20px',fontSize:12,fontWeight:700,color:'#e84a2f',cursor:'pointer',transition:'all 0.2s'}}
+              <button onClick={()=>setDeleteConfirm(true)} style={{background:'rgba(232,74,47,0.1)',border:'1.5px solid rgba(232,74,47,0.3)',borderRadius:50,padding:'8px 20px',fontSize:12,fontWeight:700,color:'var(--a-red)',cursor:'pointer',transition:'all 0.2s'}}
                 onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.2)';e.currentTarget.style.transform='scale(1.04)'}}
                 onMouseLeave={e=>{e.currentTarget.style.background='rgba(232,74,47,0.1)';e.currentTarget.style.transform='scale(1)'}}>Delete</button>
             </div>

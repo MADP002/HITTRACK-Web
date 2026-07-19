@@ -33,7 +33,7 @@ function useCanvasBg(canvasRef) {
   }, [canvasRef])
 }
 
-const ROLE_BADGE = { admin: { bg: 'rgba(192,132,252,0.15)', color: '#c084fc', border: 'rgba(192,132,252,0.3)', label: 'ADMIN', icon: '👑' }, coach: { bg: 'rgba(66,165,245,0.15)', color: '#42a5f5', border: 'rgba(66,165,245,0.3)', label: 'COACH', icon: '🥊' } }
+const ROLE_BADGE = { admin: { bg: 'rgba(192,132,252,0.15)', color: 'var(--a-purple)', border: 'rgba(192,132,252,0.3)', label: 'ADMIN', icon: '👑' }, coach: { bg: 'rgba(66,165,245,0.15)', color: 'var(--a-blue)', border: 'rgba(66,165,245,0.3)', label: 'COACH', icon: '🥊' } }
 const CATEGORIES = ['General', 'Training', 'Nutrition', 'Equipment', 'Events', 'Other']
 const CAT_COLORS = { General: '#f5c842', Training: '#e84a2f', Nutrition: '#22c55e', Equipment: '#42a5f5', Events: '#c084fc', Other: 'var(--t-dim2)' }
 const CAT_ICONS = { General: '💬', Training: '🏋️', Nutrition: '🥗', Equipment: '🥊', Events: '📅', Other: '💡' }
@@ -215,11 +215,11 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ textAlign: 'center', background: 'var(--t-s03)', border: '1px solid var(--t-s06)', borderRadius: 12, padding: '8px 16px' }}>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, color: '#f5c842' }}>{posts.length}</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, color: 'var(--a-gold)' }}>{posts.length}</div>
                 <div style={{ fontSize: 8, color: 'var(--t-dim3)', fontWeight: 700, letterSpacing: '0.1em' }}>POSTS</div>
               </div>
               <div style={{ textAlign: 'center', background: 'var(--t-s03)', border: '1px solid var(--t-s06)', borderRadius: 12, padding: '8px 16px' }}>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, color: '#42a5f5' }}>{posts.reduce((a, p) => a + (p.replies || []).length, 0)}</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, color: 'var(--a-blue)' }}>{posts.reduce((a, p) => a + (p.replies || []).length, 0)}</div>
                 <div style={{ fontSize: 8, color: 'var(--t-dim3)', fontWeight: 700, letterSpacing: '0.1em' }}>REPLIES</div>
               </div>
             </div>
@@ -238,9 +238,9 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--t-dim3)', pointerEvents: 'none' }}>🔍</span>
           <input placeholder="Search posts, topics, or authors…" value={searchQ} onChange={e => setSearchQ(e.target.value)}
-            style={{ ...inp, paddingLeft: 38, borderRadius: 14, background: 'rgba(20,15,14,0.7)', border: '1px solid var(--t-s08)' }}
-            onFocus={e => { e.target.style.borderColor = 'rgba(245,200,66,0.4)'; e.target.style.boxShadow = '0 0 0 4px rgba(245,200,66,0.06)'; e.target.style.background = 'rgba(20,15,14,0.9)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--t-s08)'; e.target.style.boxShadow = 'none'; e.target.style.background = 'rgba(20,15,14,0.7)' }} />
+            style={{ ...inp, paddingLeft: 38, borderRadius: 14, background: 'var(--t-veil1)', border: '1px solid var(--t-s08)' }}
+            onFocus={e => { e.target.style.borderColor = 'rgba(245,200,66,0.4)'; e.target.style.boxShadow = '0 0 0 4px rgba(245,200,66,0.06)'; e.target.style.background = 'var(--t-card2)' }}
+            onBlur={e => { e.target.style.borderColor = 'var(--t-s08)'; e.target.style.boxShadow = 'none'; e.target.style.background = 'var(--t-veil1)' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {['All', ...CATEGORIES].map(c => {
@@ -261,7 +261,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
 
       {/* New Post Form */}
       {showNewPost && (
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(135deg,rgba(22,20,20,0.98),rgba(14,12,12,0.99))', border: '1px solid rgba(232,74,47,0.25)', padding: '28px 30px', boxShadow: '0 16px 60px rgba(0,0,0,0.5), 0 0 40px rgba(232,74,47,0.08)' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px solid rgba(232,74,47,0.25)', padding: '28px 30px', boxShadow: '0 16px 60px rgba(0,0,0,0.5), 0 0 40px rgba(232,74,47,0.08)' }}>
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: 'linear-gradient(180deg,#e84a2f,#f5c842)', borderRadius: '22px 0 0 22px' }} />
           <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'radial-gradient(circle,rgba(232,74,47,0.06) 0%,transparent 70%)', pointerEvents: 'none' }} />
 
@@ -277,22 +277,22 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
             <div style={{ flex: 2 }}>
               <label style={{ fontSize: 9, color: 'var(--t-dim2)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Title *</label>
               <input placeholder="e.g. Best wraps for beginners?" value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                style={{ ...inp, background: 'rgba(20,15,14,0.8)', borderRadius: 12 }}
+                style={{ ...inp, background: 'var(--t-veil1)', borderRadius: 12 }}
                 onFocus={e => { e.target.style.borderColor = '#e84a2f'; e.target.style.boxShadow = '0 0 0 4px rgba(232,74,47,0.08)' }}
                 onBlur={e => { e.target.style.borderColor = 'var(--t-s10)'; e.target.style.boxShadow = 'none' }} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ fontSize: 9, color: 'var(--t-dim2)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Category</label>
               <select value={newCategory} onChange={e => setNewCategory(e.target.value)}
-                style={{ ...inp, background: 'rgba(20,15,14,0.8)', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', borderRadius: 12, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px center', paddingRight: 34 }}>
-                {CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#1a1818', color: 'var(--t-text)' }}>{CAT_ICONS[c]} {c}</option>)}
+                style={{ ...inp, background: 'var(--t-veil1)', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', borderRadius: 12, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 14px center', paddingRight: 34 }}>
+                {CATEGORIES.map(c => <option key={c} value={c} style={{ background: 'var(--t-card)', color: 'var(--t-text)' }}>{CAT_ICONS[c]} {c}</option>)}
               </select>
             </div>
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ fontSize: 9, color: 'var(--t-dim2)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Body *</label>
             <textarea placeholder="Describe your question or topic in detail…" value={newBody} onChange={e => setNewBody(e.target.value)} rows={4}
-              style={{ ...inp, background: 'rgba(20,15,14,0.8)', resize: 'vertical', minHeight: 90, lineHeight: 1.7, borderRadius: 12 }}
+              style={{ ...inp, background: 'var(--t-veil1)', resize: 'vertical', minHeight: 90, lineHeight: 1.7, borderRadius: 12 }}
               onFocus={e => { e.target.style.borderColor = '#e84a2f'; e.target.style.boxShadow = '0 0 0 4px rgba(232,74,47,0.08)' }}
               onBlur={e => { e.target.style.borderColor = 'var(--t-s10)'; e.target.style.boxShadow = 'none' }} />
           </div>
@@ -345,7 +345,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
               </div>
               {canDelete(activePost) && (
                 <button onClick={() => deletePost(activePost.id)} title="Delete post"
-                  style={{ width: 34, height: 34, background: 'rgba(232,74,47,0.08)', border: '1px solid rgba(232,74,47,0.2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#e84a2f', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }}
+                  style={{ width: 34, height: 34, background: 'rgba(232,74,47,0.08)', border: '1px solid rgba(232,74,47,0.2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--a-red)', cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,74,47,0.2)'; e.currentTarget.style.transform = 'scale(1.1)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,74,47,0.08)'; e.currentTarget.style.transform = 'scale(1)' }}>🗑</button>
               )}
@@ -369,7 +369,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px' }}>
                 <div style={{ width: 20, height: 2, background: 'linear-gradient(90deg,#42a5f5,transparent)', borderRadius: 2 }} />
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#42a5f5', letterSpacing: '0.15em' }}>REPLIES ({(activePost.replies || []).length})</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--a-blue)', letterSpacing: '0.15em' }}>REPLIES ({(activePost.replies || []).length})</span>
               </div>
               {(activePost.replies || []).map((r, i) => {
                 const isCoachReply = r.authorRole === 'coach' || r.authorRole === 'admin'
@@ -377,7 +377,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
                 const accentColor = isCoachReply ? (r.authorRole === 'admin' ? '#c084fc' : '#42a5f5') : getAvatarColor(r.authorName)
                 return (
                   <div key={r.id || i}
-                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: isCoachReply ? `linear-gradient(135deg,rgba(22,20,20,0.98),${accentColor}06)` : 'linear-gradient(135deg,rgba(22,20,20,0.97),rgba(14,12,12,0.99))', border: `1px solid ${isCoachReply ? `${accentColor}25` : 'var(--t-s05)'}`, padding: '16px 20px', boxShadow: isCoachReply ? `0 8px 24px ${accentColor}08` : '0 4px 20px rgba(0,0,0,0.3)' }}>
+                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: isCoachReply ? `linear-gradient(135deg,var(--t-card),${accentColor}06)` : 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: `1px solid ${isCoachReply ? `${accentColor}25` : 'var(--t-s05)'}`, padding: '16px 20px', boxShadow: isCoachReply ? `0 8px 24px ${accentColor}08` : '0 4px 20px rgba(0,0,0,0.3)' }}>
                     {isCoachReply && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg,${accentColor},transparent)`, borderRadius: '18px 0 0 18px' }} />}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -388,7 +388,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
                       </div>
                       {canDelete(r) && (
                         <button onClick={() => deleteReply(activePost.id, r)} title="Delete reply"
-                          style={{ width: 24, height: 24, background: 'rgba(232,74,47,0.06)', border: '1px solid rgba(232,74,47,0.15)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#e84a2f', cursor: 'pointer', transition: 'all 0.2s' }}
+                          style={{ width: 24, height: 24, background: 'rgba(232,74,47,0.06)', border: '1px solid rgba(232,74,47,0.15)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--a-red)', cursor: 'pointer', transition: 'all 0.2s' }}
                           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,74,47,0.15)' }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,74,47,0.06)' }}>🗑</button>
                       )}
@@ -402,14 +402,14 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
           <div ref={replyEndRef} />
 
           {/* Reply box */}
-          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, background: 'linear-gradient(135deg,rgba(22,20,20,0.98),rgba(66,165,245,0.03))', border: '1px solid rgba(66,165,245,0.15)', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, background: 'linear-gradient(135deg,var(--t-card),rgba(66,165,245,0.03))', border: '1px solid rgba(66,165,245,0.15)', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'linear-gradient(180deg,#42a5f5,transparent)', borderRadius: '20px 0 0 20px' }} />
-            <div style={{ fontSize: 10, fontWeight: 800, color: '#42a5f5', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--a-blue)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(66,165,245,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>💬</div>
               {role === 'coach' || role === 'admin' ? 'POST AN ANSWER' : 'WRITE A REPLY'}
             </div>
             <textarea placeholder={role === 'coach' || role === 'admin' ? 'Share your expertise…' : 'Add your thoughts…'} value={replyText} onChange={e => setReplyText(e.target.value)} rows={3}
-              style={{ ...inp, background: 'rgba(20,15,14,0.7)', resize: 'vertical', minHeight: 70, lineHeight: 1.7, marginBottom: 12, borderRadius: 12 }}
+              style={{ ...inp, background: 'var(--t-veil1)', resize: 'vertical', minHeight: 70, lineHeight: 1.7, marginBottom: 12, borderRadius: 12 }}
               onFocus={e => { e.target.style.borderColor = '#42a5f5'; e.target.style.boxShadow = '0 0 0 4px rgba(66,165,245,0.08)' }}
               onBlur={e => { e.target.style.borderColor = 'var(--t-s10)'; e.target.style.boxShadow = 'none' }} />
             <button onClick={postReply} disabled={replying || !replyText.trim()}
@@ -446,7 +446,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
                 const badge = ROLE_BADGE[p.authorRole]
                 return (
                   <div key={p.id} onClick={() => { setActivePost(p); setShowNewPost(false) }}
-                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: 'linear-gradient(135deg,rgba(22,20,20,0.97),rgba(14,12,12,0.99))', border: '1px solid var(--t-s06)', padding: '18px 22px', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
+                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px solid var(--t-s06)', padding: '18px 22px', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
                     onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = `${cc}44`; e.currentTarget.style.boxShadow = `0 12px 36px ${cc}12, 0 4px 20px rgba(0,0,0,0.4)` }}
                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--t-s06)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)' }}>
                     <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg,${cc},transparent)`, borderRadius: '18px 0 0 18px', opacity: 0.6 }} />
@@ -464,7 +464,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
                             <span style={{ fontSize: 10 }}>{CAT_ICONS[p.category]}</span> {p.category}
                           </span>
                           {badge && <span style={{ fontSize: 7, fontWeight: 800, padding: '2px 7px', borderRadius: 6, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 2 }}>{badge.icon} {badge.label}</span>}
-                          {hasCoachReply && <span style={{ fontSize: 7, fontWeight: 800, padding: '2px 7px', borderRadius: 6, background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)', letterSpacing: '0.08em' }}>✓ ANSWERED</span>}
+                          {hasCoachReply && <span style={{ fontSize: 7, fontWeight: 800, padding: '2px 7px', borderRadius: 6, background: 'rgba(34,197,94,0.12)', color: 'var(--a-green)', border: '1px solid rgba(34,197,94,0.25)', letterSpacing: '0.08em' }}>✓ ANSWERED</span>}
                         </div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--t-text)', lineHeight: 1.3, marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</div>
                         <div style={{ fontSize: 11, color: 'var(--t-dim2)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.body}</div>

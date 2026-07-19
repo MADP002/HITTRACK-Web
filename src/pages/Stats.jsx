@@ -8,7 +8,7 @@ import { getMemberLevel, levelScore, LEVEL_BONUS } from '../lib/memberLevel'
 
 // ── HELPERS ───────────────────────────────────────────
 const glass = (extra={}) => ({
-  background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
+  background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
   boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
@@ -271,7 +271,7 @@ export default function Stats() {
           </div>
           <div style={{display:'flex',gap:12,alignItems:'center'}}>
             <div style={{textAlign:'center',background:'rgba(245,200,66,0.08)',border:'1px solid rgba(245,200,66,0.2)',borderRadius:14,padding:'12px 20px'}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:'#f5c842',lineHeight:1}}><AnimNum target={myScore}/></div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:'var(--a-gold)',lineHeight:1}}><AnimNum target={myScore}/></div>
               <div style={{fontSize:9,color:'var(--t-dim3)',fontWeight:700,letterSpacing:'0.1em',marginTop:3}}>MY SCORE</div>
             </div>
             <div style={{textAlign:'center',background:`${lc}12`,border:`1px solid ${lc}33`,borderRadius:14,padding:'12px 20px'}}>
@@ -392,18 +392,18 @@ export default function Stats() {
                       </div>
                       <div style={{display:'flex',flexDirection:'column',gap:4}}>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <span style={{fontSize:8,color:'#f5c842',fontWeight:700,width:28,flexShrink:0}}>YOU</span>
+                          <span style={{fontSize:8,color:'var(--a-gold)',fontWeight:700,width:28,flexShrink:0}}>YOU</span>
                           <div style={{flex:1,height:6,background:'var(--t-s05)',borderRadius:50,overflow:'hidden'}}>
                             <div style={{height:'100%',width:`${mineW}%`,background:'linear-gradient(90deg,#f5c842,#e8b020)',borderRadius:50,transition:'width 1s ease'}}/>
                           </div>
-                          <span style={{fontSize:9,color:'#f5c842',fontWeight:700,minWidth:24,textAlign:'right'}}>{row.mine}</span>
+                          <span style={{fontSize:9,color:'var(--a-gold)',fontWeight:700,minWidth:24,textAlign:'right'}}>{row.mine}</span>
                         </div>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <span style={{fontSize:8,color:'#42a5f5',fontWeight:700,width:28,flexShrink:0}}>AVG</span>
+                          <span style={{fontSize:8,color:'var(--a-blue)',fontWeight:700,width:28,flexShrink:0}}>AVG</span>
                           <div style={{flex:1,height:6,background:'var(--t-s05)',borderRadius:50,overflow:'hidden'}}>
                             <div style={{height:'100%',width:`${avgW}%`,background:'linear-gradient(90deg,#42a5f5,#2d7ab8)',borderRadius:50,transition:'width 1s ease',opacity:0.85}}/>
                           </div>
-                          <span style={{fontSize:9,color:'#42a5f5',fontWeight:700,minWidth:24,textAlign:'right'}}>{row.avg}</span>
+                          <span style={{fontSize:9,color:'var(--a-blue)',fontWeight:700,minWidth:24,textAlign:'right'}}>{row.avg}</span>
                         </div>
                       </div>
                     </div>
@@ -447,12 +447,12 @@ export default function Stats() {
               {/* Metric grid */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                 {[
-                  {label:'Height', val:profile.height?`${profile.height}cm`:'—', icon:'📏', color:'#42a5f5'},
-                  {label:'Weight', val:profile.weight?`${profile.weight}kg`:'—', icon:'⚖️', color:'#c084fc'},
-                  {label:'Age',    val:profile.age?`${profile.age} yrs`:'—',     icon:'🎂', color:'#fb923c'},
-                  {label:'Stance', val:profile.stance||'—',                      icon:'🥊', color:'#f5c842'},
+                  {label:'Height', val:profile.height?`${profile.height}cm`:'—', icon:'📏', color:'var(--a-blue)'},
+                  {label:'Weight', val:profile.weight?`${profile.weight}kg`:'—', icon:'⚖️', color:'var(--a-purple)'},
+                  {label:'Age',    val:profile.age?`${profile.age} yrs`:'—',     icon:'🎂', color:'var(--a-orange)'},
+                  {label:'Stance', val:profile.stance||'—',                      icon:'🥊', color:'var(--a-gold)'},
                   {label:'Level',  val:currentLevel,                              icon:LEVEL_ICON[currentLevel]||'⭐', color:lc},
-                  {label:'Goal',   val:profile.goal||'—',                        icon:'🎯', color:'#4ade80'},
+                  {label:'Goal',   val:profile.goal||'—',                        icon:'🎯', color:'var(--a-green2)'},
                 ].map((m,i)=>(
                   <div key={i} style={{background:'var(--t-s03)',borderRadius:12,padding:'12px',border:`1px solid ${m.color}22`,display:'flex',flexDirection:'column',gap:4,
                     opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(12px)',transition:`all 0.4s ease ${i*60}ms`}}>
@@ -465,8 +465,8 @@ export default function Stats() {
 
               {/* Training days */}
               <div style={{background:'rgba(232,74,47,0.06)',border:'1px solid rgba(232,74,47,0.15)',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div style={{fontSize:11,fontWeight:700,color:'#e84a2f'}}>⚡ Training Schedule</div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f5c842'}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)'}}>⚡ Training Schedule</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'var(--a-gold)'}}>
                   {profile.daysPerWeek||3}x <span style={{fontSize:12,color:'var(--t-dim3)',fontFamily:'Montserrat,sans-serif',fontWeight:600}}>per week</span>
                 </div>
               </div>
@@ -484,16 +484,16 @@ export default function Stats() {
               <div style={{fontSize:14,fontWeight:700}}>Score Breakdown</div>
               <div style={{fontSize:11,color:'var(--t-dim3)',marginTop:2}}>How your leaderboard score is calculated</div>
             </div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'#f5c842'}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'var(--a-gold)'}}>
               Total: <AnimNum target={myScore}/> pts
             </div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:0}}>
             {[
-              {icon:'🥊',label:'Workouts',      formula:`${totalWorkouts} × 10`,  points:totalWorkouts*10,       color:'#f5c842', max:1000},
-              {icon:'🔥',label:'Streak Bonus',  formula:`${streak} days × 5`,     points:streak*5,               color:'#e84a2f', max:150},
+              {icon:'🥊',label:'Workouts',      formula:`${totalWorkouts} × 10`,  points:totalWorkouts*10,       color:'var(--a-gold)', max:1000},
+              {icon:'🔥',label:'Streak Bonus',  formula:`${streak} days × 5`,     points:streak*5,               color:'var(--a-red)', max:150},
               {icon:'⭐',label:'Division Bonus',formula:currentLevel,              points:levelBonus,             color:lc,        max:1000},
-              {icon:'📅',label:'Weekly Comp.',  formula:`${weeklyPct}% × 1.5`,    points:Math.round(weeklyPct*1.5), color:'#4ade80', max:150},
+              {icon:'📅',label:'Weekly Comp.',  formula:`${weeklyPct}% × 1.5`,    points:Math.round(weeklyPct*1.5), color:'var(--a-green2)', max:150},
             ].map((item,i,arr)=>(
               <div key={i} style={{padding:'20px 22px',borderRight:i<arr.length-1?'1px solid var(--t-s05)':'none',display:'flex',flexDirection:'column',gap:10}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -529,7 +529,7 @@ export default function Stats() {
               <div style={{
                 pointerEvents:'auto',
                 maxWidth:440, width:'90%',
-                background:'linear-gradient(135deg,rgba(28,18,18,0.97),rgba(14,10,10,0.99))',
+                background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
                 borderRadius:20,
                 border:`2px solid ${membershipState===STATUS.EXPIRED?'rgba(232,74,47,0.55)':'rgba(156,163,175,0.45)'}`,
                 boxShadow:'0 30px 80px rgba(0,0,0,0.8), 0 0 60px rgba(232,74,47,0.25)',
@@ -549,7 +549,7 @@ export default function Stats() {
                     ? 'Your membership has expired — performance stats are members-only. Speak with the gym admin to renew and continue tracking your progress.'
                     : 'Your membership is paused. Resume your plan with the admin to see your latest workout breakdowns and progress data.'}
                 </div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 16px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,fontSize:11,color:'#e84a2f',fontWeight:700,letterSpacing:'0.06em'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 16px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,fontSize:11,color:'var(--a-red)',fontWeight:700,letterSpacing:'0.06em'}}>
                   <span>👀</span><span>Preview shown — Renew to track</span>
                 </div>
               </div>

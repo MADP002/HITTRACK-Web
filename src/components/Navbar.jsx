@@ -92,7 +92,7 @@ export default function Navbar({ user }) {
               style={({isActive})=>({position:'relative',width:36,height:36,borderRadius:'50%',background:isActive?'rgba(245,200,66,0.15)':'var(--t-s04)',border:`1px solid ${isActive?'rgba(245,200,66,0.35)':'var(--t-s08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,textDecoration:'none',transition:'all 0.2s'})}>
               💬
               {unread>0 && (
-                <span style={{position:'absolute',top:-4,right:-4,minWidth:18,height:18,borderRadius:50,background:'#e84a2f',color:'#fff',fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 5px',border:'2px solid #0c0a0a',boxShadow:'0 2px 8px rgba(232,74,47,0.4)',fontFamily:'Montserrat,sans-serif'}}>
+                <span style={{position:'absolute',top:-4,right:-4,minWidth:18,height:18,borderRadius:50,background:'#e84a2f',color:'#fff',fontSize:9,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 5px',border:'2px solid var(--t-card2)',boxShadow:'0 2px 8px rgba(232,74,47,0.4)',fontFamily:'Montserrat,sans-serif'}}>
                   {unread>99?'99+':unread}
                 </span>
               )}
@@ -103,7 +103,7 @@ export default function Navbar({ user }) {
               onMouseLeave={e=>e.currentTarget.style.background='var(--t-s04)'}>
               {theme==='light'?'🌙':'☀️'}
             </button>
-            <button onClick={()=>setShowLogout(true)} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:50,padding:'6px 14px',fontSize:11,fontWeight:700,color:'#e84a2f',cursor:'pointer',fontFamily:'Montserrat,sans-serif'}}>Logout</button>
+            <button onClick={()=>setShowLogout(true)} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:50,padding:'6px 14px',fontSize:11,fontWeight:700,color:'var(--a-red)',cursor:'pointer',fontFamily:'Montserrat,sans-serif'}}>Logout</button>
             <div className="nav-avatar" onClick={()=>navigate('/profile')} title="Profile" style={{cursor:'pointer'}}>
               {user?.avatar
                 ? <img src={user.avatar} alt="avatar" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
@@ -119,7 +119,7 @@ export default function Navbar({ user }) {
               style={({isActive})=>({position:'relative',width:38,height:38,borderRadius:'50%',background:isActive?'rgba(245,200,66,0.15)':'var(--t-s04)',border:`1px solid ${isActive?'rgba(245,200,66,0.35)':'var(--t-s08)'}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,textDecoration:'none'})}>
               💬
               {unread>0 && (
-                <span style={{position:'absolute',top:-3,right:-3,minWidth:16,height:16,borderRadius:50,background:'#e84a2f',color:'#fff',fontSize:8,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px',border:'2px solid #0c0a0a'}}>
+                <span style={{position:'absolute',top:-3,right:-3,minWidth:16,height:16,borderRadius:50,background:'#e84a2f',color:'#fff',fontSize:8,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px',border:'2px solid var(--t-card2)'}}>
                   {unread>9?'9+':unread}
                 </span>
               )}
@@ -162,7 +162,7 @@ export default function Navbar({ user }) {
           <div style={{
             position:'fixed',top:0,right:0,bottom:0,zIndex:999,
             width:'min(82%, 320px)',
-            background:'linear-gradient(180deg,#161414 0%,var(--t-card2) 100%)',
+            background:'linear-gradient(180deg,var(--t-card) 0%,var(--t-card2) 100%)',
             borderLeft:'1px solid rgba(232,74,47,0.25)',
             boxShadow:'-20px 0 60px rgba(0,0,0,0.7)',
             display:'flex',flexDirection:'column',
@@ -197,7 +197,7 @@ export default function Navbar({ user }) {
             </div>
             <div style={{padding:'14px 18px',borderTop:'1px solid var(--t-s05)'}}>
               <button onClick={()=>{setMenuOpen(false);setShowLogout(true)}}
-                style={{width:'100%',background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,padding:'13px',fontSize:12,fontWeight:800,color:'#e84a2f',cursor:'pointer',letterSpacing:'0.06em'}}>
+                style={{width:'100%',background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,padding:'13px',fontSize:12,fontWeight:800,color:'var(--a-red)',cursor:'pointer',letterSpacing:'0.06em'}}>
                 LOGOUT
               </button>
             </div>
@@ -215,7 +215,7 @@ export default function Navbar({ user }) {
 
       {showLogout&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Montserrat,sans-serif',padding:16}}>
-          <div style={{background:'linear-gradient(135deg,rgba(22,20,20,0.99),rgba(14,12,12,0.99))',borderRadius:20,border:'1px solid rgba(232,74,47,0.2)',boxShadow:'0 20px 60px rgba(0,0,0,0.6)',padding:isMobile?'30px 24px':'40px',maxWidth:380,width:'100%',textAlign:'center'}}>
+          <div style={{background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:20,border:'1px solid rgba(232,74,47,0.2)',boxShadow:'0 20px 60px rgba(0,0,0,0.6)',padding:isMobile?'30px 24px':'40px',maxWidth:380,width:'100%',textAlign:'center'}}>
             <div style={{fontSize:44,marginBottom:12}}>👋</div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'var(--t-text)',marginBottom:8}}>LOG OUT?</div>
             <div style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.7,marginBottom:24}}>Are you sure you want to sign out of HITTRACK?</div>

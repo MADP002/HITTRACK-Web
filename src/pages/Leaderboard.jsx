@@ -12,7 +12,7 @@ const GOAL_DIVS   = ['All Goals','Learn Boxing','Lose Weight','Build Strength','
 
 const calcScore = levelScore   // alias — canonical scoring
 
-const glass=(e={})=>({background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 8px 40px rgba(0,0,0,0.5)',overflow:'hidden',...e})
+const glass=(e={})=>({background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 8px 40px rgba(0,0,0,0.5)',overflow:'hidden',...e})
 
 function AnimNum({target}){
   const [v,setV]=useState(0)
@@ -27,7 +27,7 @@ function PodiumCard({user,rank,delay=0}){
   const lc=LEVEL_COLOR[user.level]||RANK_COLORS[rank-1]
   const tall=rank===1
   return(
-    <div style={{flex:tall?1.2:1,background:'linear-gradient(160deg,rgba(28,26,26,0.99),rgba(14,12,12,1))',borderRadius:20,
+    <div style={{flex:tall?1.2:1,background:'linear-gradient(160deg,var(--t-card),var(--t-card2))',borderRadius:20,
       border:`1.5px solid ${color}44`,boxShadow:`0 0 0 1px ${color}11,0 16px 48px ${color}22`,
       padding:'20px 16px 18px',display:'flex',flexDirection:'column',alignItems:'center',gap:10,textAlign:'center',
       marginTop:rank===1?0:rank===2?32:48,position:'relative',overflow:'hidden',
@@ -43,7 +43,7 @@ function PodiumCard({user,rank,delay=0}){
         fontFamily:"'Bebas Neue',sans-serif",fontSize:tall?26:18,color,
         boxShadow:`0 0 20px ${color}55`,marginTop:14,position:'relative',zIndex:1}}>
         {(user.name||'?')[0].toUpperCase()}
-        {user.isMe&&<div style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#f5c842',fontSize:8,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid #111'}}>★</div>}
+        {user.isMe&&<div style={{position:'absolute',bottom:-2,right:-2,width:14,height:14,borderRadius:'50%',background:'#f5c842',fontSize:8,display:'flex',alignItems:'center',justifyContent:'center',border:'2px solid var(--t-card2)'}}>★</div>}
       </div>
       <div style={{zIndex:1}}>
         <div style={{fontSize:12,fontWeight:700,color:'var(--t-text)',lineHeight:1.3}}>{user.name}{user.isMe?' (You)':''}</div>
@@ -95,8 +95,8 @@ function LeaderRow({user,maxScore,isMe,idx,divColor}){
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
           <span style={{fontSize:isMobile?11:12,fontWeight:700,color:isMe?'#f5c842':'var(--t-text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:isMobile?100:'none'}}>{user.name}</span>
-          {isMe&&<span style={{fontSize:8,background:'rgba(245,200,66,0.2)',color:'#f5c842',border:'1px solid rgba(245,200,66,0.4)',borderRadius:50,padding:'1px 6px',fontWeight:700}}>YOU</span>}
-          {(user.streak||0)>=14&&<span style={{fontSize:8,background:'rgba(232,74,47,0.15)',color:'#e84a2f',borderRadius:50,padding:'1px 5px',fontWeight:700}}>🔥HOT</span>}
+          {isMe&&<span style={{fontSize:8,background:'rgba(245,200,66,0.2)',color:'var(--a-gold)',border:'1px solid rgba(245,200,66,0.4)',borderRadius:50,padding:'1px 6px',fontWeight:700}}>YOU</span>}
+          {(user.streak||0)>=14&&<span style={{fontSize:8,background:'rgba(232,74,47,0.15)',color:'var(--a-red)',borderRadius:50,padding:'1px 5px',fontWeight:700}}>🔥HOT</span>}
         </div>
         <div style={{fontSize:9,color:'var(--t-dim3)',marginTop:1,display:'flex',gap:6,alignItems:'center'}}>
           <span>{user.goal||'—'}</span>
@@ -179,7 +179,7 @@ function DivisionSection({division,users,myUid,goalFilter,searchQ}){
 
           {/* Full rankings */}
           {filtered.length>0&&(
-            <div style={{background:'linear-gradient(135deg,rgba(28,26,26,0.98),rgba(14,12,12,0.99))',borderRadius:16,border:`1px solid ${color}18`,overflow:'hidden'}}>
+            <div style={{background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:16,border:`1px solid ${color}18`,overflow:'hidden'}}>
               <div style={{display:'flex',padding:isMobile?'9px 12px':'9px 20px',borderBottom:'1px solid var(--t-s04)'}}>
                 {(isMobile
                   ? [{label:'RANK',w:32},{label:'MEMBER',flex:1},{label:'SCORE',w:78}]
@@ -398,7 +398,7 @@ export default function Leaderboard(){
               onFocus={e=>e.target.style.borderColor='rgba(245,200,66,0.4)'}
               onBlur={e=>e.target.style.borderColor='var(--t-s08)'}/>
           </div>
-          {(goalFilter!=='All Goals'||searchQ)&&<button onClick={()=>{setGoalFilter('All Goals');setSearchQ('')}} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:50,padding:'6px 12px',fontSize:11,fontWeight:700,color:'#e84a2f',cursor:'pointer'}}>✕ Clear</button>}
+          {(goalFilter!=='All Goals'||searchQ)&&<button onClick={()=>{setGoalFilter('All Goals');setSearchQ('')}} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.2)',borderRadius:50,padding:'6px 12px',fontSize:11,fontWeight:700,color:'var(--a-red)',cursor:'pointer'}}>✕ Clear</button>}
         </div>
 
         {loading?(
@@ -433,7 +433,7 @@ export default function Leaderboard(){
               <div style={{
                 pointerEvents:'auto',
                 maxWidth:440, width:'90%',
-                background:'linear-gradient(135deg,rgba(28,18,18,0.97),rgba(14,10,10,0.99))',
+                background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
                 borderRadius:20,
                 border:`2px solid ${membershipState===STATUS.EXPIRED?'rgba(232,74,47,0.55)':'rgba(156,163,175,0.45)'}`,
                 boxShadow:'0 30px 80px rgba(0,0,0,0.8), 0 0 60px rgba(232,74,47,0.25)',
@@ -454,7 +454,7 @@ export default function Leaderboard(){
                     ? 'Your membership has expired — leaderboard rankings are members-only. Speak with the gym admin to renew and rejoin the competition.'
                     : 'Your membership is paused. Resume your plan with the admin to see how you stack up against the gym.'}
                 </div>
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 16px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,fontSize:11,color:'#e84a2f',fontWeight:700,letterSpacing:'0.06em'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px 16px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:12,fontSize:11,color:'var(--a-red)',fontWeight:700,letterSpacing:'0.06em'}}>
                   <span>👀</span><span>Preview shown — Renew to compete</span>
                 </div>
               </div>

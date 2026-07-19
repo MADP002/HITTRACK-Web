@@ -25,6 +25,30 @@
   --t-bg:     #1a1a1a;   /* page background            */
   --t-card:   #1a1413;   /* card surface (gradient A)  */
   --t-card2:  #0e0a0a;   /* card surface (gradient B)  */
+  --t-card3:  #2a2424;   /* raised surface / inset     */
+  /* Translucent dark panels (glass). Kept separate from solid surfaces so
+     the blur/gradient look survives the flip. */
+  --t-veil1:  rgba(20,15,14,0.70);
+  --t-veil2:  rgba(40,35,32,0.70);
+  --t-veil3:  rgba(20,15,15,0.45);
+  /* Muted purple used for adaptive-coach body copy — unreadable on white,
+     so it darkens in light mode. */
+  --t-violet: #9d8ec0;
+
+  /* ── ACCENTS ──
+     These are tuned for DARK backgrounds. On white they wash out badly
+     (gold scored 1.59:1 — effectively invisible), so light mode uses
+     darkened variants of the same hues. Every light value clears WCAG AA
+     (>=4.5:1) both as text on white AND as a fill behind white text. */
+  --a-red:     #e84a2f;
+  --a-red-dk:  #c93820;
+  --a-gold:    #f5c842;
+  --a-gold-dk: #e08820;
+  --a-blue:    #42a5f5;
+  --a-green:   #22c55e;
+  --a-green2:  #4ade80;
+  --a-purple:  #c084fc;
+  --a-orange:  #fb923c;
   --t-text:   #f0ece8;   /* primary text               */
   --t-muted:  #7a7570;   /* secondary text             */
   --t-muted2: #b0ada8;   /* secondary text (lighter)   */
@@ -58,7 +82,23 @@
 
   --t-bg:     #f4f1ec;
   --t-card:   #ffffff;
-  --t-card2:  #f7f4ef;
+  --t-card2:  #faf8f4;
+  --t-card3:  #efeae1;
+  --t-veil1:  rgba(255,255,255,0.82);
+  --t-veil2:  rgba(0,0,0,0.045);
+  --t-veil3:  rgba(0,0,0,0.035);
+  --t-violet: #6b5a8f;
+
+  /* Darkened accents — all >=4.5:1 on white (see the dark block above). */
+  --a-red:     #c0341b;
+  --a-red-dk:  #a32a13;
+  --a-gold:    #856100;
+  --a-gold-dk: #8a5200;
+  --a-blue:    #1565c0;
+  --a-green:   #157f3c;
+  --a-green2:  #157f3c;
+  --a-purple:  #6d28d9;
+  --a-orange:  #b04a06;
   --t-text:   #241d19;
   --t-muted:  #6b645b;
   --t-muted2: #4a453d;

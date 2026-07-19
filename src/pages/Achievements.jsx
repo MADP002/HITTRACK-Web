@@ -14,7 +14,7 @@ import { getMemberLevel, levelScore } from '../lib/memberLevel'
 // ════════════════════════════════════════════════════════
 
 const glass = (extra={}) => ({
-  background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
+  background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
   boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
@@ -57,19 +57,19 @@ const BADGES = [
 
 const RARITY = {
   common:    { name:'Common',    color:'#b0bec5', glow:'rgba(176,190,197,0.35)', stars:1 },
-  uncommon:  { name:'Uncommon',  color:'#22c55e', glow:'rgba(34,197,94,0.4)',    stars:2 },
-  rare:      { name:'Rare',      color:'#42a5f5', glow:'rgba(66,165,245,0.45)',  stars:3 },
-  epic:      { name:'Epic',      color:'#c084fc', glow:'rgba(192,132,252,0.5)',  stars:4 },
-  legendary: { name:'Legendary', color:'#f5c842', glow:'rgba(245,200,66,0.6)',   stars:5 },
+  uncommon:  { name:'Uncommon',  color:'var(--a-green)', glow:'rgba(34,197,94,0.4)',    stars:2 },
+  rare:      { name:'Rare',      color:'var(--a-blue)', glow:'rgba(66,165,245,0.45)',  stars:3 },
+  epic:      { name:'Epic',      color:'var(--a-purple)', glow:'rgba(192,132,252,0.5)',  stars:4 },
+  legendary: { name:'Legendary', color:'var(--a-gold)', glow:'rgba(245,200,66,0.6)',   stars:5 },
 }
 
 const CATEGORIES = [
-  { id:'All',         icon:'🏆', color:'#f5c842' },
-  { id:'Milestones',  icon:'🥊', color:'#e84a2f' },
-  { id:'Streaks',     icon:'🔥', color:'#e84a2f' },
-  { id:'Levels',      icon:'⚡', color:'#42a5f5' },
-  { id:'Consistency', icon:'📅', color:'#22c55e' },
-  { id:'Rankings',    icon:'📊', color:'#c084fc' },
+  { id:'All',         icon:'🏆', color:'var(--a-gold)' },
+  { id:'Milestones',  icon:'🥊', color:'var(--a-red)' },
+  { id:'Streaks',     icon:'🔥', color:'var(--a-red)' },
+  { id:'Levels',      icon:'⚡', color:'var(--a-blue)' },
+  { id:'Consistency', icon:'📅', color:'var(--a-green)' },
+  { id:'Rankings',    icon:'📊', color:'var(--a-purple)' },
 ]
 
 // Level + score come from the shared canonical helper (lib/memberLevel).
@@ -164,7 +164,7 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
       <div style={{position:'relative', display:'flex', justifyContent:'center', marginTop:8, marginBottom:2}}>
         <div style={{
           position:'relative', width:78, height:78, borderRadius:18,
-          background: unlocked ? `linear-gradient(135deg,${r.color},${r.color}88)` : 'rgba(40,35,32,0.7)',
+          background: unlocked ? `linear-gradient(135deg,${r.color},${r.color}88)` : 'var(--t-veil2)',
           border: `2px solid ${unlocked?r.color:'var(--t-s08)'}`,
           display:'flex', alignItems:'center', justifyContent:'center',
           fontSize:36,
@@ -199,7 +199,7 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
         </div>
         {unlocked ? (
           <div style={{display:'flex', justifyContent:'center'}}>
-            <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:`linear-gradient(135deg,${r.color},${r.color}cc)`, color:'#0a0808', letterSpacing:'0.1em', boxShadow:`0 4px 12px ${r.glow}`}}>
+            <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:`linear-gradient(135deg,${r.color},${r.color}cc)`, color:'var(--t-card2)', letterSpacing:'0.1em', boxShadow:`0 4px 12px ${r.glow}`}}>
               ✓ UNLOCKED
             </span>
           </div>
@@ -385,9 +385,9 @@ export default function Achievements() {
           </div>
           <div style={{display:'flex', gap:10, position:'relative', zIndex:1, flexWrap:'wrap'}}>
             {[
-              {label:'Unlocked',   val:`${unlockedCount}/${BADGES.length}`,  color:'#f5c842'},
-              {label:'Total XP',   val:totalXP.toLocaleString(),             color:'#22c55e'},
-              {label:'Completion', val:`${completionPct}%`,                  color:'#e84a2f'},
+              {label:'Unlocked',   val:`${unlockedCount}/${BADGES.length}`,  color:'var(--a-gold)'},
+              {label:'Total XP',   val:totalXP.toLocaleString(),             color:'var(--a-green)'},
+              {label:'Completion', val:`${completionPct}%`,                  color:'var(--a-red)'},
             ].map((st,i) => (
               <div key={i} style={{textAlign:'center', background:'var(--t-s04)', border:`1px solid ${st.color}33`, borderRadius:14, padding:'12px 18px', minWidth:96}}>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:st.color, lineHeight:1, textShadow:`0 0 12px ${st.color}66`}}>{st.val}</div>
@@ -409,7 +409,7 @@ export default function Achievements() {
               <div style={{position:'absolute', bottom:-80, left:-80, width:320, height:320, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, pointerEvents:'none', opacity:0.5}}/>
               <div style={{position:'relative', flexShrink:0}}>
                 <div style={{position:'absolute', inset:-20, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, animation:'pulseTrophy 2.5s ease-in-out infinite', pointerEvents:'none'}}/>
-                <div style={{position:'relative', width:160, height:160, borderRadius:30, background:isUnlocked?`linear-gradient(135deg,${r.color},${r.color}88)`:'rgba(40,35,32,0.8)', border:`3px solid ${r.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:72, boxShadow:`0 12px 40px ${r.glow},inset 0 4px 12px rgba(255,255,255,0.15)`, filter:isUnlocked?'none':'grayscale(0.7) brightness(0.6)'}}>
+                <div style={{position:'relative', width:160, height:160, borderRadius:30, background:isUnlocked?`linear-gradient(135deg,${r.color},${r.color}88)`:'var(--t-veil2)', border:`3px solid ${r.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:72, boxShadow:`0 12px 40px ${r.glow},inset 0 4px 12px rgba(255,255,255,0.15)`, filter:isUnlocked?'none':'grayscale(0.7) brightness(0.6)'}}>
                   {featured.icon}
                   {!isUnlocked && (
                     <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.45)', borderRadius:30}}>
@@ -434,7 +434,7 @@ export default function Achievements() {
                 <div style={{fontSize:13, color:'var(--t-dim1)', lineHeight:1.6, marginBottom:14}}>{featured.desc}</div>
                 {isUnlocked ? (
                   <div style={{display:'flex', gap:10, alignItems:'center'}}>
-                    <div style={{padding:'8px 16px', background:`linear-gradient(135deg,${r.color},${r.color}aa)`, borderRadius:50, fontSize:11, fontWeight:800, color:'#0a0808', letterSpacing:'0.1em', boxShadow:`0 4px 14px ${r.glow}`}}>✓ UNLOCKED</div>
+                    <div style={{padding:'8px 16px', background:`linear-gradient(135deg,${r.color},${r.color}aa)`, borderRadius:50, fontSize:11, fontWeight:800, color:'var(--t-card2)', letterSpacing:'0.1em', boxShadow:`0 4px 14px ${r.glow}`}}>✓ UNLOCKED</div>
                     <span style={{fontSize:10, color:'var(--t-dim2)'}}>Tap to view details 🥊</span>
                   </div>
                 ) : (
@@ -457,7 +457,7 @@ export default function Achievements() {
         <div style={{...glass({borderRadius:14}), padding:'14px 22px'}}>
           <div style={{display:'flex', justifyContent:'space-between', marginBottom:8, alignItems:'baseline'}}>
             <span style={{fontSize:10, fontWeight:800, color:'var(--t-dim2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>Overall XP Progress</span>
-            <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, color:'#f5c842', letterSpacing:'0.04em'}}>{totalXP.toLocaleString()} <span style={{color:'var(--t-dim3)'}}>/ {totalPossibleXP.toLocaleString()} XP</span></span>
+            <span style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:14, color:'var(--a-gold)', letterSpacing:'0.04em'}}>{totalXP.toLocaleString()} <span style={{color:'var(--t-dim3)'}}>/ {totalPossibleXP.toLocaleString()} XP</span></span>
           </div>
           <div style={{height:10, background:'var(--t-s06)', borderRadius:50, overflow:'hidden', position:'relative', border:'1px solid var(--t-s04)'}}>
             <div style={{position:'absolute', inset:0, background:'repeating-linear-gradient(90deg,transparent,transparent 40px,var(--t-s03) 40px,var(--t-s03) 41px)'}}/>
@@ -479,7 +479,7 @@ export default function Achievements() {
               <div key={key} style={{position:'relative', overflow:'hidden', padding:'12px 14px', background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border:`1px solid ${r.color}25`, borderRadius:12, display:'flex', alignItems:'center', gap:10, transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', cursor:'default'}}
                 onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.borderColor=r.color+'66'; e.currentTarget.style.boxShadow=`0 8px 24px ${r.glow}`}}
                 onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.borderColor=r.color+'25'; e.currentTarget.style.boxShadow='none'}}>
-                <div style={{width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${r.color},${r.color}aa)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#0a0808', flexShrink:0, fontFamily:"'Bebas Neue',sans-serif", fontSize:18, fontWeight:800, boxShadow:`0 4px 12px ${r.glow}`}}>
+                <div style={{width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${r.color},${r.color}aa)`, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t-card2)', flexShrink:0, fontFamily:"'Bebas Neue',sans-serif", fontSize:18, fontWeight:800, boxShadow:`0 4px 12px ${r.glow}`}}>
                   {got}
                 </div>
                 <div style={{flex:1, minWidth:0}}>
@@ -576,7 +576,7 @@ export default function Achievements() {
               <div style={{position:'relative'}}>
                 <div style={{position:'relative', display:'inline-block', marginBottom:20}}>
                   {showcase.unlocked && <div style={{position:'absolute', inset:-20, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, animation:'pulseTrophy 2.5s ease-in-out infinite'}}/>}
-                  <div style={{position:'relative', width:140, height:140, borderRadius:26, background:showcase.unlocked?`linear-gradient(135deg,${r.color},${r.color}88)`:'rgba(40,35,32,0.8)', border:`3px solid ${r.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:64, boxShadow:`0 12px 36px ${r.glow},inset 0 4px 10px rgba(255,255,255,0.15)`, filter:showcase.unlocked?'none':'grayscale(0.7) brightness(0.6)'}}>
+                  <div style={{position:'relative', width:140, height:140, borderRadius:26, background:showcase.unlocked?`linear-gradient(135deg,${r.color},${r.color}88)`:'var(--t-veil2)', border:`3px solid ${r.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:64, boxShadow:`0 12px 36px ${r.glow},inset 0 4px 10px rgba(255,255,255,0.15)`, filter:showcase.unlocked?'none':'grayscale(0.7) brightness(0.6)'}}>
                     {showcase.icon}
                     {!showcase.unlocked && <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,0.45)', borderRadius:26}}><span style={{fontSize:46}}>🔒</span></div>}
                   </div>
@@ -585,7 +585,7 @@ export default function Achievements() {
                   <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:`${r.color}22`, color:r.color, border:`1px solid ${r.color}55`, letterSpacing:'0.1em'}}>
                     {Array.from({length:r.stars}).map(()=>'★').join('')} {r.name.toUpperCase()}
                   </span>
-                  <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:'rgba(245,200,66,0.15)', color:'#f5c842', border:'1px solid rgba(245,200,66,0.35)', letterSpacing:'0.1em'}}>
+                  <span style={{fontSize:9, fontWeight:800, padding:'4px 12px', borderRadius:50, background:'rgba(245,200,66,0.15)', color:'var(--a-gold)', border:'1px solid rgba(245,200,66,0.35)', letterSpacing:'0.1em'}}>
                     +{showcase.xp} XP
                   </span>
                 </div>
