@@ -337,6 +337,22 @@ export default function Home() {
 
   const visibleAnnouncements = announcements.filter(n => !dismissedAnnouncements.includes(n.id))
 
+  // ── Promos — admin-authored offers shown as a banner ──
+  // A promo is live when it's active AND not past validUntil. Expiry is
+  // DERIVED from the date, never stored (same rule as membership state).
+  const [promos, setPromos] = useState([])
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'promos'), (snap) => {
+      const now = Date.now()
+      setPromos(
+        snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(p => p.active && (!p.validUntil || new Date(p.validUntil + 'T23:59:59').getTime() >= now))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+      )
+    }, () => {})
+    return () => unsub()
+  }, [])
+
   async function dismissAnnouncement(notifId) {
     const user = auth.currentUser
     if (!user) return
@@ -2234,6 +2250,32 @@ export default function Home() {
               </div>
             )}
           </div>
+
+          {/* PROMOS — admin-authored offers, only shown when live */}
+          {promos.length > 0 && (
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {promos.map(p => (
+                <div key={p.id} style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,rgba(192,132,252,0.16) 0%,rgba(26,20,19,0.9) 55%)',border:'1px solid rgba(192,132,252,0.4)',boxShadow:'0 12px 40px rgba(0,0,0,0.5),0 0 30px rgba(192,132,252,0.08)',padding:'16px 20px 16px 24px',display:'flex',alignItems:'center',gap:16}}>
+                  <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#c084fc,#8b3ff0)'}}/>
+                  <div style={{fontSize:26,flexShrink:0}}>🎉</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:'0.05em',color:'#f0ece8'}}>{p.title}</span>
+                      {p.highlight && (
+                        <span style={{fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:50,background:'rgba(192,132,252,0.22)',color:'#d8b4fe',border:'1px solid rgba(192,132,252,0.45)',letterSpacing:'0.06em'}}>{p.highlight}</span>
+                      )}
+                    </div>
+                    <div style={{fontSize:12,color:'#c9c2ba',marginTop:5,lineHeight:1.6}}>{p.message}</div>
+                    {p.validUntil && (
+                      <div style={{fontSize:10,color:'#8a7fa0',marginTop:6,fontWeight:600,letterSpacing:'0.04em'}}>
+                        Valid until {new Date(p.validUntil+'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'})}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* GYM ANNOUNCEMENTS — always visible */}
           <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>

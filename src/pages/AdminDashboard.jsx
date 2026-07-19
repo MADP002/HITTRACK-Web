@@ -156,6 +156,11 @@ export default function AdminDashboard() {
   // Daily printable report
   const [showReport,setShowReport] = useState(false)
   const [reportDate,setReportDate] = useState(() => new Date().toISOString().split('T')[0])
+  // Promos — marketing banners members see on their home screen
+  const [promos,setPromos]           = useState([])
+  const [showPromo,setShowPromo]     = useState(false)
+  const [editingPromoId,setEditingPromoId] = useState(null)
+  const [promoForm,setPromoForm]     = useState({title:'',message:'',highlight:'',validUntil:''})
   // Admin-created coach accounts (coaches are no longer created via public signup)
   const [showAddCoach,setShowAddCoach] = useState(false)
   const [coachSaving,setCoachSaving]   = useState(false)
@@ -318,6 +323,15 @@ export default function AdminDashboard() {
       const ns=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
       setNotifs(ns)
     },(e)=>console.error('Notif listener:',e))
+    return()=>unsub()
+  },[])
+
+  // Load promos with real-time (member-facing marketing banners)
+  useEffect(()=>{
+    const unsub=onSnapshot(collection(db,'promos'),(snap)=>{
+      const items=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
+      setPromos(items)
+    },(e)=>console.error('Promo listener:',e))
     return()=>unsub()
   },[])
 
@@ -709,6 +723,57 @@ export default function AdminDashboard() {
       showToast('🗑 Coach application rejected')
       loadAll()
     }catch(e){showToast('❌ Error','error')}
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  PROMOS — admin-authored marketing banners shown to members on
+  //  their home screen (web + mobile). A promo is visible when it is
+  //  active AND not past its validUntil date; expiry is DERIVED from
+  //  the date, never stored as a status (same rule as memberships).
+  // ════════════════════════════════════════════════════════
+  async function savePromo(){
+    if(!promoForm.title.trim()||!promoForm.message.trim()){showToast('❌ Fill in title and message','error');return}
+    try{
+      if(editingPromoId){
+        await updateDoc(doc(db,'promos',editingPromoId),{
+          title:promoForm.title.trim(), message:promoForm.message.trim(),
+          highlight:promoForm.highlight.trim(), validUntil:promoForm.validUntil||null,
+          editedAt:serverTimestamp(), editedBy:adminProfile.name||'Admin',
+        })
+        showToast('✏️ Promo updated!')
+      }else{
+        const ref=doc(collection(db,'promos'))
+        await setDoc(ref,{
+          id:ref.id,
+          title:promoForm.title.trim(), message:promoForm.message.trim(),
+          highlight:promoForm.highlight.trim(), validUntil:promoForm.validUntil||null,
+          active:true,
+          createdAt:serverTimestamp(), createdBy:adminProfile.name||'Admin',
+        })
+        showToast('🎉 Promo published — members will see it on their home screen')
+      }
+      setShowPromo(false); setEditingPromoId(null)
+      setPromoForm({title:'',message:'',highlight:'',validUntil:''})
+    }catch(e){showToast('❌ Could not save promo','error')}
+  }
+
+  async function togglePromo(p){
+    try{
+      await updateDoc(doc(db,'promos',p.id),{active:!p.active})
+      showToast(p.active?'⏸ Promo hidden from members':'▶ Promo is now live')
+    }catch(e){showToast('❌ Error','error')}
+  }
+
+  async function deletePromo(id){
+    try{ await deleteDoc(doc(db,'promos',id)); showToast('🗑 Promo deleted') }
+    catch(e){ showToast('❌ Error','error') }
+  }
+
+  // A promo is live if it's active and hasn't passed its end date.
+  function isPromoLive(p){
+    if(!p?.active) return false
+    if(!p.validUntil) return true
+    return new Date(p.validUntil+'T23:59:59').getTime() >= Date.now()
   }
 
   // Subscription filter — 'expiring' is a derived window, the rest map
@@ -2580,6 +2645,7 @@ export default function AdminDashboard() {
             <div style={{display:'flex',gap:6,padding:6,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:14,border:'1px solid rgba(255,255,255,0.06)'}}>
               {[
                 {id:'announcements', icon:'📢', label:'ANNOUNCEMENTS', count:realAnnouncements.length, color:'#f5c842', sub:'Manual gym news'},
+                {id:'promos',        icon:'🎉', label:'PROMOS',         count:promos.filter(isPromoLive).length, color:'#c084fc', sub:'Member offers'},
                 {id:'activity',      icon:'⚡', label:'ACTIVITY FEED',  count:activity.length, color:'#42a5f5', sub:'System events'},
               ].map(t => {
                 const active = notifSubTab === t.id
@@ -2613,6 +2679,65 @@ export default function AdminDashboard() {
                 📢 POST ANNOUNCEMENT
               </button>
             </div></>)}
+
+            {/* ── PROMOS TAB CONTENT ── */}
+            {notifSubTab==='promos' && (
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.06em',color:'#f0ece8'}}>🎉 PROMOS</div>
+                    <span style={{fontSize:9,fontWeight:800,padding:'3px 9px',borderRadius:50,background:'rgba(192,132,252,0.15)',color:'#c084fc',letterSpacing:'0.08em'}}>{promos.filter(isPromoLive).length} LIVE</span>
+                  </div>
+                  <button onClick={()=>{setEditingPromoId(null);setPromoForm({title:'',message:'',highlight:'',validUntil:''});setShowPromo(true)}}
+                    style={{background:'linear-gradient(135deg,#c084fc,#8b3ff0)',color:'#fff',border:'none',borderRadius:50,padding:'10px 22px',fontSize:12,fontWeight:800,letterSpacing:'0.05em',cursor:'pointer',boxShadow:'0 6px 20px rgba(192,132,252,0.4)',transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}
+                    onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px) scale(1.02)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0) scale(1)'}}>
+                    🎉 NEW PROMO
+                  </button>
+                </div>
+
+                <div style={{background:'rgba(192,132,252,0.06)',border:'1px solid rgba(192,132,252,0.2)',borderRadius:12,padding:'10px 14px',fontSize:11,color:'#c084fc',lineHeight:1.6}}>
+                  Live promos appear as a banner on every member's home screen (web + mobile). Hide one to pull it without deleting it.
+                </div>
+
+                {promos.length===0 ? (
+                  <div style={{textAlign:'center',color:'#555',fontSize:12,padding:50,background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:18,border:'1px solid rgba(255,255,255,0.06)'}}>
+                    No promos yet — create one to advertise an offer to members.
+                  </div>
+                ) : promos.map(p=>{
+                  const live = isPromoLive(p)
+                  const expired = p.active && p.validUntil && !live
+                  return (
+                    <div key={p.id} style={{background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:16,border:`1px solid ${live?'rgba(192,132,252,0.35)':'rgba(255,255,255,0.07)'}`,padding:'16px 20px',display:'flex',alignItems:'flex-start',gap:14,opacity:live?1:0.65}}>
+                      <div style={{fontSize:24,flexShrink:0}}>{live?'🎉':expired?'⌛':'⏸'}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                          <span style={{fontSize:14,fontWeight:800,color:'#f0ece8'}}>{p.title}</span>
+                          {p.highlight&&<span style={{fontSize:10,fontWeight:800,padding:'2px 9px',borderRadius:50,background:'rgba(192,132,252,0.18)',color:'#c084fc',border:'1px solid rgba(192,132,252,0.35)'}}>{p.highlight}</span>}
+                          <span style={{fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:50,letterSpacing:'0.08em',background:live?'rgba(74,222,128,0.15)':'rgba(255,255,255,0.05)',color:live?'#4ade80':'#888'}}>
+                            {live?'LIVE':expired?'EXPIRED':'HIDDEN'}
+                          </span>
+                        </div>
+                        <div style={{fontSize:12,color:'#aaa',marginTop:5,lineHeight:1.6}}>{p.message}</div>
+                        <div style={{fontSize:10,color:'#666',marginTop:6}}>
+                          {p.validUntil?`Valid until ${p.validUntil}`:'No end date'} · by {p.createdBy||'Admin'}
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:6,flexShrink:0}}>
+                        <button onClick={()=>{setEditingPromoId(p.id);setPromoForm({title:p.title||'',message:p.message||'',highlight:p.highlight||'',validUntil:p.validUntil||''});setShowPromo(true)}}
+                          style={{background:'rgba(66,165,245,0.1)',border:'1px solid rgba(66,165,245,0.3)',borderRadius:50,padding:'6px 12px',fontSize:10,fontWeight:700,color:'#42a5f5',cursor:'pointer'}}>✏️ Edit</button>
+                        <button onClick={()=>togglePromo(p)}
+                          style={{background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.3)',borderRadius:50,padding:'6px 12px',fontSize:10,fontWeight:700,color:'#f5c842',cursor:'pointer'}}>
+                          {p.active?'⏸ Hide':'▶ Show'}
+                        </button>
+                        <button onClick={()=>setConfirm({title:'Delete Promo?',message:`Delete "${p.title}"? This cannot be undone.`,danger:true,onConfirm:()=>deletePromo(p.id)})}
+                          style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.3)',borderRadius:50,padding:'6px 12px',fontSize:10,fontWeight:700,color:'#e84a2f',cursor:'pointer'}}>🗑</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* ACTIVITY TAB HEADER */}
             {notifSubTab==='activity' && (
@@ -2917,6 +3042,58 @@ export default function AdminDashboard() {
           </div>
         )
       })()}
+
+      {/* ── PROMO CREATE / EDIT ── */}
+      {showPromo&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div style={{...glass(),padding:'34px 38px',width:'100%',maxWidth:520,border:'1px solid rgba(192,132,252,0.3)'}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:26,color:'#f0ece8',marginBottom:4,letterSpacing:'0.06em'}}>
+              {editingPromoId?'✏️ EDIT PROMO':'🎉 NEW PROMO'}
+            </div>
+            <div style={{fontSize:12,color:'#555',marginBottom:20,lineHeight:1.6}}>
+              This appears as a banner on every member's home screen, on both web and mobile.
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>Title</label>
+              <input placeholder="e.g. Summer Sale" value={promoForm.title}
+                onChange={e=>setPromoForm(p=>({...p,title:e.target.value}))} style={inp}
+                onFocus={e=>e.target.style.borderColor='#c084fc'} onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.12)'}/>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>Message</label>
+              <textarea placeholder="e.g. Get 20% off any 3-month plan when you renew this month." rows={3} value={promoForm.message}
+                onChange={e=>setPromoForm(p=>({...p,message:e.target.value}))} style={{...inp,resize:'vertical'}}
+                onFocus={e=>e.target.style.borderColor='#c084fc'} onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.12)'}/>
+            </div>
+
+            <div style={{display:'flex',gap:12,marginBottom:14}}>
+              <div style={{flex:1}}>
+                <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>Badge (optional)</label>
+                <input placeholder="e.g. 20% OFF" value={promoForm.highlight}
+                  onChange={e=>setPromoForm(p=>({...p,highlight:e.target.value}))} style={inp}
+                  onFocus={e=>e.target.style.borderColor='#c084fc'} onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.12)'}/>
+              </div>
+              <div style={{flex:1}}>
+                <label style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.1em',textTransform:'uppercase',display:'block',marginBottom:6}}>Valid Until (optional)</label>
+                <input type="date" value={promoForm.validUntil}
+                  onChange={e=>setPromoForm(p=>({...p,validUntil:e.target.value}))} style={{...inp,colorScheme:'dark'}}
+                  onFocus={e=>e.target.style.borderColor='#c084fc'} onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.12)'}/>
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:10,marginTop:18}}>
+              <button onClick={savePromo}
+                style={{background:'linear-gradient(135deg,#c084fc,#8b3ff0)',color:'#fff',border:'none',borderRadius:50,padding:'12px 28px',fontSize:13,fontWeight:700,cursor:'pointer',boxShadow:'0 4px 16px rgba(192,132,252,0.3)'}}>
+                {editingPromoId?'Save Changes ✏️':'Publish Promo 🎉'}
+              </button>
+              <button onClick={()=>{setShowPromo(false);setEditingPromoId(null);setPromoForm({title:'',message:'',highlight:'',validUntil:''})}}
+                style={{background:'transparent',color:'#555',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px 22px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ADD COACH (admin-only coach account creation) ── */}
       {showAddCoach&&(

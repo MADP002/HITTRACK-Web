@@ -144,6 +144,15 @@ service cloud.firestore {
                     );
     }
 
+    // PROMOS — member-facing marketing banners.
+    // Any signed-in user can READ (members need them for the home banner),
+    // but only an admin may create/edit/delete them.
+    match /promos/{promoId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     // ADAPTIVE DECISIONS — owner writes & reads their own; coach/admin can read for analysis.
     match /adaptiveDecisions/{decisionId} {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
