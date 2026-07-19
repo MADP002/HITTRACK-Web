@@ -151,6 +151,11 @@ export default function AdminDashboard() {
   const [members,setMembers]   = useState([])
   const [coaches,setCoaches]   = useState([])
   const [pending,setPending]   = useState([])
+  // Subscription status filter on the Memberships tab (null = show all)
+  const [subFilter,setSubFilter] = useState(null)
+  // Daily printable report
+  const [showReport,setShowReport] = useState(false)
+  const [reportDate,setReportDate] = useState(() => new Date().toISOString().split('T')[0])
   // Admin-created coach accounts (coaches are no longer created via public signup)
   const [showAddCoach,setShowAddCoach] = useState(false)
   const [coachSaving,setCoachSaving]   = useState(false)
@@ -706,6 +711,19 @@ export default function AdminDashboard() {
     }catch(e){showToast('❌ Error','error')}
   }
 
+  // Subscription filter — 'expiring' is a derived window, the rest map
+  // straight onto the derived membership state.
+  function matchesSubFilter(m, f){
+    if(!f) return true
+    const st = computeMembershipState(m.membership)
+    if(f === 'expiring'){
+      if(st !== STATUS.ACTIVE && st !== STATUS.TRIAL) return false
+      const d = daysRemaining(m.membership)
+      return d !== null && d >= 0 && d <= 7
+    }
+    return st === f
+  }
+
   // ════════════════════════════════════════════════════════
   //  ADMIN-CREATED COACH ACCOUNTS
   //  Coaches are NOT created through public signup — the admin adds
@@ -748,7 +766,12 @@ export default function AdminDashboard() {
         createdByAdmin:  true,
         createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
       })
-      try{ await logActivity(ACTIVITY_TYPES.COACH_ADDED ?? 'coach_added',{ actorName:'Admin', targetName:coachForm.name.trim(), detail:`Coach account created for ${email}` }) }catch(_){}
+      try{
+        await logActivity({
+          type:'coach_added', actorName:'Admin', actorRole:'admin',
+          payload:{ coachName:coachForm.name.trim(), coachEmail:email, specialization:coachForm.specialization.trim() },
+        })
+      }catch(_){}
       showToast(`✅ Coach "${coachForm.name.trim()}" created. Share the temp password — they must verify their email before logging in.`)
       setShowAddCoach(false)
       setCoachForm({ name:'', email:'', phone:'', password:'', experienceYears:'', specialization:'', certifications:'', bio:'' })
@@ -1651,6 +1674,7 @@ export default function AdminDashboard() {
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
             <span style={{fontSize:12,color:'#555'}}>Admin: <strong style={{color:'#f0ece8'}}>{adminProfile.name}</strong></span>
+            <button onClick={()=>setShowReport(true)} title="Daily printable report" style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.25)',borderRadius:50,padding:'7px 14px',fontSize:11,fontWeight:700,color:'#4ade80',cursor:'pointer'}}>🖨 Daily Report</button>
             <button onClick={()=>setShowNotif(true)} style={{background:'rgba(245,200,66,0.1)',border:'1px solid rgba(245,200,66,0.25)',borderRadius:50,padding:'7px 14px',fontSize:11,fontWeight:700,color:'#f5c842',cursor:'pointer'}}>📢 Announce</button>
             <button onClick={()=>setLogoutConfirm(true)} style={{background:'rgba(232,74,47,0.1)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:50,padding:'7px 14px',fontSize:11,fontWeight:700,color:'#e84a2f',cursor:'pointer'}}>Logout →</button>
           </div>
@@ -2374,20 +2398,27 @@ export default function AdminDashboard() {
               }).length
               return (
                 <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10}}>
+                  {/* Tappable = filter the roster below by that status */}
                   {[
-                    {label:'Active',   val:active,   color:'#4ade80', icon:'✅'},
-                    {label:'Trial',    val:trial,    color:'#42a5f5', icon:'🎁'},
-                    {label:'Expiring', val:expiring, color:'#f5c842', icon:'⚠'},
-                    {label:'Expired',  val:expired,  color:'#e84a2f', icon:'🔒'},
-                    {label:'Paused',   val:paused,   color:'#9ca3af', icon:'⏸'},
-                  ].map((s,i)=>(
-                    <div key={i} style={{background:`linear-gradient(135deg,${s.color}10,transparent 70%)`,border:`1px solid ${s.color}30`,borderRadius:14,padding:'14px 16px'}}>
-                      <div style={{fontSize:9,color:'#666',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:6}}>
+                    {key:'active',   label:'Active',   val:active,   color:'#4ade80', icon:'✅'},
+                    {key:'trial',    label:'Trial',    val:trial,    color:'#42a5f5', icon:'🎁'},
+                    {key:'expiring', label:'Expiring', val:expiring, color:'#f5c842', icon:'⚠'},
+                    {key:'expired',  label:'Expired',  val:expired,  color:'#e84a2f', icon:'🔒'},
+                    {key:'paused',   label:'Paused',   val:paused,   color:'#9ca3af', icon:'⏸'},
+                  ].map((s,i)=>{
+                    const on = subFilter === s.key
+                    return (
+                    <div key={i} onClick={()=>setSubFilter(on?null:s.key)} title={on?'Clear filter':`Show only ${s.label.toLowerCase()}`}
+                      style={{background:on?`linear-gradient(135deg,${s.color}26,transparent 70%)`:`linear-gradient(135deg,${s.color}10,transparent 70%)`,border:`1px solid ${s.color}${on?'88':'30'}`,borderRadius:14,padding:'14px 16px',cursor:'pointer',transition:'all 0.2s',boxShadow:on?`0 0 0 1px ${s.color}44`:'none'}}
+                      onMouseEnter={e=>{if(!on)e.currentTarget.style.borderColor=`${s.color}66`}}
+                      onMouseLeave={e=>{if(!on)e.currentTarget.style.borderColor=`${s.color}30`}}>
+                      <div style={{fontSize:9,color:on?s.color:'#666',fontWeight:800,letterSpacing:'0.12em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:6}}>
                         <span>{s.icon}</span>{s.label}
                       </div>
                       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:s.color,letterSpacing:'0.04em',marginTop:4,lineHeight:1}}>{s.val}</div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )
             })()}
@@ -2462,16 +2493,27 @@ export default function AdminDashboard() {
                   <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:'#f0ece8',letterSpacing:'0.06em'}}>💳 MEMBERSHIPS</div>
                   <div style={{fontSize:10,color:'#666',marginTop:2}}>Extend (cash), pause/resume, remind</div>
                 </div>
-                <div style={{fontSize:11,color:'#888'}}>
-                  {members.filter(m=>m.role==='member').length} total members
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  {subFilter && (
+                    <button onClick={()=>setSubFilter(null)}
+                      style={{background:'rgba(245,200,66,0.12)',border:'1px solid rgba(245,200,66,0.35)',borderRadius:50,padding:'5px 12px',fontSize:10,fontWeight:700,color:'#f5c842',cursor:'pointer',letterSpacing:'0.04em'}}>
+                      Filter: {subFilter} ✕
+                    </button>
+                  )}
+                  <div style={{fontSize:11,color:'#888'}}>
+                    {members.filter(m=>m.role==='member'&&matchesSubFilter(m,subFilter)).length}
+                    {subFilter ? ` of ${members.filter(m=>m.role==='member').length}` : ' total'} members
+                  </div>
                 </div>
               </div>
 
               <div style={{maxHeight:600,overflowY:'auto'}}>
-                {members.filter(m=>m.role==='member').length === 0 ? (
-                  <div style={{textAlign:'center',color:'#555',fontSize:12,padding:40}}>No members yet</div>
+                {members.filter(m=>m.role==='member'&&matchesSubFilter(m,subFilter)).length === 0 ? (
+                  <div style={{textAlign:'center',color:'#555',fontSize:12,padding:40}}>
+                    {subFilter ? `No ${subFilter} members` : 'No members yet'}
+                  </div>
                 ) : (
-                  members.filter(m=>m.role==='member')
+                  members.filter(m=>m.role==='member'&&matchesSubFilter(m,subFilter))
                     .sort((a,b) => {
                       // Sort: expired first, then expiring, then active by days remaining, then trial, then paused
                       const aStat = computeMembershipState(a.membership)
@@ -2755,6 +2797,127 @@ export default function AdminDashboard() {
       {deleteNotifId&&<ConfirmModal title="Delete Announcement?" message="This will permanently remove the announcement for everyone." onConfirm={deleteNotificationConfirmed} onCancel={()=>setDeleteNotifId(null)}/>}
 
       {/* ── NOTIFICATION MODAL ── */}
+      {/* ── DAILY PRINTABLE REPORT ── */}
+      {showReport&&(()=>{
+        // Window for the selected day
+        const dayStart = new Date(reportDate + 'T00:00:00').getTime()
+        const dayEnd   = dayStart + 86400000
+        const tsMs = v => v?.seconds ? v.seconds*1000 : (typeof v?.toMillis==='function' ? v.toMillis() : 0)
+        const onDay  = v => { const t = tsMs(v); return t >= dayStart && t < dayEnd }
+
+        const memberList  = members.filter(m=>m.role==='member')
+        const countBy = f => memberList.filter(m=>matchesSubFilter(m,f)).length
+        const newMembers  = memberList.filter(m=>onDay(m.createdAt))
+        const dayEvents   = activity.filter(e=>onDay(e.createdAt))
+        const byType = t => dayEvents.filter(e=>e.type===t)
+        const weekday = new Date(dayStart).toLocaleDateString('en-PH',{weekday:'long'})
+        const todaysClasses = classes.filter(c=>c.day===weekday)
+        const prettyDate = new Date(dayStart).toLocaleDateString('en-PH',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
+
+        const Section = ({title,children}) => (
+          <div style={{marginTop:18,breakInside:'avoid'}}>
+            <div style={{fontSize:12,fontWeight:800,letterSpacing:'0.08em',textTransform:'uppercase',color:'#111',borderBottom:'2px solid #111',paddingBottom:4,marginBottom:8}}>{title}</div>
+            {children}
+          </div>
+        )
+        const Row = ({l,r}) => (
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#222',padding:'4px 0',borderBottom:'1px solid #e5e5e5'}}>
+            <span>{l}</span><strong>{r}</strong>
+          </div>
+        )
+
+        return (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div style={{width:'100%',maxWidth:820,maxHeight:'92vh',display:'flex',flexDirection:'column',background:'#fff',borderRadius:14,overflow:'hidden'}}>
+
+              {/* Toolbar — hidden when printing */}
+              <div className="no-print" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 18px',background:'#f2f2f2',borderBottom:'1px solid #ddd',flexShrink:0}}>
+                <strong style={{fontSize:13,color:'#111',flex:1}}>🖨 Daily Report</strong>
+                <label style={{fontSize:11,color:'#444'}}>Date:</label>
+                <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)}
+                  style={{border:'1px solid #ccc',borderRadius:6,padding:'5px 8px',fontSize:12,color:'#111',background:'#fff'}}/>
+                <button onClick={()=>window.print()}
+                  style={{background:'#16a34a',color:'#fff',border:'none',borderRadius:6,padding:'7px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                  Print / Save as PDF
+                </button>
+                <button onClick={()=>setShowReport(false)}
+                  style={{background:'transparent',color:'#555',border:'1px solid #ccc',borderRadius:6,padding:'7px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Close</button>
+              </div>
+
+              {/* The printable sheet */}
+              <div id="daily-report" style={{overflowY:'auto',padding:'28px 34px',background:'#fff',color:'#111',fontFamily:"'Montserrat',sans-serif"}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',borderBottom:'3px solid #111',paddingBottom:10}}>
+                  <div>
+                    <div style={{fontSize:20,fontWeight:900,letterSpacing:'0.04em'}}>HITTRACK — DAILY REPORT</div>
+                    <div style={{fontSize:12,color:'#444',marginTop:2}}>Wild Bout Boxing Gym · Makati</div>
+                  </div>
+                  <div style={{textAlign:'right',fontSize:11,color:'#444'}}>
+                    <div><strong>{prettyDate}</strong></div>
+                    <div>Generated {new Date().toLocaleString('en-PH')}</div>
+                    <div>By: {adminProfile.name || 'Admin'}</div>
+                  </div>
+                </div>
+
+                <Section title="Membership Snapshot">
+                  <Row l="Total members"        r={memberList.length}/>
+                  <Row l="Active"               r={countBy('active')}/>
+                  <Row l="On trial"             r={countBy('trial')}/>
+                  <Row l="Expiring within 7 days" r={countBy('expiring')}/>
+                  <Row l="Expired"              r={countBy('expired')}/>
+                  <Row l="Paused"               r={countBy('paused')}/>
+                  <Row l="Coaches"              r={coaches.length}/>
+                </Section>
+
+                <Section title={`New Sign-ups (${newMembers.length})`}>
+                  {newMembers.length===0
+                    ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No new sign-ups on this date.</div>
+                    : newMembers.map(m=>(
+                        <Row key={m.uid} l={`${m.name||'Unknown'} · ${m.email||''}`} r={getStatusLabel(computeMembershipState(m.membership))}/>
+                      ))}
+                </Section>
+
+                <Section title={`Memberships Extended (${byType('membership_extended').length})`}>
+                  {byType('membership_extended').length===0
+                    ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No membership extensions recorded.</div>
+                    : byType('membership_extended').map((e,i)=>(
+                        <Row key={i} l={e.description||'Membership extended'} r={new Date(tsMs(e.createdAt)).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}/>
+                      ))}
+                </Section>
+
+                <Section title={`Class Bookings (${byType('booking_created').length} booked · ${byType('booking_cancelled').length} cancelled)`}>
+                  {dayEvents.filter(e=>e.type==='booking_created'||e.type==='booking_cancelled').length===0
+                    ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No booking activity recorded.</div>
+                    : dayEvents.filter(e=>e.type==='booking_created'||e.type==='booking_cancelled').map((e,i)=>(
+                        <Row key={i} l={e.description||e.type} r={new Date(tsMs(e.createdAt)).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}/>
+                      ))}
+                </Section>
+
+                <Section title={`Classes Scheduled — ${weekday} (${todaysClasses.length})`}>
+                  {todaysClasses.length===0
+                    ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No classes scheduled for this weekday.</div>
+                    : todaysClasses.map(c=>(
+                        <Row key={c.id} l={`${c.name} · ${c.time} · Coach ${c.coach||'—'}`} r={`${c.enrolled||0}/${c.spots} booked`}/>
+                      ))}
+                </Section>
+
+                <Section title={`All Recorded Activity (${dayEvents.length})`}>
+                  {dayEvents.length===0
+                    ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No activity recorded on this date.</div>
+                    : dayEvents.map((e,i)=>(
+                        <Row key={i} l={`${ACTIVITY_TYPES[e.type]?.label||e.type} — ${e.description||''}`} r={new Date(tsMs(e.createdAt)).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}/>
+                      ))}
+                </Section>
+
+                <div style={{marginTop:26,paddingTop:10,borderTop:'1px solid #ccc',fontSize:10,color:'#666',display:'flex',justifyContent:'space-between'}}>
+                  <span>HITTRACK Gym Management System</span>
+                  <span>Signature: ____________________</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── ADD COACH (admin-only coach account creation) ── */}
       {showAddCoach&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
@@ -2864,6 +3027,23 @@ export default function AdminDashboard() {
         @keyframes dangerPulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.15);opacity:1}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         select option{background:#1a1818 !important;color:#f0ece8 !important}
+
+        /* ── DAILY REPORT PRINTING ──
+           Hide the whole dashboard and print only the report sheet.
+           visibility (not display) keeps the report's layout intact. */
+        @media print {
+          body * { visibility: hidden !important; }
+          #daily-report, #daily-report * { visibility: visible !important; }
+          #daily-report {
+            position: absolute !important; left: 0; top: 0;
+            width: 100% !important; max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important; margin: 0 !important;
+            background: #fff !important; color: #000 !important;
+          }
+          .no-print { display: none !important; }
+          @page { margin: 14mm; }
+        }
       `}</style>
     </div>
   )
