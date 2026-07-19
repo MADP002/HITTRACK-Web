@@ -59,7 +59,17 @@ export default function Login() {
       await signOut(auth)
       setResendMsg('success:A new verification link was sent to ' + unverifiedCreds.email + '. Open it, then log in.')
     } catch (err) {
-      setResendMsg('error:Could not resend right now. Please try logging in again to resend the verification email.')
+      console.error('[resendVerification] failed:', err)
+      const msgs = {
+        // Firebase throttles verification emails. One was already sent at
+        // signup, so an immediate resend is the most common failure here.
+        'auth/too-many-requests': 'Too many requests — a verification email was already sent. Check your inbox and spam folder, then wait a few minutes before resending.',
+        'auth/invalid-credential': 'That password no longer matches this account. Log in again to resend.',
+        'auth/wrong-password': 'That password no longer matches this account. Log in again to resend.',
+        'auth/user-not-found': 'No account found with that email.',
+        'auth/network-request-failed': 'Network error. Check your connection and try again.',
+      }
+      setResendMsg('error:' + (msgs[err.code] || `Could not resend (${err.code || err.message || 'unknown error'}). Check your inbox first — the original link may still work.`))
     } finally { setLoading(false) }
   }
 
@@ -103,9 +113,16 @@ export default function Login() {
       if (!snap.exists()) { setError('Account not found.'); setLoading(false); return }
       const data = snap.data()
 
-      // ── Email verification gate — enforced ONLY for accounts flagged at signup
-      // (existing users have no flag, so they're never locked out). ──
-      if (data.requiresEmailVerification && !cred.user.emailVerified) {
+      // ── Email verification gate ──
+      // Enforced ONLY for accounts flagged at SELF-signup, so:
+      //   • existing users have no flag         → never locked out
+      //   • admin-created staff (createdByAdmin) → never locked out
+      // The point of the gate is to stop people self-registering with fake
+      // emails. An admin adding a coach has already vetted them, and the
+      // admin can't complete the verification on the coach's behalf — so
+      // gating those accounts just strands them at the login screen.
+      const selfRegistered = !data.createdByAdmin
+      if (selfRegistered && data.requiresEmailVerification && !cred.user.emailVerified) {
         setUnverifiedCreds({ email: email.trim().toLowerCase(), password })
         await signOut(auth)
         setError('Please verify your email before logging in — check your inbox (and spam) for the verification link.')

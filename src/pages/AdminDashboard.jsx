@@ -825,7 +825,11 @@ export default function AdminDashboard() {
         await setDoc(doc(db,'users',uid),{
           uid, name: coachForm.name.trim(), email,
           role:'coach', approved:true, status:'active', programSetupDone:true,
-          requiresEmailVerification:true,
+          // Admin-created staff are pre-vetted, so login is NOT gated on
+          // email verification (the admin can't verify on their behalf).
+          // A verification link is still sent so they can confirm the
+          // address if they want. Login.jsx skips the gate for createdByAdmin.
+          requiresEmailVerification:false,
           experienceYears: parseInt(coachForm.experienceYears,10) || 0,
           specialization:  coachForm.specialization.trim(),
           certifications:  coachForm.certifications.trim(),
@@ -845,7 +849,7 @@ export default function AdminDashboard() {
           payload:{ coachName:coachForm.name.trim(), coachEmail:email, specialization:coachForm.specialization.trim() },
         })
       }catch(_){}
-      showToast(`✅ Coach "${coachForm.name.trim()}" created. Share the temp password — they must verify their email before logging in.`)
+      showToast(`✅ Coach "${coachForm.name.trim()}" created. Share the temp password — they can log in right away.`)
       setShowAddCoach(false)
       setCoachForm({ name:'', email:'', phone:'', password:'', experienceYears:'', specialization:'', certifications:'', bio:'' })
       setCoachFormErrors({})
