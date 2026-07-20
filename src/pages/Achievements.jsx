@@ -16,7 +16,7 @@ import { getMemberLevel, levelScore } from '../lib/memberLevel'
 const glass = (extra={}) => ({
   background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
-  boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
+  boxShadow:'0 8px 40px var(--t-sh-md),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
 })
 
@@ -150,7 +150,7 @@ function BadgeCard({ badge, unlocked, progress, stats, onClick, idx }) {
         opacity: mounted ? 1 : 0,
         transform: mounted ? (hovered ? 'translateY(-6px) scale(1.02)' : 'translateY(0) scale(1)') : 'translateY(20px) scale(0.95)',
         transition: `all 0.4s cubic-bezier(0.34,1.2,0.64,1) ${idx*40}ms, transform 0.3s cubic-bezier(0.34,1.56,0.64,1)`,
-        boxShadow: hovered ? `0 16px 40px rgba(0,0,0,0.6),0 0 30px ${r.glow}` : (unlocked ? `0 4px 14px ${r.glow}25` : '0 2px 8px rgba(0,0,0,0.3)'),
+        boxShadow: hovered ? `0 16px 40px var(--t-sh-md),0 0 30px ${r.glow}` : (unlocked ? `0 4px 14px ${r.glow}25` : '0 2px 8px var(--t-sh-sm)'),
       }}>
 
       <div style={{position:'absolute', top:12, right:14, fontSize:9, letterSpacing:'0.05em', color:r.color, fontWeight:800, textShadow:unlocked?`0 0 8px ${r.color}88`:'none', opacity:unlocked?1:0.5}}>
@@ -404,7 +404,7 @@ export default function Achievements() {
           const prog = getProgress(featured, stats)
           return (
             <div onClick={()=>setShowcase(featured)}
-              style={{position:'relative', overflow:'hidden', cursor:'pointer', borderRadius:24, background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border:`2px solid ${r.color}55`, padding:'30px 36px', boxShadow:`0 20px 60px rgba(0,0,0,0.6),0 0 60px ${r.glow}`, display:'flex', gap:30, alignItems:'center', flexWrap:'wrap'}}>
+              style={{position:'relative', overflow:'hidden', cursor:'pointer', borderRadius:24, background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border:`2px solid ${r.color}55`, padding:'30px 36px', boxShadow:`0 20px 60px var(--t-sh-md),0 0 60px ${r.glow}`, display:'flex', gap:30, alignItems:'center', flexWrap:'wrap'}}>
               <div style={{position:'absolute', top:-100, right:-100, width:400, height:400, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 65%)`, pointerEvents:'none', animation:'heroGlow 4s ease-in-out infinite'}}/>
               <div style={{position:'absolute', bottom:-80, left:-80, width:320, height:320, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 70%)`, pointerEvents:'none', opacity:0.5}}/>
               <div style={{position:'relative', flexShrink:0}}>
@@ -570,7 +570,7 @@ export default function Achievements() {
           <div onClick={()=>setShowcase(null)}
             style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.92)', backdropFilter:'blur(12px)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'popIn 0.3s ease'}}>
             <div onClick={e=>e.stopPropagation()}
-              style={{position:'relative', background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', borderRadius:24, border:`2px solid ${r.color}66`, maxWidth:480, width:'100%', overflow:'hidden', boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${r.glow}`, padding:'34px 32px', textAlign:'center'}}>
+              style={{position:'relative', background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', borderRadius:24, border:`2px solid ${r.color}66`, maxWidth:480, width:'100%', overflow:'hidden', boxShadow:`0 30px 80px var(--t-sh-lg),0 0 60px ${r.glow}`, padding:'34px 32px', textAlign:'center'}}>
               <div style={{position:'absolute', top:-80, left:'50%', transform:'translateX(-50%)', width:360, height:360, borderRadius:'50%', background:`radial-gradient(circle,${r.glow},transparent 65%)`, pointerEvents:'none'}}/>
               <button onClick={()=>setShowcase(null)} style={{position:'absolute', top:14, right:14, width:32, height:32, background:'var(--t-s05)', border:'1px solid var(--t-s10)', borderRadius:9, color:'var(--t-dim2)', fontSize:14, cursor:'pointer'}}>✕</button>
               <div style={{position:'relative'}}>

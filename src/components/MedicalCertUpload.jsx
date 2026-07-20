@@ -274,7 +274,7 @@ export default function MedicalCertUpload({ member, onUploaded }) {
 const cardOuter = (borderColor, bg) => ({
   position:'relative', overflow:'hidden', borderRadius:14,
   background: bg, border:`1.5px solid ${borderColor}`,
-  boxShadow:'0 4px 16px rgba(0,0,0,0.3)',
+  boxShadow:'0 4px 16px var(--t-sh-sm)',
 })
 
 const stripe = (a, b) => ({

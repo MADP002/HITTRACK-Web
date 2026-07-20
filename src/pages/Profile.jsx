@@ -57,7 +57,7 @@ function fmtDOB(dobStr) {
 const glass=(e={})=>({
   background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',
-  boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
+  boxShadow:'0 8px 40px var(--t-sh-md),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden',...e,
 })
 
@@ -508,7 +508,7 @@ export default function Profile(){
         <div onClick={()=>setShowPayments(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(66,165,245,0.35)',maxWidth:520,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 30px 80px rgba(0,0,0,0.8)'}}>
+            style={{background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(66,165,245,0.35)',maxWidth:520,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 30px 80px var(--t-sh-lg)'}}>
             <div style={{padding:'18px 24px',borderBottom:'1px solid var(--t-s06)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'var(--a-blue)'}}>📜 PAYMENT HISTORY</div>
@@ -577,7 +577,7 @@ export default function Profile(){
         <div onClick={()=>!deleting && setDeleteConfirm(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.5)',maxWidth:500,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.85),0 0 60px rgba(232,74,47,0.3)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.5)',maxWidth:500,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px var(--t-sh-lg),0 0 60px rgba(232,74,47,0.3)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'24px 28px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -686,7 +686,7 @@ export default function Profile(){
           <div style={{padding:isMobile?'0 18px 22px':'0 36px 28px',marginTop:isMobile?-30:-48,position:'relative'}}>
             <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'auto 1fr auto',gap:isMobile?14:24,alignItems:isMobile?'center':'flex-end',justifyItems:isMobile?'center':'stretch',textAlign:isMobile?'center':'left'}}>
               {/* Big avatar */}
-              <div style={{width:96,height:96,borderRadius:'50%',border:`4px solid ${lc}`,background:`linear-gradient(135deg,${lc}33,${lc}11)`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:lc,boxShadow:`0 0 30px ${lc}44,0 8px 24px rgba(0,0,0,0.5)`,flexShrink:0,position:'relative',zIndex:1}}>
+              <div style={{width:96,height:96,borderRadius:'50%',border:`4px solid ${lc}`,background:`linear-gradient(135deg,${lc}33,${lc}11)`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:lc,boxShadow:`0 0 30px ${lc}44,0 8px 24px var(--t-sh-md)`,flexShrink:0,position:'relative',zIndex:1}}>
                 {(profile.name||'A')[0].toUpperCase()}
               </div>
 
@@ -842,7 +842,7 @@ export default function Profile(){
                     <div style={{fontSize:15,fontWeight:700,color:bmiColor,marginBottom:8}}>{bmiLabel}</div>
                     {/* BMI scale bar */}
                     <div style={{height:8,borderRadius:50,overflow:'hidden',background:'linear-gradient(90deg,#42a5f5 0%,#4ade80 25%,#f5c842 60%,#e84a2f 100%)',marginBottom:6,position:'relative'}}>
-                      <div style={{position:'absolute',left:`${Math.min(Math.max(((bmi-10)/35)*100,0),100)}%`,top:'50%',transform:'translate(-50%,-50%)',width:14,height:14,borderRadius:'50%',background:'#fff',border:'2px solid #000',boxShadow:'0 0 8px rgba(0,0,0,0.5)'}}/>
+                      <div style={{position:'absolute',left:`${Math.min(Math.max(((bmi-10)/35)*100,0),100)}%`,top:'50%',transform:'translate(-50%,-50%)',width:14,height:14,borderRadius:'50%',background:'#fff',border:'2px solid #000',boxShadow:'0 0 8px var(--t-sh-md)'}}/>
                     </div>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:8,color:'var(--t-dim3)'}}>
                       {['Underweight','Normal','Overweight','Obese'].map(l=><span key={l}>{l}</span>)}

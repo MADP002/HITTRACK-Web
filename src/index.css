@@ -65,28 +65,52 @@
   --t-s08: rgba(255,255,255,0.08);
   --t-s10: rgba(255,255,255,0.10);
   --t-s20: rgba(255,255,255,0.20);
+
+  /* ── ELEVATION ──
+     Shadows must be themed. A heavy black shadow that reads as depth on a
+     dark surface reads as a grey smudge on cream, which is what made the
+     first light pass look cheap. Light mode uses soft WARM shadows so
+     cards lift off the page instead of staining it. */
+  --t-sh-sm:  rgba(0,0,0,0.30);
+  --t-sh-md:  rgba(0,0,0,0.50);
+  --t-sh-lg:  rgba(0,0,0,0.75);
 }
 
 /* ── LIGHT THEME ──────────────────────────────────────────────
-   Warm light palette matching the mobile app's LIGHT palette.   */
-:root[data-theme="light"] {
-  --bg:         #f4f1ec;
-  --bg-dark:    #efeae1;
-  --bg-card:    #ffffff;
-  --bg-card2:   #efeae1;
-  --bg-input:   #eee9e0;
-  --text:       #241d19;
-  --text-muted: #6b645b;
-  --input-border: #d9d2c6;
-  --topbar:     #ffffff;
+   A WARM theme, not an inverted dark one.
 
-  --t-bg:     #f4f1ec;
-  --t-card:   #ffffff;
-  --t-card2:  #faf8f4;
-  --t-card3:  #efeae1;
-  --t-veil1:  rgba(255,255,255,0.82);
-  --t-veil2:  rgba(0,0,0,0.045);
-  --t-veil3:  rgba(0,0,0,0.035);
+   The first attempt just flipped values to white and it read as cheap:
+   pure-white cards on a near-white page (nothing separated), black
+   shadows staining the cream, and borders too faint to define anything.
+
+   The fixes here are:
+     • surfaces are warm off-whites, never #ffffff, and LAYERED —
+       page < card2 < card so cards genuinely lift off the background
+     • borders carry a warm brown tint and more weight, so panels have
+       an edge instead of floating
+     • shadows are warm and soft (see --t-sh-* below), so elevation reads
+       as light falling on paper rather than dirt
+   The hue (~30deg, warm sand) is pulled from the brand's red/gold, so
+   light mode still feels like the same gym.                            */
+:root[data-theme="light"] {
+  --bg:         #efe8dc;
+  --bg-dark:    #e7dfd1;
+  --bg-card:    #fffdf9;
+  --bg-card2:   #f7f1e6;
+  --bg-input:   #f3ece0;
+  --text:       #2a211b;
+  --text-muted: #6b6157;
+  --input-border: #ddd2c0;
+  --topbar:     #fffdf9;
+
+  /* Layered surfaces — each step slightly warmer/deeper than the last */
+  --t-bg:     #efe8dc;   /* page — deepest, so cards read as raised */
+  --t-card:   #fffdf9;   /* card face — warm white, never pure #fff  */
+  --t-card2:  #f9f4ea;   /* gradient partner — subtle warm fall-off  */
+  --t-card3:  #f1e9db;   /* inset / raised chip                      */
+  --t-veil1:  rgba(255,253,249,0.88);
+  --t-veil2:  rgba(122,92,58,0.055);
+  --t-veil3:  rgba(122,92,58,0.035);
   --t-violet: #6b5a8f;
 
   /* Darkened accents — all >=4.5:1 on white (see the dark block above). */
@@ -99,21 +123,31 @@
   --a-green2:  #157f3c;
   --a-purple:  #6d28d9;
   --a-orange:  #b04a06;
-  --t-text:   #241d19;
-  --t-muted:  #6b645b;
-  --t-muted2: #4a453d;
-  --t-dim1:   #4a453d;
-  --t-dim2:   #6b645b;
-  --t-dim3:   #7d766c;
-  --t-dim4:   #9a938a;
-  --t-s02: rgba(0,0,0,0.02);
-  --t-s03: rgba(0,0,0,0.03);
-  --t-s04: rgba(0,0,0,0.04);
-  --t-s05: rgba(0,0,0,0.05);
-  --t-s06: rgba(0,0,0,0.07);
-  --t-s08: rgba(0,0,0,0.09);
-  --t-s10: rgba(0,0,0,0.12);
-  --t-s20: rgba(0,0,0,0.20);
+  /* Text ramp — warm browns rather than neutral greys, so copy sits in
+     the same family as the surfaces instead of looking printed on top. */
+  --t-text:   #2a211b;
+  --t-muted:  #6b6157;
+  --t-muted2: #4a4239;
+  --t-dim1:   #4a4239;
+  --t-dim2:   #6b6157;
+  --t-dim3:   #7b7062;
+  --t-dim4:   #9a8e7c;
+
+  /* Borders/veils — warm brown tint with more weight than the first pass,
+     so cards actually have an edge. Pure-black alpha looked like soot. */
+  --t-s02: rgba(122,92,58,0.030);
+  --t-s03: rgba(122,92,58,0.042);
+  --t-s04: rgba(122,92,58,0.055);
+  --t-s05: rgba(122,92,58,0.070);
+  --t-s06: rgba(122,92,58,0.095);
+  --t-s08: rgba(122,92,58,0.130);
+  --t-s10: rgba(122,92,58,0.170);
+  --t-s20: rgba(122,92,58,0.270);
+
+  /* Warm, soft elevation — the single biggest visual fix. */
+  --t-sh-sm: rgba(122,92,58,0.08);
+  --t-sh-md: rgba(122,92,58,0.13);
+  --t-sh-lg: rgba(122,92,58,0.18);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -445,7 +479,7 @@ body {
   border-radius: 20px; padding: 36px 32px;
   width: 90%; max-width: 360px;
   position: relative;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  box-shadow: 0 30px 80px var(--t-sh-lg);
   animation: slideUp 0.3s cubic-bezier(0.22,1,0.36,1);
 }
 

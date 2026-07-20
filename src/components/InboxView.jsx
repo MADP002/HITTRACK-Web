@@ -303,7 +303,7 @@ export default function InboxView({ currentUid, currentName, currentRole='member
   }
 
   // ── STYLES ─────────────────────────────────────────
-  const glass={background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',border:'1px solid rgba(255,255,255,0.07)',borderRadius:16,boxShadow:'0 4px 24px rgba(0,0,0,0.4)'}
+  const glass={background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',border:'1px solid rgba(255,255,255,0.07)',borderRadius:16,boxShadow:'0 4px 24px var(--t-sh-md)'}
   const inp={background:'var(--t-s05)',border:'1px solid var(--t-s10)',borderRadius:10,padding:'9px 13px',color:'var(--t-text)',fontSize:12,fontFamily:'Montserrat,sans-serif',outline:'none',width:'100%',boxSizing:'border-box'}
 
   // Container — embedded means we're inside coach/admin dashboard tab,
@@ -316,7 +316,7 @@ export default function InboxView({ currentUid, currentName, currentRole='member
     <div style={containerStyle}>
 
       {/* TOAST */}
-      {toast && <div style={{position:'fixed',top:20,right:20,zIndex:5000,background:'var(--t-card)',border:'1px solid rgba(245,200,66,0.25)',backdropFilter:'blur(12px)',borderRadius:12,padding:'12px 18px',fontSize:12,fontWeight:700,color:'var(--t-text)',boxShadow:'0 8px 28px rgba(0,0,0,0.5)'}}>{toast}</div>}
+      {toast && <div style={{position:'fixed',top:20,right:20,zIndex:5000,background:'var(--t-card)',border:'1px solid rgba(245,200,66,0.25)',backdropFilter:'blur(12px)',borderRadius:12,padding:'12px 18px',fontSize:12,fontWeight:700,color:'var(--t-text)',boxShadow:'0 8px 28px var(--t-sh-md)'}}>{toast}</div>}
 
       {/* ── LEFT: CONVERSATIONS LIST ─────────── */}
       <div style={{...glass,display:'flex',flexDirection:'column',overflow:'hidden'}}>

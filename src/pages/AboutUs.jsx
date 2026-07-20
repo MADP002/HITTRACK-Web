@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar'
 const glass = (extra={}) => ({
   background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
-  boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
+  boxShadow:'0 8px 40px var(--t-sh-md),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
 })
 
@@ -513,7 +513,7 @@ export default function AboutUs() {
               return (
                 <div key={i} style={{...glass({borderRadius:22}),padding:'32px 26px',position:'relative',overflow:'hidden',
                   border:`1.5px solid ${plan.highlight?'rgba(232,74,47,0.5)':'rgba(245,200,66,0.18)'}`,
-                  boxShadow:plan.highlight?'0 12px 40px rgba(232,74,47,0.2)':'0 8px 30px rgba(0,0,0,0.4)',
+                  boxShadow:plan.highlight?'0 12px 40px rgba(232,74,47,0.2)':'0 8px 30px var(--t-sh-md)',
                   display:'flex',flexDirection:'column',gap:16}}>
                   {plan.highlight && (
                     <div style={{position:'absolute',top:14,right:14,fontSize:8,fontWeight:800,letterSpacing:'0.1em',padding:'4px 10px',borderRadius:50,background:'rgba(232,74,47,0.2)',color:'var(--a-red)',border:'1px solid rgba(232,74,47,0.4)'}}>POPULAR</div>

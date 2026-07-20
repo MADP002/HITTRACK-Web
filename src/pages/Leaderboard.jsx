@@ -12,7 +12,7 @@ const GOAL_DIVS   = ['All Goals','Learn Boxing','Lose Weight','Build Strength','
 
 const calcScore = levelScore   // alias — canonical scoring
 
-const glass=(e={})=>({background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 8px 40px rgba(0,0,0,0.5)',overflow:'hidden',...e})
+const glass=(e={})=>({background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:20,border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 8px 40px var(--t-sh-md)',overflow:'hidden',...e})
 
 function AnimNum({target}){
   const [v,setV]=useState(0)
@@ -436,7 +436,7 @@ export default function Leaderboard(){
                 background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
                 borderRadius:20,
                 border:`2px solid ${membershipState===STATUS.EXPIRED?'rgba(232,74,47,0.55)':'rgba(156,163,175,0.45)'}`,
-                boxShadow:'0 30px 80px rgba(0,0,0,0.8), 0 0 60px rgba(232,74,47,0.25)',
+                boxShadow:'0 30px 80px var(--t-sh-lg), 0 0 60px rgba(232,74,47,0.25)',
                 padding:'30px 28px', textAlign:'center',
                 backdropFilter:'blur(12px)',
                 position:'relative', overflow:'hidden',

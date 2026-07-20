@@ -93,7 +93,7 @@ const PROGRAMS = {
 const glass = (extra = {}) => ({
   background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius: 20, border: '1px solid rgba(245,200,66,0.15)',
-  boxShadow: '0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(245,200,66,0.08)',
+  boxShadow: '0 8px 40px var(--t-sh-md), inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow: 'hidden', ...extra,
 })
 
@@ -433,7 +433,7 @@ export default function ProgramBuilder() {
         <div onClick={()=>setCancelConfirm(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(245,200,66,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(245,200,66,0.2)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(245,200,66,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px var(--t-sh-lg),0 0 50px rgba(245,200,66,0.2)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
             <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>

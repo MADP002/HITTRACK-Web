@@ -197,7 +197,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
       )}
 
       {/* Hero Header */}
-      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 24, background: 'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 60%,rgba(232,74,47,0.08) 100%)', border: '1px solid rgba(232,74,47,0.12)', padding: '28px 30px', boxShadow: '0 16px 60px rgba(0,0,0,0.5)' }}>
+      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 24, background: 'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 60%,rgba(232,74,47,0.08) 100%)', border: '1px solid rgba(232,74,47,0.12)', padding: '28px 30px', boxShadow: '0 16px 60px var(--t-sh-md)' }}>
         <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle,rgba(232,74,47,0.08) 0%,transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -30, left: '40%', width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle,rgba(245,200,66,0.06) 0%,transparent 70%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: 'linear-gradient(180deg,#e84a2f,#f5c842,#e84a2f)', borderRadius: '24px 0 0 24px' }} />
@@ -261,7 +261,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
 
       {/* New Post Form */}
       {showNewPost && (
-        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px solid rgba(232,74,47,0.25)', padding: '28px 30px', boxShadow: '0 16px 60px rgba(0,0,0,0.5), 0 0 40px rgba(232,74,47,0.08)' }}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px solid rgba(232,74,47,0.25)', padding: '28px 30px', boxShadow: '0 16px 60px var(--t-sh-md), 0 0 40px rgba(232,74,47,0.08)' }}>
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: 'linear-gradient(180deg,#e84a2f,#f5c842)', borderRadius: '22px 0 0 22px' }} />
           <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'radial-gradient(circle,rgba(232,74,47,0.06) 0%,transparent 70%)', pointerEvents: 'none' }} />
 
@@ -319,7 +319,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
           </button>
 
           {/* Original post */}
-          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border: '1px solid rgba(245,200,66,0.15)', padding: '26px 28px', boxShadow: '0 16px 60px rgba(0,0,0,0.5)' }}>
+          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 22, background: 'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)', border: '1px solid rgba(245,200,66,0.15)', padding: '26px 28px', boxShadow: '0 16px 60px var(--t-sh-md)' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, background: `linear-gradient(180deg,${CAT_COLORS[activePost.category] || '#f5c842'},transparent)`, borderRadius: '22px 0 0 22px' }} />
             <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle,${CAT_COLORS[activePost.category] || '#f5c842'}08 0%,transparent 70%)`, pointerEvents: 'none' }} />
 
@@ -377,7 +377,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
                 const accentColor = isCoachReply ? (r.authorRole === 'admin' ? '#c084fc' : '#42a5f5') : getAvatarColor(r.authorName)
                 return (
                   <div key={r.id || i}
-                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: isCoachReply ? `linear-gradient(135deg,var(--t-card),${accentColor}06)` : 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: `1px solid ${isCoachReply ? `${accentColor}25` : 'var(--t-s05)'}`, padding: '16px 20px', boxShadow: isCoachReply ? `0 8px 24px ${accentColor}08` : '0 4px 20px rgba(0,0,0,0.3)' }}>
+                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: isCoachReply ? `linear-gradient(135deg,var(--t-card),${accentColor}06)` : 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: `1px solid ${isCoachReply ? `${accentColor}25` : 'var(--t-s05)'}`, padding: '16px 20px', boxShadow: isCoachReply ? `0 8px 24px ${accentColor}08` : '0 4px 20px var(--t-sh-sm)' }}>
                     {isCoachReply && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg,${accentColor},transparent)`, borderRadius: '18px 0 0 18px' }} />}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -402,7 +402,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
           <div ref={replyEndRef} />
 
           {/* Reply box */}
-          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, background: 'linear-gradient(135deg,var(--t-card),rgba(66,165,245,0.03))', border: '1px solid rgba(66,165,245,0.15)', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 20, background: 'linear-gradient(135deg,var(--t-card),rgba(66,165,245,0.03))', border: '1px solid rgba(66,165,245,0.15)', padding: '20px 22px', boxShadow: '0 8px 32px var(--t-sh-sm)' }}>
             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'linear-gradient(180deg,#42a5f5,transparent)', borderRadius: '20px 0 0 20px' }} />
             <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--a-blue)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(66,165,245,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>💬</div>
@@ -424,7 +424,7 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
         /* Post List */
         <>
           {filtered.length === 0 ? (
-            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 24, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px dashed var(--t-s06)', padding: '70px 30px', textAlign: 'center', boxShadow: '0 16px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 24, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px dashed var(--t-s06)', padding: '70px 30px', textAlign: 'center', boxShadow: '0 16px 60px var(--t-sh-md)' }}>
               <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle,rgba(245,200,66,0.04) 0%,transparent 70%)', pointerEvents: 'none' }} />
               <div style={{ fontSize: 64, marginBottom: 16, opacity: 0.5 }}>💬</div>
               <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, color: 'var(--t-text)', letterSpacing: '0.06em', marginBottom: 8 }}>{searchQ || filterCat !== 'All' ? 'NO MATCHING POSTS' : 'NO POSTS YET'}</div>
@@ -446,9 +446,9 @@ export default function Forum({ embedded = false, currentRole = 'member' }) {
                 const badge = ROLE_BADGE[p.authorRole]
                 return (
                   <div key={p.id} onClick={() => { setActivePost(p); setShowNewPost(false) }}
-                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px solid var(--t-s06)', padding: '18px 22px', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = `${cc}44`; e.currentTarget.style.boxShadow = `0 12px 36px ${cc}12, 0 4px 20px rgba(0,0,0,0.4)` }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--t-s06)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)' }}>
+                    style={{ position: 'relative', overflow: 'hidden', borderRadius: 18, background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))', border: '1px solid var(--t-s06)', padding: '18px 22px', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 4px 20px var(--t-sh-sm)' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = `${cc}44`; e.currentTarget.style.boxShadow = `0 12px 36px ${cc}12, 0 4px 20px var(--t-sh-md)` }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--t-s06)'; e.currentTarget.style.boxShadow = '0 4px 20px var(--t-sh-sm)' }}>
                     <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg,${cc},transparent)`, borderRadius: '18px 0 0 18px', opacity: 0.6 }} />
 
                     <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>

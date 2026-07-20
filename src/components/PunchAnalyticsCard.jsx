@@ -12,7 +12,7 @@ import { loadPunchAnalytics } from '../lib/punchAnalytics'
 const glass = (extra={}) => ({
   background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
-  boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
+  boxShadow:'0 8px 40px var(--t-sh-md),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
 })
 

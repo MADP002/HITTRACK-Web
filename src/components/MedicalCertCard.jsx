@@ -31,7 +31,7 @@ export default function MedicalCertCard({ member }) {
   // ── STATE 1: No injury declared ─────────────────────────────────
   if (!hasInjury) {
     return (
-      <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'rgba(74,222,128,0.12)',border:'1.5px solid rgba(74,222,128,0.5)',boxShadow:'0 4px 16px rgba(0,0,0,0.3)',flexShrink:0,width:'100%',boxSizing:'border-box'}}>
+      <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'rgba(74,222,128,0.12)',border:'1.5px solid rgba(74,222,128,0.5)',boxShadow:'0 4px 16px var(--t-sh-sm)',flexShrink:0,width:'100%',boxSizing:'border-box'}}>
         <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#4ade80,#22c55e)'}}/>
         <div style={{padding:'16px 20px 16px 24px',display:'flex',alignItems:'center',gap:14}}>
           <div style={{width:40,height:40,borderRadius:10,background:'rgba(74,222,128,0.25)',border:'1px solid rgba(74,222,128,0.6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>✅</div>
@@ -47,7 +47,7 @@ export default function MedicalCertCard({ member }) {
   // ── STATE 2: Injury declared, no cert submitted ─────────────────
   if (!hasCert) {
     return (
-      <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'rgba(245,200,66,0.14)',border:'1.5px solid rgba(245,200,66,0.55)',boxShadow:'0 4px 16px rgba(0,0,0,0.3)',flexShrink:0,width:'100%',boxSizing:'border-box'}}>
+      <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'rgba(245,200,66,0.14)',border:'1.5px solid rgba(245,200,66,0.55)',boxShadow:'0 4px 16px var(--t-sh-sm)',flexShrink:0,width:'100%',boxSizing:'border-box'}}>
         <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
         <div style={{padding:'16px 20px 16px 24px',display:'flex',alignItems:'center',gap:14}}>
           <div style={{width:40,height:40,borderRadius:10,background:'rgba(245,200,66,0.3)',border:'1px solid rgba(245,200,66,0.6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>⚠</div>
@@ -65,7 +65,7 @@ export default function MedicalCertCard({ member }) {
   // ── STATE 3: Injury declared + cert submitted ───────────────────
   return (
     <>
-      <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'rgba(74,222,128,0.12)',border:'1.5px solid rgba(74,222,128,0.5)',boxShadow:'0 4px 16px rgba(0,0,0,0.3)',flexShrink:0,width:'100%',boxSizing:'border-box'}}>
+      <div style={{position:'relative',overflow:'hidden',borderRadius:14,background:'rgba(74,222,128,0.12)',border:'1.5px solid rgba(74,222,128,0.5)',boxShadow:'0 4px 16px var(--t-sh-sm)',flexShrink:0,width:'100%',boxSizing:'border-box'}}>
         <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#4ade80,#22c55e)'}}/>
         <div style={{padding:'16px 20px 16px 24px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
           <div style={{width:40,height:40,borderRadius:10,background:'rgba(74,222,128,0.25)',border:'1px solid rgba(74,222,128,0.6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>🏥</div>
@@ -96,7 +96,7 @@ export default function MedicalCertCard({ member }) {
         <div onClick={()=>setViewing(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',backdropFilter:'blur(10px)',zIndex:2200,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:18,border:'1px solid rgba(74,222,128,0.4)',maxWidth:720,width:'100%',maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 24px 60px rgba(0,0,0,0.8)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:18,border:'1px solid rgba(74,222,128,0.4)',maxWidth:720,width:'100%',maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxShadow:'0 24px 60px var(--t-sh-lg)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#4ade80,#22c55e)'}}/>
 
             {/* Header — fixed */}

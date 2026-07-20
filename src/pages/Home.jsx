@@ -79,7 +79,7 @@ const relTime = (ms) => {
 const glass = (extra={}) => ({
   background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
-  boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
+  boxShadow:'0 8px 40px var(--t-sh-md),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
 })
 
@@ -1074,7 +1074,7 @@ export default function Home() {
         <div onClick={()=>setShowTrialWelcome(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:22,border:'1.5px solid rgba(66,165,245,0.4)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(66,165,245,0.2)',textAlign:'center'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:22,border:'1.5px solid rgba(66,165,245,0.4)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px var(--t-sh-lg),0 0 50px rgba(66,165,245,0.2)',textAlign:'center'}}>
             <div style={{position:'absolute',left:0,top:0,right:0,height:5,background:'linear-gradient(90deg,#42a5f5,#4ade80,#f5c842)'}}/>
             <div style={{padding:'36px 30px 30px'}}>
               <div style={{fontSize:56,marginBottom:10,lineHeight:1}}>🎉</div>
@@ -1132,7 +1132,7 @@ export default function Home() {
           <div onClick={()=>setLevelChangePopup(null)}
             style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'popIn 0.4s ease'}}>
             <div onClick={e=>e.stopPropagation()}
-              style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:24,border:`2px solid ${lc}55`,maxWidth:440,width:'100%',overflow:'hidden',boxShadow:`0 30px 80px rgba(0,0,0,0.8),0 0 60px ${lc}40`}}>
+              style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:24,border:`2px solid ${lc}55`,maxWidth:440,width:'100%',overflow:'hidden',boxShadow:`0 30px 80px var(--t-sh-lg),0 0 60px ${lc}40`}}>
               {/* Burst */}
               <div style={{position:'absolute',top:-50,left:'50%',transform:'translateX(-50%)',width:280,height:280,borderRadius:'50%',background:`radial-gradient(circle,${lc}30,transparent 70%)`,pointerEvents:'none'}}/>
               <div style={{position:'relative',padding:'34px 30px 28px',textAlign:'center'}}>
@@ -1188,7 +1188,7 @@ export default function Home() {
         <div onClick={()=>setThanksPopup(null)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(12px)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center',padding:20,animation:'popIn 0.4s ease'}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:24,border:'2px solid rgba(34,197,94,0.55)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 60px rgba(34,197,94,0.4)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:24,border:'2px solid rgba(34,197,94,0.55)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px var(--t-sh-lg),0 0 60px rgba(34,197,94,0.4)'}}>
             {/* Burst */}
             <div style={{position:'absolute',top:-50,left:'50%',transform:'translateX(-50%)',width:280,height:280,borderRadius:'50%',background:'radial-gradient(circle,rgba(34,197,94,0.3),transparent 70%)',pointerEvents:'none'}}/>
             <div style={{position:'relative',padding:'34px 30px 28px',textAlign:'center'}}>
@@ -1227,7 +1227,7 @@ export default function Home() {
         <div onClick={()=>!clearingFb && setClearFbConfirm(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(232,74,47,0.25)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(232,74,47,0.4)',maxWidth:440,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px var(--t-sh-lg),0 0 50px rgba(232,74,47,0.25)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -1265,7 +1265,7 @@ export default function Home() {
         <div onClick={() => setCancelConfirm(null)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e => e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'1px solid rgba(232,74,47,0.3)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(232,74,47,0.15)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'1px solid rgba(232,74,47,0.3)',maxWidth:420,width:'100%',overflow:'hidden',boxShadow:'0 24px 60px var(--t-sh-lg),0 0 40px rgba(232,74,47,0.15)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'30px 32px',textAlign:'center'}}>
               <div style={{width:64,height:64,margin:'0 auto 16px',borderRadius:'50%',background:'linear-gradient(135deg,rgba(232,74,47,0.2),rgba(232,74,47,0.05))',border:'2px solid rgba(232,74,47,0.4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:30,boxShadow:'0 6px 20px rgba(232,74,47,0.3)'}}>🥊</div>
@@ -1313,7 +1313,7 @@ export default function Home() {
         <div onClick={() => setAdaptiveOpen(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e => e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'1px solid rgba(192,132,252,0.3)',maxWidth:680,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.7),0 0 40px rgba(192,132,252,0.15)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'1px solid rgba(192,132,252,0.3)',maxWidth:680,width:'100%',maxHeight:'85vh',overflow:'hidden',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px var(--t-sh-lg),0 0 40px rgba(192,132,252,0.15)'}}>
             {/* Left accent stripe */}
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#c084fc,#42a5f5)'}}/>
             {/* Header */}
@@ -1647,7 +1647,7 @@ export default function Home() {
               background:'linear-gradient(135deg,rgba(192,132,252,0.10),rgba(66,165,245,0.06) 60%,var(--t-veil3))',
               border:'1px solid rgba(192,132,252,0.25)',
               padding:'14px 16px',display:'flex',flexDirection:'column',gap:10,
-              boxShadow:'0 8px 24px rgba(0,0,0,0.3),inset 0 1px 0 rgba(192,132,252,0.15)'}}>
+              boxShadow:'0 8px 24px var(--t-sh-sm),inset 0 1px 0 rgba(192,132,252,0.15)'}}>
               {/* Left accent stripe */}
               <div style={{position:'absolute',left:0,top:0,bottom:0,width:4,background:'linear-gradient(180deg,#c084fc,#42a5f5)'}}/>
 
@@ -1985,7 +1985,7 @@ export default function Home() {
               40:'#c084fc', 50:'#f5c842', 60:'#e84a2f',
             }
             return (
-              <div style={{position:'relative',overflow:'hidden',borderRadius:20,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:`1.5px solid ${tier.color}30`,padding:'20px 22px',display:'flex',flexDirection:'column',gap:14,boxShadow:`0 12px 40px rgba(0,0,0,0.5),0 0 30px ${tier.color}15`}}>
+              <div style={{position:'relative',overflow:'hidden',borderRadius:20,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:`1.5px solid ${tier.color}30`,padding:'20px 22px',display:'flex',flexDirection:'column',gap:14,boxShadow:`0 12px 40px var(--t-sh-md),0 0 30px ${tier.color}15`}}>
                 {/* Animated radial glow background */}
                 <div style={{position:'absolute',top:-60,right:-60,width:240,height:240,borderRadius:'50%',background:`radial-gradient(circle,${tier.color}20,transparent 65%)`,pointerEvents:'none',animation:'badgeGlowPulse 3.5s ease-in-out infinite'}}/>
                 <div style={{position:'absolute',bottom:-80,left:-80,width:200,height:200,borderRadius:'50%',background:`radial-gradient(circle,${tier.color}15,transparent 70%)`,pointerEvents:'none',opacity:0.6}}/>
@@ -2087,7 +2087,7 @@ export default function Home() {
           {/* ════════════════════════════════════════════════ */}
           {/*  UPCOMING CLASSES — Cinematic boxing fight cards */}
           {/* ════════════════════════════════════════════════ */}
-          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(245,200,66,0.12)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(245,200,66,0.12)',boxShadow:'0 12px 40px var(--t-sh-md)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#f5c842)'}}/>
             <div style={{padding:'14px 18px',borderBottom:'1px solid var(--t-s05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -2193,7 +2193,7 @@ export default function Home() {
         <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:16}}>
 
           {/* COACH FEEDBACK */}
-          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(232,74,47,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(232,74,47,0.15)',boxShadow:'0 12px 40px var(--t-sh-md)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#e84a2f,#c93820)'}}/>
             <div style={{padding:'14px 18px',borderBottom:'1px solid var(--t-s05)',background:'linear-gradient(135deg,rgba(232,74,47,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -2255,7 +2255,7 @@ export default function Home() {
           {promos.length > 0 && (
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {promos.map(p => (
-                <div key={p.id} style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,rgba(192,132,252,0.16) 0%,var(--t-card) 55%)',border:'1px solid rgba(192,132,252,0.4)',boxShadow:'0 12px 40px rgba(0,0,0,0.5),0 0 30px rgba(192,132,252,0.08)',padding:'16px 20px 16px 24px',display:'flex',alignItems:'center',gap:16}}>
+                <div key={p.id} style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,rgba(192,132,252,0.16) 0%,var(--t-card) 55%)',border:'1px solid rgba(192,132,252,0.4)',boxShadow:'0 12px 40px var(--t-sh-md),0 0 30px rgba(192,132,252,0.08)',padding:'16px 20px 16px 24px',display:'flex',alignItems:'center',gap:16}}>
                   <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#c084fc,#8b3ff0)'}}/>
                   <div style={{fontSize:26,flexShrink:0}}>🎉</div>
                   <div style={{flex:1,minWidth:0}}>
@@ -2278,7 +2278,7 @@ export default function Home() {
           )}
 
           {/* GYM ANNOUNCEMENTS — always visible */}
-          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'relative',overflow:'hidden',borderRadius:18,background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',border:'1px solid rgba(245,200,66,0.15)',boxShadow:'0 12px 40px var(--t-sh-md)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
             <div style={{padding:'14px 18px',borderBottom:'1px solid var(--t-s05)',background:'linear-gradient(135deg,rgba(245,200,66,0.06) 0%,transparent 60%)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:10}}>

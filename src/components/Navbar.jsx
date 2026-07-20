@@ -164,7 +164,7 @@ export default function Navbar({ user }) {
             width:'min(82%, 320px)',
             background:'linear-gradient(180deg,var(--t-card) 0%,var(--t-card2) 100%)',
             borderLeft:'1px solid rgba(232,74,47,0.25)',
-            boxShadow:'-20px 0 60px rgba(0,0,0,0.7)',
+            boxShadow:'-20px 0 60px var(--t-sh-lg)',
             display:'flex',flexDirection:'column',
             animation:'slideInRight 0.28s cubic-bezier(0.34,1.56,0.64,1)',
             fontFamily:'Montserrat,sans-serif',
@@ -215,7 +215,7 @@ export default function Navbar({ user }) {
 
       {showLogout&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',backdropFilter:'blur(8px)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Montserrat,sans-serif',padding:16}}>
-          <div style={{background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:20,border:'1px solid rgba(232,74,47,0.2)',boxShadow:'0 20px 60px rgba(0,0,0,0.6)',padding:isMobile?'30px 24px':'40px',maxWidth:380,width:'100%',textAlign:'center'}}>
+          <div style={{background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',borderRadius:20,border:'1px solid rgba(232,74,47,0.2)',boxShadow:'0 20px 60px var(--t-sh-md)',padding:isMobile?'30px 24px':'40px',maxWidth:380,width:'100%',textAlign:'center'}}>
             <div style={{fontSize:44,marginBottom:12}}>👋</div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,color:'var(--t-text)',marginBottom:8}}>LOG OUT?</div>
             <div style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.7,marginBottom:24}}>Are you sure you want to sign out of HITTRACK?</div>
