@@ -157,6 +157,39 @@ export default function AdminDashboard() {
   // Daily printable report
   const [showReport,setShowReport] = useState(false)
   const [reportDate,setReportDate] = useState(() => new Date().toISOString().split('T')[0])
+
+  // ── Which sections go on the printed sheet ──
+  // Admin picks what to print instead of always getting the full sheet.
+  // Everything is ON by default, so the generalised report is still one
+  // click. The choice is remembered so a recurring report (e.g. bookings
+  // only) doesn't have to be re-selected every day.
+  const REPORT_SECTIONS = [
+    { id:'snapshot', label:'Membership Snapshot' },
+    { id:'signups',  label:'New Sign-ups' },
+    { id:'extended', label:'Memberships Extended' },
+    { id:'bookings', label:'Class Bookings' },
+    { id:'classes',  label:'Classes Scheduled' },
+    { id:'activity', label:'Activity Log' },
+  ]
+  const [reportPick,setReportPick] = useState(() => {
+    const all = Object.fromEntries(['snapshot','signups','extended','bookings','classes','activity'].map(k=>[k,true]))
+    try {
+      const saved = JSON.parse(localStorage.getItem('hittrack_report_sections') || 'null')
+      return saved ? { ...all, ...saved } : all
+    } catch { return all }
+  })
+  function toggleReportSection(id){
+    setReportPick(p => {
+      const next = { ...p, [id]: !p[id] }
+      try { localStorage.setItem('hittrack_report_sections', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+  function setAllReportSections(on){
+    const next = Object.fromEntries(REPORT_SECTIONS.map(s=>[s.id,on]))
+    setReportPick(next)
+    try { localStorage.setItem('hittrack_report_sections', JSON.stringify(next)) } catch {}
+  }
   // Promos — marketing banners members see on their home screen
   const [promos,setPromos]           = useState([])
   const [showPromo,setShowPromo]     = useState(false)
@@ -3013,18 +3046,50 @@ export default function AdminDashboard() {
             <div style={{width:'100%',maxWidth:820,maxHeight:'92vh',display:'flex',flexDirection:'column',background:'#fff',borderRadius:14,overflow:'hidden'}}>
 
               {/* Toolbar — hidden when printing */}
-              <div className="no-print" style={{display:'flex',alignItems:'center',gap:10,padding:'12px 18px',background:'#f2f2f2',borderBottom:'1px solid #ddd',flexShrink:0}}>
-                <strong style={{fontSize:13,color:'#111',flex:1}}>🖨 Daily Report</strong>
-                <label style={{fontSize:11,color:'#444'}}>Date:</label>
-                <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)}
-                  style={{border:'1px solid #ccc',borderRadius:6,padding:'5px 8px',fontSize:12,color:'#111',background:'#fff'}}/>
-                <button onClick={()=>window.print()}
-                  style={{background:'#16a34a',color:'#fff',border:'none',borderRadius:6,padding:'7px 16px',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-                  Print / Save as PDF
-                </button>
-                <button onClick={()=>setShowReport(false)}
-                  style={{background:'transparent',color:'#555',border:'1px solid #ccc',borderRadius:6,padding:'7px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Close</button>
-              </div>
+              {(() => {
+                const picked = REPORT_SECTIONS.filter(s=>reportPick[s.id]).length
+                return (
+                <div className="no-print" style={{padding:'12px 18px',background:'#f2f2f2',borderBottom:'1px solid #ddd',flexShrink:0}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <strong style={{fontSize:13,color:'#111',flex:1}}>🖨 Daily Report</strong>
+                    <label style={{fontSize:11,color:'#444'}}>Date:</label>
+                    <input type="date" value={reportDate} onChange={e=>setReportDate(e.target.value)}
+                      style={{border:'1px solid #ccc',borderRadius:6,padding:'5px 8px',fontSize:12,color:'#111',background:'#fff'}}/>
+                    <button onClick={()=>window.print()} disabled={picked===0}
+                      title={picked===0?'Select at least one section to print':'Print or save as PDF'}
+                      style={{background:picked===0?'#9ca3af':'#16a34a',color:'#fff',border:'none',borderRadius:6,padding:'7px 16px',fontSize:12,fontWeight:700,cursor:picked===0?'not-allowed':'pointer'}}>
+                      Print / Save as PDF
+                    </button>
+                    <button onClick={()=>setShowReport(false)}
+                      style={{background:'transparent',color:'#555',border:'1px solid #ccc',borderRadius:6,padding:'7px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Close</button>
+                  </div>
+
+                  {/* Section picker — admin chooses what goes on the sheet */}
+                  <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:10,paddingTop:10,borderTop:'1px solid #e0e0e0'}}>
+                    <span style={{fontSize:11,fontWeight:700,color:'#444',letterSpacing:'0.04em'}}>INCLUDE:</span>
+                    {REPORT_SECTIONS.map(sec=>{
+                      const on = !!reportPick[sec.id]
+                      return (
+                        <button key={sec.id} onClick={()=>toggleReportSection(sec.id)}
+                          style={{display:'inline-flex',alignItems:'center',gap:6,background:on?'#e7f5ec':'#fff',border:`1px solid ${on?'#16a34a':'#ccc'}`,color:on?'#14532d':'#666',borderRadius:50,padding:'5px 12px',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all 0.15s'}}>
+                          <span style={{fontSize:12}}>{on?'☑':'☐'}</span>{sec.label}
+                        </button>
+                      )
+                    })}
+                    <span style={{flex:1}}/>
+                    <button onClick={()=>setAllReportSections(true)}
+                      style={{background:'transparent',border:'1px solid #ccc',borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,color:'#444',cursor:'pointer'}}>All</button>
+                    <button onClick={()=>setAllReportSections(false)}
+                      style={{background:'transparent',border:'1px solid #ccc',borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,color:'#444',cursor:'pointer'}}>None</button>
+                  </div>
+                  {picked===0 && (
+                    <div style={{fontSize:11,color:'#b91c1c',marginTop:8,fontWeight:600}}>
+                      ⚠ Nothing selected — pick at least one section to print.
+                    </div>
+                  )}
+                </div>
+                )
+              })()}
 
               {/* The printable sheet */}
               <div id="daily-report" style={{overflowY:'auto',padding:'28px 34px',background:'#fff',color:'#111',fontFamily:"'Montserrat',sans-serif"}}>
@@ -3040,6 +3105,17 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* If this is a filtered report, say so on the sheet itself —
+                    otherwise a partial printout reads as the full picture. */}
+                {REPORT_SECTIONS.some(s=>!reportPick[s.id]) && (
+                  <div style={{marginTop:10,padding:'7px 10px',background:'#f3f4f6',border:'1px solid #d1d5db',borderRadius:6,fontSize:10,color:'#374151'}}>
+                    <strong>Partial report</strong> — includes only: {REPORT_SECTIONS.filter(s=>reportPick[s.id]).map(s=>s.label).join(' · ')}
+                  </div>
+                )}
+
+                {/* Only the sections the admin ticked are rendered, so what's
+                    on screen is exactly what prints. */}
+                {reportPick.snapshot && (
                 <Section title="Membership Snapshot">
                   <Row l="Total members"        r={memberList.length}/>
                   <Row l="Active"               r={countBy('active')}/>
@@ -3049,7 +3125,9 @@ export default function AdminDashboard() {
                   <Row l="Paused"               r={countBy('paused')}/>
                   <Row l="Coaches"              r={coaches.length}/>
                 </Section>
+                )}
 
+                {reportPick.signups && (
                 <Section title={`New Sign-ups (${newMembers.length})`}>
                   {newMembers.length===0
                     ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No new sign-ups on this date.</div>
@@ -3057,7 +3135,9 @@ export default function AdminDashboard() {
                         <Row key={m.uid} l={`${m.name||'Unknown'} · ${m.email||''}`} r={getStatusLabel(computeMembershipState(m.membership))}/>
                       ))}
                 </Section>
+                )}
 
+                {reportPick.extended && (
                 <Section title={`Memberships Extended (${byType('membership_extended').length})`}>
                   {byType('membership_extended').length===0
                     ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No membership extensions recorded.</div>
@@ -3065,7 +3145,9 @@ export default function AdminDashboard() {
                         <Row key={i} l={e.description||'Membership extended'} r={new Date(tsMs(e.createdAt)).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}/>
                       ))}
                 </Section>
+                )}
 
+                {reportPick.bookings && (
                 <Section title={`Class Bookings (${byType('booking_created').length} booked · ${byType('booking_cancelled').length} cancelled)`}>
                   {dayEvents.filter(e=>e.type==='booking_created'||e.type==='booking_cancelled').length===0
                     ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No booking activity recorded.</div>
@@ -3073,7 +3155,9 @@ export default function AdminDashboard() {
                         <Row key={i} l={e.description||e.type} r={new Date(tsMs(e.createdAt)).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}/>
                       ))}
                 </Section>
+                )}
 
+                {reportPick.classes && (
                 <Section title={`Classes Scheduled — ${weekday} (${todaysClasses.length})`}>
                   {todaysClasses.length===0
                     ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No classes scheduled for this weekday.</div>
@@ -3081,7 +3165,9 @@ export default function AdminDashboard() {
                         <Row key={c.id} l={`${c.name} · ${c.time} · Coach ${c.coach||'—'}`} r={`${c.enrolled||0}/${c.spots} booked`}/>
                       ))}
                 </Section>
+                )}
 
+                {reportPick.activity && (
                 <Section title={`All Recorded Activity (${dayEvents.length})`}>
                   {dayEvents.length===0
                     ? <div style={{fontSize:12,color:'#666',padding:'6px 0'}}>No activity recorded on this date.</div>
@@ -3089,6 +3175,7 @@ export default function AdminDashboard() {
                         <Row key={i} l={`${ACTIVITY_TYPES[e.type]?.label||e.type} — ${e.description||''}`} r={new Date(tsMs(e.createdAt)).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}/>
                       ))}
                 </Section>
+                )}
 
                 <div style={{marginTop:26,paddingTop:10,borderTop:'1px solid #ccc',fontSize:10,color:'#666',display:'flex',justifyContent:'space-between'}}>
                   <span>HITTRACK Gym Management System</span>
