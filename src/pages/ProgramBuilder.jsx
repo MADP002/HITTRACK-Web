@@ -91,7 +91,7 @@ const PROGRAMS = {
 }
 
 const glass = (extra = {}) => ({
-  background: 'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
+  background: 'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius: 20, border: '1px solid rgba(245,200,66,0.15)',
   boxShadow: '0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow: 'hidden', ...extra,
@@ -185,7 +185,7 @@ export default function ProgramBuilder() {
     ? (parseFloat(form.weight) / ((parseFloat(form.height) / 100) ** 2)).toFixed(1)
     : null
   const bmiLabel = !bmi ? '' : bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'
-  const bmiColor = !bmi ? '#555' : bmi < 18.5 ? '#42a5f5' : bmi < 25 ? '#4ade80' : bmi < 30 ? '#f5c842' : '#e84a2f'
+  const bmiColor = !bmi ? 'var(--t-dim3)' : bmi < 18.5 ? '#42a5f5' : bmi < 25 ? '#4ade80' : bmi < 30 ? '#f5c842' : '#e84a2f'
 
   function update(field, val) { setForm(f => ({ ...f, [field]: val })) }
 
@@ -336,7 +336,7 @@ export default function ProgramBuilder() {
       {/* Header */}
       <div style={s.header}>
         <div style={s.logo}>
-          HIT<span style={{ color: '#e84a2f' }}>TRACK</span>
+          HIT<span style={{ color: 'var(--a-red)' }}>TRACK</span>
         </div>
         <div style={s.headerSub}>Program Setup · One time only</div>
       </div>
@@ -347,20 +347,20 @@ export default function ProgramBuilder() {
           <div key={i} style={s.stepItem}>
             <div style={{
               ...s.stepDot,
-              background: i < step ? '#4ade80' : i === step ? 'rgba(245,200,66,0.15)' : '#1a1a1a',
-              border: `2px solid ${i < step ? '#4ade80' : i === step ? '#f5c842' : '#333'}`,
-              color: i < step ? '#fff' : i === step ? '#f5c842' : '#555',
+              background: i < step ? '#4ade80' : i === step ? 'rgba(245,200,66,0.15)' : 'var(--t-card)',
+              border: `2px solid ${i < step ? '#4ade80' : i === step ? '#f5c842' : 'var(--t-dim4)'}`,
+              color: i < step ? '#fff' : i === step ? '#f5c842' : 'var(--t-dim3)',
             }}>
               {i < step ? '✓' : st.icon}
             </div>
             {/* Show label only for the active step on mobile; all labels on desktop */}
             {(!isMobile || i === step) && (
-              <div style={{ ...s.stepLabel, color: i === step ? '#f5c842' : i < step ? '#4ade80' : '#555', fontSize: isMobile ? 9 : undefined }}>
+              <div style={{ ...s.stepLabel, color: i === step ? '#f5c842' : i < step ? '#4ade80' : 'var(--t-dim3)', fontSize: isMobile ? 9 : undefined }}>
                 {st.title}
               </div>
             )}
             {i < STEPS.length - 1 && (
-              <div style={{ ...s.stepLine, background: i < step ? '#4ade80' : '#2a2a2a' }} />
+              <div style={{ ...s.stepLine, background: i < step ? '#4ade80' : 'var(--t-card3)' }} />
             )}
           </div>
         ))}
@@ -376,9 +376,9 @@ export default function ProgramBuilder() {
             title="Cancel and return to profile (your existing program will not be changed)"
             style={{
               position:'absolute',top:14,right:14,zIndex:3,
-              background:'rgba(255,255,255,0.04)',
-              color:'#888',
-              border:'1px solid rgba(255,255,255,0.1)',
+              background:'var(--t-s04)',
+              color:'var(--t-dim2)',
+              border:'1px solid var(--t-s10)',
               borderRadius:50,
               padding:'7px 14px',
               fontSize:10,
@@ -391,7 +391,7 @@ export default function ProgramBuilder() {
               transition:'all 0.2s ease',
             }}
             onMouseEnter={e=>{e.currentTarget.style.background='rgba(232,74,47,0.12)';e.currentTarget.style.color='#e84a2f';e.currentTarget.style.borderColor='rgba(232,74,47,0.35)'}}
-            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.04)';e.currentTarget.style.color='#888';e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}}>
+            onMouseLeave={e=>{e.currentTarget.style.background='var(--t-s04)';e.currentTarget.style.color='var(--t-dim2)';e.currentTarget.style.borderColor='var(--t-s10)'}}>
             ✕ CANCEL
           </button>
         )}
@@ -433,22 +433,22 @@ export default function ProgramBuilder() {
         <div onClick={()=>setCancelConfirm(false)}
           style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(10px)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div onClick={e=>e.stopPropagation()}
-            style={{position:'relative',background:'linear-gradient(135deg,#1a1413 0%,#0e0a0a 100%)',borderRadius:20,border:'2px solid rgba(245,200,66,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(245,200,66,0.2)'}}>
+            style={{position:'relative',background:'linear-gradient(135deg,var(--t-card) 0%,var(--t-card2) 100%)',borderRadius:20,border:'2px solid rgba(245,200,66,0.4)',maxWidth:460,width:'100%',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,0.8),0 0 50px rgba(245,200,66,0.2)'}}>
             <div style={{position:'absolute',left:0,top:0,bottom:0,width:5,background:'linear-gradient(180deg,#f5c842,#e08820)'}}/>
             <div style={{padding:'22px 26px',display:'flex',flexDirection:'column',gap:16,position:'relative'}}>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:46,height:46,borderRadius:12,background:'linear-gradient(135deg,#f5c842,#e08820)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,boxShadow:'0 4px 14px rgba(245,200,66,0.5)'}}>↩</div>
                 <div>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'#f5c842'}}>CANCEL & RETURN?</div>
-                  <div style={{fontSize:9,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Your existing program will not be changed</div>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:'0.05em',color:'var(--a-gold)'}}>CANCEL & RETURN?</div>
+                  <div style={{fontSize:9,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',fontWeight:700,marginTop:2}}>Your existing program will not be changed</div>
                 </div>
               </div>
-              <div style={{padding:'14px 16px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.22)',borderRadius:12,fontSize:12,color:'#bbb',lineHeight:1.65}}>
-                You haven't saved anything yet. Cancelling now will discard the inputs on this page and return you to your profile. <strong style={{color:'#f5c842'}}>Your current training program stays intact.</strong>
+              <div style={{padding:'14px 16px',background:'rgba(245,200,66,0.06)',border:'1px solid rgba(245,200,66,0.22)',borderRadius:12,fontSize:12,color:'var(--t-dim1)',lineHeight:1.65}}>
+                You haven't saved anything yet. Cancelling now will discard the inputs on this page and return you to your profile. <strong style={{color:'var(--a-gold)'}}>Your current training program stays intact.</strong>
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button onClick={()=>setCancelConfirm(false)}
-                  style={{flex:1,background:'rgba(255,255,255,0.04)',color:'#aaa',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:'pointer'}}>
+                  style={{flex:1,background:'var(--t-s04)',color:'var(--t-dim1)',border:'1px solid var(--t-s10)',borderRadius:50,padding:'12px',fontSize:11,fontWeight:800,letterSpacing:'0.06em',cursor:'pointer'}}>
                   KEEP EDITING
                 </button>
                 <button onClick={handleCancelRedo}
@@ -481,13 +481,13 @@ function StepBasic({ form, update, errors, isMinor, ageFromDOB }) {
           // Background is dimmed to signal "read-only" while still readable.
           <div style={{
             ...s.input,
-            background:'rgba(255,255,255,0.02)',
-            color:'#f5c842',
+            background:'var(--t-s02)',
+            color:'var(--a-gold)',
             display:'flex',alignItems:'center',justifyContent:'space-between',
             gap:10,cursor:'not-allowed',
           }}>
             <span style={{fontWeight:700}}>{form.age} years old</span>
-            <span style={{fontSize:10,color:'#666',fontStyle:'italic'}}>
+            <span style={{fontSize:10,color:'var(--t-dim3)',fontStyle:'italic'}}>
               calculated from your date of birth
             </span>
           </div>
@@ -502,7 +502,7 @@ function StepBasic({ form, update, errors, isMinor, ageFromDOB }) {
         <div style={{
           padding:'12px 14px',background:'rgba(245,200,66,0.08)',
           border:'1px solid rgba(245,200,66,0.3)',borderRadius:10,
-          fontSize:11,color:'#f5c842',lineHeight:1.6,marginTop:-4
+          fontSize:11,color:'var(--a-gold)',lineHeight:1.6,marginTop:-4
         }}>
           <strong>⚠ Members under 18</strong> need a parent or guardian to sign a
           consent waiver at the gym before training. Please bring an adult
@@ -539,10 +539,10 @@ function StepBody({ form, update, errors, bmi, bmiLabel, bmiColor }) {
               <div style={{ display: 'inline-block', background: bmiColor + '22', color: bmiColor, border: `1px solid ${bmiColor}44`, borderRadius: 50, padding: '3px 14px', fontSize: 12, fontWeight: 700, marginTop: 6 }}>{bmiLabel}</div>
             </div>
             <div style={{ flex: 1, paddingLeft: 20 }}>
-              <div style={{ height: 8, background: '#2a2424', borderRadius: 50, overflow: 'hidden', marginBottom: 8 }}>
+              <div style={{ height: 8, background: 'var(--t-card3)', borderRadius: 50, overflow: 'hidden', marginBottom: 8 }}>
                 <div style={{ height: '100%', background: bmiColor, borderRadius: 50, width: `${Math.min((parseFloat(bmi) / 40) * 100, 100)}%`, transition: 'width 0.6s ease' }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#555', fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--t-dim3)', fontWeight: 600 }}>
                 <span>Underweight</span><span>Normal</span><span>Overweight</span><span>Obese</span>
               </div>
             </div>
@@ -597,8 +597,8 @@ function StepStyle({ form, update, errors }) {
             >
               <span style={{ fontSize: 20 }}>{ex.icon}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#f0ece8' }}>{ex.id}</div>
-                <div style={{ fontSize: 12, color: '#7a7570', marginTop: 2 }}>{ex.desc}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t-text)' }}>{ex.id}</div>
+                <div style={{ fontSize: 12, color: 'var(--t-muted)', marginTop: 2 }}>{ex.desc}</div>
               </div>
               {form.experience === ex.id && <div style={s.checkBadge}>✓</div>}
             </div>
@@ -636,12 +636,12 @@ function StepGoals({ form, update, errors }) {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {DAYS.map(d => (
             <div key={d}
-              style={{ width: 44, height: 44, borderRadius: '50%', background: form.daysPerWeek === d ? 'rgba(245,200,66,0.15)' : '#1a1a1a', border: `2px solid ${form.daysPerWeek === d ? '#f5c842' : '#333'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, cursor: 'pointer', color: form.daysPerWeek === d ? '#f5c842' : '#555', transition: 'all 0.2s' }}
+              style={{ width: 44, height: 44, borderRadius: '50%', background: form.daysPerWeek === d ? 'rgba(245,200,66,0.15)' : 'var(--t-card)', border: `2px solid ${form.daysPerWeek === d ? '#f5c842' : 'var(--t-dim4)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, cursor: 'pointer', color: form.daysPerWeek === d ? '#f5c842' : 'var(--t-dim3)', transition: 'all 0.2s' }}
               onClick={() => update('daysPerWeek', d)}
             >{d}</div>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: '#7a7570', marginTop: 8 }}>
+        <div style={{ fontSize: 12, color: 'var(--t-muted)', marginTop: 8 }}>
           {form.daysPerWeek} training day{form.daysPerWeek > 1 ? 's' : ''} per week selected
         </div>
       </div>
@@ -658,7 +658,7 @@ function StepGoals({ form, update, errors }) {
         const more = Math.max(seq.length - first5.length, 0)
         return (
           <div style={{ background: 'rgba(245,200,66,0.04)', border: '1px solid rgba(245,200,66,0.12)', borderRadius: 14, padding: '16px 18px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#f5c842', letterSpacing: '0.08em', marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--a-gold)', letterSpacing: '0.08em', marginBottom: 10 }}>
               YOUR FIRST 5 TRAININGS — {form.goal.toUpperCase()}
             </div>
             {first5.map((movId, i) => {
@@ -672,9 +672,9 @@ function StepGoals({ form, update, errors }) {
               }
               const ti = getTypeInfo(mov.type)
               return (
-                <div key={movId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < first5.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <div key={movId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < first5.length - 1 ? '1px solid var(--t-s04)' : 'none' }}>
                   <div style={{ width: 26, height: 26, borderRadius: 8, background: `${ti.color}22`, border: `1px solid ${ti.color}55`, color: ti.color, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{mov.icon}</div>
-                  <div style={{ fontSize: 13, color: '#f0ece8', fontWeight: 500, flex: 1 }}>{displayName}</div>
+                  <div style={{ fontSize: 13, color: 'var(--t-text)', fontWeight: 500, flex: 1 }}>{displayName}</div>
                   <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: `${ti.color}18`, color: ti.color, border: `1px solid ${ti.color}44`, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                     {ti.label}
                   </span>
@@ -682,7 +682,7 @@ function StepGoals({ form, update, errors }) {
               )
             })}
             {more > 0 && (
-              <div style={{ fontSize: 11, color: '#7a7570', textAlign: 'center', paddingTop: 10, fontStyle: 'italic' }}>
+              <div style={{ fontSize: 11, color: 'var(--t-muted)', textAlign: 'center', paddingTop: 10, fontStyle: 'italic' }}>
                 + {more} more training{more !== 1 ? 's' : ''} in your full program
               </div>
             )}
@@ -719,11 +719,11 @@ function GeneratingScreen({ form }) {
 
   return (
     <div style={s.genPage}>
-      <div style={s.logo}>HIT<span style={{ color: '#e84a2f' }}>TRACK</span></div>
-      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, letterSpacing: '0.06em', color: '#f0ece8', textAlign: 'center' }}>
+      <div style={s.logo}>HIT<span style={{ color: 'var(--a-red)' }}>TRACK</span></div>
+      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, letterSpacing: '0.06em', color: 'var(--t-text)', textAlign: 'center' }}>
         Building Your Program...
       </div>
-      <div style={{ fontSize: 13, color: '#7a7570', textAlign: 'center', maxWidth: 360 }}>
+      <div style={{ fontSize: 13, color: 'var(--t-muted)', textAlign: 'center', maxWidth: 360 }}>
         Our AI is creating a personalized boxing plan just for you
       </div>
 
@@ -731,19 +731,19 @@ function GeneratingScreen({ form }) {
         {genSteps.map((st, i) => (
           <div key={i} style={{ ...glass({ borderRadius: 12 }), padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, opacity: i <= stepIdx ? 1 : 0.3, transition: 'opacity 0.5s' }}>
             <span style={{ fontSize: 20 }}>{st.icon}</span>
-            <span style={{ fontSize: 13, color: '#f0ece8', flex: 1 }}>{st.text}</span>
-            {i < stepIdx && <span style={{ color: '#4ade80', fontWeight: 700 }}>✓</span>}
-            {i === stepIdx && <span style={{ color: '#f5c842', fontSize: 11 }}>...</span>}
+            <span style={{ fontSize: 13, color: 'var(--t-text)', flex: 1 }}>{st.text}</span>
+            {i < stepIdx && <span style={{ color: 'var(--a-green2)', fontWeight: 700 }}>✓</span>}
+            {i === stepIdx && <span style={{ color: 'var(--a-gold)', fontSize: 11 }}>...</span>}
           </div>
         ))}
       </div>
 
       <div style={{ width: '100%', maxWidth: 440 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
-          <span style={{ color: '#7a7570' }}>Generating...</span>
-          <span style={{ color: '#f5c842', fontWeight: 700 }}>{progress}%</span>
+          <span style={{ color: 'var(--t-muted)' }}>Generating...</span>
+          <span style={{ color: 'var(--a-gold)', fontWeight: 700 }}>{progress}%</span>
         </div>
-        <div style={{ height: 6, background: '#2a2424', borderRadius: 50, overflow: 'hidden' }}>
+        <div style={{ height: 6, background: 'var(--t-card3)', borderRadius: 50, overflow: 'hidden' }}>
           <div style={{ height: '100%', background: 'linear-gradient(90deg,#e84a2f,#f5c842)', borderRadius: 50, width: `${progress}%`, transition: 'width 0.6s ease' }} />
         </div>
       </div>
@@ -785,18 +785,18 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
 
   return (
     <div style={s.genPage}>
-      <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(74,222,128,0.15)', border: '2px solid #4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#4ade80' }}>✓</div>
+      <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(74,222,128,0.15)', border: '2px solid #4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: 'var(--a-green2)' }}>✓</div>
 
-      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 32, letterSpacing: '0.06em', color: '#f0ece8', textAlign: 'center' }}>
+      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 32, letterSpacing: '0.06em', color: 'var(--t-text)', textAlign: 'center' }}>
         Your Program is Ready!
       </div>
-      <div style={{ fontSize: 13, color: '#7a7570', textAlign: 'center', maxWidth: 400 }}>
+      <div style={{ fontSize: 13, color: 'var(--t-muted)', textAlign: 'center', maxWidth: 400 }}>
         Welcome to HITTRACK, {form.name.split(' ')[0]}! Your personalized boxing program has been created.
       </div>
 
       {/* Summary */}
       <div style={{ ...glass({ borderRadius: 16 }), padding: '20px 28px', width: '100%', maxWidth: 480 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#f5c842', letterSpacing: '0.1em', marginBottom: 14 }}>YOUR PROFILE SUMMARY</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--a-gold)', letterSpacing: '0.1em', marginBottom: 14 }}>YOUR PROFILE SUMMARY</div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 12, textAlign: 'center', marginBottom: 16 }}>
           {[
             { label: 'BMI', val: bmi, color: bmiColor, sub: bmiLabel },
@@ -804,28 +804,28 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
             { label: 'Level', val: form.experience.slice(0, 3).toUpperCase(), color: '#e84a2f', sub: form.experience },
             { label: 'Days/Wk', val: form.daysPerWeek + 'x', color: '#4ade80', sub: 'Training' },
           ].map((item, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 6px', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ fontSize: 9, color: '#555', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>{item.label}</div>
+            <div key={i} style={{ background: 'var(--t-s03)', borderRadius: 10, padding: '10px 6px', border: '1px solid var(--t-s05)' }}>
+              <div style={{ fontSize: 9, color: 'var(--t-dim3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>{item.label}</div>
               <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: item.color, letterSpacing: '0.04em' }}>{item.val}</div>
-              <div style={{ fontSize: 9, color: '#7a7570', marginTop: 2 }}>{item.sub}</div>
+              <div style={{ fontSize: 9, color: 'var(--t-muted)', marginTop: 2 }}>{item.sub}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#f5c842', letterSpacing: '0.08em', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--a-gold)', letterSpacing: '0.08em', marginBottom: 10 }}>
           YOUR TRAINING PROGRAM — {form.goal?.toUpperCase()}
         </div>
-        <div style={{ fontSize: 10, color: '#7a7570', marginBottom: 12, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 10, color: 'var(--t-muted)', marginBottom: 12, lineHeight: 1.5 }}>
           {program.length} trainings unlocked progressively. Complete each one on the mobile app to advance through Beginner → Intermediate → Advanced.
         </div>
         {program.map((ex, i) => {
           const ti = getTypeInfo(ex.type)
           return (
-            <div key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < program.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+            <div key={ex.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: i < program.length - 1 ? '1px solid var(--t-s04)' : 'none' }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ti.color}22`, border: `1px solid ${ti.color}55`, color: ti.color, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{ex.icon}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: '#f0ece8', fontWeight: 600 }}>{ex.name}</div>
-                <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>Training {i + 1}{i === 0 ? ' · Unlocked' : ' · Locked'}</div>
+                <div style={{ fontSize: 13, color: 'var(--t-text)', fontWeight: 600 }}>{ex.name}</div>
+                <div style={{ fontSize: 10, color: 'var(--t-dim3)', marginTop: 2 }}>Training {i + 1}{i === 0 ? ' · Unlocked' : ' · Locked'}</div>
               </div>
               <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 50, background: `${ti.color}18`, color: ti.color, border: `1px solid ${ti.color}44`, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {ti.label}
@@ -836,16 +836,16 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
 
         {sampleWorkout && (
           <>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', letterSpacing: '0.08em', marginTop: 18, marginBottom: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--a-green2)', letterSpacing: '0.08em', marginTop: 18, marginBottom: 6 }}>
               TODAY'S WORKOUT PREVIEW
             </div>
-            <div style={{ fontSize: 10, color: '#7a7570', marginBottom: 12, lineHeight: 1.5, fontStyle: 'italic' }}>
+            <div style={{ fontSize: 10, color: 'var(--t-muted)', marginBottom: 12, lineHeight: 1.5, fontStyle: 'italic' }}>
               A sample of what “Today's Workout” generates from your plan — the daily warmup/drill session, separate from the camera Training Lab movements above.
             </div>
             {(sampleWorkout.exercises || []).map((ex, i) => (
-              <div key={`tw${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: i < sampleWorkout.exercises.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(74,222,128,0.13)', border: '1px solid rgba(74,222,128,0.4)', color: '#4ade80', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🏋</div>
-                <div style={{ fontSize: 13, color: '#f0ece8', fontWeight: 500, flex: 1, minWidth: 0 }}>{exerciseName(ex)}</div>
+              <div key={`tw${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: i < sampleWorkout.exercises.length - 1 ? '1px solid var(--t-s04)' : 'none' }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(74,222,128,0.13)', border: '1px solid rgba(74,222,128,0.4)', color: 'var(--a-green2)', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🏋</div>
+                <div style={{ fontSize: 13, color: 'var(--t-text)', fontWeight: 500, flex: 1, minWidth: 0 }}>{exerciseName(ex)}</div>
               </div>
             ))}
           </>
@@ -854,8 +854,8 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
 
       {/* Lock notice */}
       <div style={{ background: 'rgba(232,74,47,0.06)', border: '1px solid rgba(232,74,47,0.15)', borderRadius: 12, padding: '12px 18px', maxWidth: 480, width: '100%', textAlign: 'center' }}>
-        <div style={{ fontSize: 11, color: '#e84a2f', fontWeight: 700, marginBottom: 4 }}>🔒 Program Locked</div>
-        <div style={{ fontSize: 12, color: '#7a7570', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11, color: 'var(--a-red)', fontWeight: 700, marginBottom: 4 }}>🔒 Program Locked</div>
+        <div style={{ fontSize: 12, color: 'var(--t-muted)', lineHeight: 1.6 }}>
           Your stance, experience level, and goal are now locked to protect your program. You can request a program reset from your Profile page.
         </div>
       </div>
@@ -874,19 +874,19 @@ function DoneScreen({ navigate, form, bmi, bmiLabel, bmiColor }) {
 function Field({ label, error, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#7a7570', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
       {children}
-      {error && <div style={{ fontSize: 11, color: '#e84a2f', fontWeight: 600 }}>⚠ {error}</div>}
+      {error && <div style={{ fontSize: 11, color: 'var(--a-red)', fontWeight: 600 }}>⚠ {error}</div>}
     </div>
   )
 }
 
 // ── STYLES ────────────────────────────────────────────
 const s = {
-  page:       { minHeight: '100vh', background: '#111', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px 60px', gap: 28, fontFamily: 'Montserrat,sans-serif' },
+  page:       { minHeight: '100vh', background: 'var(--t-card2)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px 60px', gap: 28, fontFamily: 'Montserrat,sans-serif' },
   header:     { textAlign: 'center' },
-  logo:       { fontFamily: "'Bebas Neue',sans-serif", fontSize: 32, letterSpacing: '0.06em', color: '#f0ece8' },
-  headerSub:  { fontSize: 12, color: '#555', fontWeight: 600, marginTop: 4, letterSpacing: '0.06em' },
+  logo:       { fontFamily: "'Bebas Neue',sans-serif", fontSize: 32, letterSpacing: '0.06em', color: 'var(--t-text)' },
+  headerSub:  { fontSize: 12, color: 'var(--t-dim3)', fontWeight: 600, marginTop: 4, letterSpacing: '0.06em' },
   stepBar:    { display: 'flex', alignItems: 'flex-start', position: 'relative', width: '100%', maxWidth: 520, gap: 0 },
   stepItem:   { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1, position: 'relative' },
   stepDot:    { width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 700, transition: 'all 0.3s', zIndex: 1 },
@@ -894,25 +894,25 @@ const s = {
   stepLine:   { position: 'absolute', top: 22, left: '75%', right: '-25%', height: 2, zIndex: 0, transition: 'background 0.3s' },
   stepHeader: { display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid rgba(245,200,66,0.08)' },
   stepHeaderIcon: { fontSize: 32 },
-  stepTitle:  { fontFamily: "'Bebas Neue',sans-serif", fontSize: 24, letterSpacing: '0.06em', color: '#f0ece8' },
-  stepDesc:   { fontSize: 12, color: '#7a7570', marginTop: 2 },
+  stepTitle:  { fontFamily: "'Bebas Neue',sans-serif", fontSize: 24, letterSpacing: '0.06em', color: 'var(--t-text)' },
+  stepDesc:   { fontSize: 12, color: 'var(--t-muted)', marginTop: 2 },
   stepContent:{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 28 },
-  input:      { background: '#1a1818', border: '1.5px solid #2a2424', borderRadius: 50, padding: '14px 20px', color: '#f0ece8', fontSize: 14, fontFamily: 'Montserrat,sans-serif', outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' },
+  input:      { background: 'var(--t-card)', border: '1.5px solid var(--t-card3)', borderRadius: 50, padding: '14px 20px', color: 'var(--t-text)', fontSize: 14, fontFamily: 'Montserrat,sans-serif', outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' },
   navRow:     { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  backBtn:    { background: 'transparent', color: '#7a7570', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: 50, padding: '12px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
+  backBtn:    { background: 'transparent', color: 'var(--t-muted)', border: '1.5px solid var(--t-s10)', borderRadius: 50, padding: '12px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer' },
   nextBtn:    { background: 'linear-gradient(135deg,#e84a2f,#c93820)', color: '#fff', border: 'none', borderRadius: 50, padding: '14px 32px', fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 20px rgba(232,74,47,0.4)', flex: 1, maxWidth: 260 },
-  stepCounter:{ textAlign: 'center', fontSize: 11, color: '#555', marginTop: 12 },
-  groupLabel: { fontSize: 11, fontWeight: 700, color: '#7a7570', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 },
-  errorMsg:   { fontSize: 11, color: '#e84a2f', fontWeight: 600, marginBottom: 8 },
-  selectCard: { background: '#1a1818', borderRadius: 14, padding: '18px 16px', border: '2px solid #2a2424', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', textAlign: 'center' },
+  stepCounter:{ textAlign: 'center', fontSize: 11, color: 'var(--t-dim3)', marginTop: 12 },
+  groupLabel: { fontSize: 11, fontWeight: 700, color: 'var(--t-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 },
+  errorMsg:   { fontSize: 11, color: 'var(--a-red)', fontWeight: 600, marginBottom: 8 },
+  selectCard: { background: 'var(--t-card)', borderRadius: 14, padding: '18px 16px', border: '2px solid var(--t-card3)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', textAlign: 'center' },
   selectCardActive: { border: '2px solid #f5c842', background: 'rgba(245,200,66,0.06)' },
   selectCardEmoji: { fontSize: 28, marginBottom: 8 },
-  selectCardTitle: { fontSize: 14, fontWeight: 700, color: '#f0ece8', marginBottom: 4 },
-  selectCardDesc:  { fontSize: 11, color: '#7a7570', lineHeight: 1.5 },
+  selectCardTitle: { fontSize: 14, fontWeight: 700, color: 'var(--t-text)', marginBottom: 4 },
+  selectCardDesc:  { fontSize: 11, color: 'var(--t-muted)', lineHeight: 1.5 },
   checkBadge: { position: 'absolute', top: 10, right: 10, width: 22, height: 22, borderRadius: '50%', background: '#f5c842', color: '#000', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  expCard:    { background: '#1a1818', borderRadius: 12, padding: '14px 16px', border: '2px solid #2a2424', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 14 },
-  bmiCard:    { background: 'rgba(255,255,255,0.02)', borderRadius: 14, padding: '16px 20px', border: '1px solid #333' },
+  expCard:    { background: 'var(--t-card)', borderRadius: 12, padding: '14px 16px', border: '2px solid var(--t-card3)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 14 },
+  bmiCard:    { background: 'var(--t-s02)', borderRadius: 14, padding: '16px 20px', border: '1px solid var(--t-dim4)' },
   bmiRow:     { display: 'flex', alignItems: 'center', gap: 0 },
-  bmiLabel:   { fontSize: 10, fontWeight: 700, color: '#7a7570', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 },
-  genPage:    { minHeight: '100vh', background: '#111', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', gap: 24, fontFamily: 'Montserrat,sans-serif' },
+  bmiLabel:   { fontSize: 10, fontWeight: 700, color: 'var(--t-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 },
+  genPage:    { minHeight: '100vh', background: 'var(--t-card2)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', gap: 24, fontFamily: 'Montserrat,sans-serif' },
 }

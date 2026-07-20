@@ -447,12 +447,12 @@ export default function Stats() {
               {/* Metric grid */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                 {[
-                  {label:'Height', val:profile.height?`${profile.height}cm`:'—', icon:'📏', color:'var(--a-blue)'},
-                  {label:'Weight', val:profile.weight?`${profile.weight}kg`:'—', icon:'⚖️', color:'var(--a-purple)'},
-                  {label:'Age',    val:profile.age?`${profile.age} yrs`:'—',     icon:'🎂', color:'var(--a-orange)'},
-                  {label:'Stance', val:profile.stance||'—',                      icon:'🥊', color:'var(--a-gold)'},
+                  {label:'Height', val:profile.height?`${profile.height}cm`:'—', icon:'📏', color:'#42a5f5'},
+                  {label:'Weight', val:profile.weight?`${profile.weight}kg`:'—', icon:'⚖️', color:'#c084fc'},
+                  {label:'Age',    val:profile.age?`${profile.age} yrs`:'—',     icon:'🎂', color:'#fb923c'},
+                  {label:'Stance', val:profile.stance||'—',                      icon:'🥊', color:'#f5c842'},
                   {label:'Level',  val:currentLevel,                              icon:LEVEL_ICON[currentLevel]||'⭐', color:lc},
-                  {label:'Goal',   val:profile.goal||'—',                        icon:'🎯', color:'var(--a-green2)'},
+                  {label:'Goal',   val:profile.goal||'—',                        icon:'🎯', color:'#4ade80'},
                 ].map((m,i)=>(
                   <div key={i} style={{background:'var(--t-s03)',borderRadius:12,padding:'12px',border:`1px solid ${m.color}22`,display:'flex',flexDirection:'column',gap:4,
                     opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(12px)',transition:`all 0.4s ease ${i*60}ms`}}>
@@ -490,10 +490,10 @@ export default function Stats() {
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:0}}>
             {[
-              {icon:'🥊',label:'Workouts',      formula:`${totalWorkouts} × 10`,  points:totalWorkouts*10,       color:'var(--a-gold)', max:1000},
-              {icon:'🔥',label:'Streak Bonus',  formula:`${streak} days × 5`,     points:streak*5,               color:'var(--a-red)', max:150},
+              {icon:'🥊',label:'Workouts',      formula:`${totalWorkouts} × 10`,  points:totalWorkouts*10,       color:'#f5c842', max:1000},
+              {icon:'🔥',label:'Streak Bonus',  formula:`${streak} days × 5`,     points:streak*5,               color:'#e84a2f', max:150},
               {icon:'⭐',label:'Division Bonus',formula:currentLevel,              points:levelBonus,             color:lc,        max:1000},
-              {icon:'📅',label:'Weekly Comp.',  formula:`${weeklyPct}% × 1.5`,    points:Math.round(weeklyPct*1.5), color:'var(--a-green2)', max:150},
+              {icon:'📅',label:'Weekly Comp.',  formula:`${weeklyPct}% × 1.5`,    points:Math.round(weeklyPct*1.5), color:'#4ade80', max:150},
             ].map((item,i,arr)=>(
               <div key={i} style={{padding:'20px 22px',borderRight:i<arr.length-1?'1px solid var(--t-s05)':'none',display:'flex',flexDirection:'column',gap:10}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>

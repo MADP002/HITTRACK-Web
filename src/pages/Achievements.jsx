@@ -57,19 +57,19 @@ const BADGES = [
 
 const RARITY = {
   common:    { name:'Common',    color:'#b0bec5', glow:'rgba(176,190,197,0.35)', stars:1 },
-  uncommon:  { name:'Uncommon',  color:'var(--a-green)', glow:'rgba(34,197,94,0.4)',    stars:2 },
-  rare:      { name:'Rare',      color:'var(--a-blue)', glow:'rgba(66,165,245,0.45)',  stars:3 },
-  epic:      { name:'Epic',      color:'var(--a-purple)', glow:'rgba(192,132,252,0.5)',  stars:4 },
-  legendary: { name:'Legendary', color:'var(--a-gold)', glow:'rgba(245,200,66,0.6)',   stars:5 },
+  uncommon:  { name:'Uncommon',  color:'#22c55e', glow:'rgba(34,197,94,0.4)',    stars:2 },
+  rare:      { name:'Rare',      color:'#42a5f5', glow:'rgba(66,165,245,0.45)',  stars:3 },
+  epic:      { name:'Epic',      color:'#c084fc', glow:'rgba(192,132,252,0.5)',  stars:4 },
+  legendary: { name:'Legendary', color:'#f5c842', glow:'rgba(245,200,66,0.6)',   stars:5 },
 }
 
 const CATEGORIES = [
-  { id:'All',         icon:'🏆', color:'var(--a-gold)' },
-  { id:'Milestones',  icon:'🥊', color:'var(--a-red)' },
-  { id:'Streaks',     icon:'🔥', color:'var(--a-red)' },
-  { id:'Levels',      icon:'⚡', color:'var(--a-blue)' },
-  { id:'Consistency', icon:'📅', color:'var(--a-green)' },
-  { id:'Rankings',    icon:'📊', color:'var(--a-purple)' },
+  { id:'All',         icon:'🏆', color:'#f5c842' },
+  { id:'Milestones',  icon:'🥊', color:'#e84a2f' },
+  { id:'Streaks',     icon:'🔥', color:'#e84a2f' },
+  { id:'Levels',      icon:'⚡', color:'#42a5f5' },
+  { id:'Consistency', icon:'📅', color:'#22c55e' },
+  { id:'Rankings',    icon:'📊', color:'#c084fc' },
 ]
 
 // Level + score come from the shared canonical helper (lib/memberLevel).
@@ -385,9 +385,9 @@ export default function Achievements() {
           </div>
           <div style={{display:'flex', gap:10, position:'relative', zIndex:1, flexWrap:'wrap'}}>
             {[
-              {label:'Unlocked',   val:`${unlockedCount}/${BADGES.length}`,  color:'var(--a-gold)'},
-              {label:'Total XP',   val:totalXP.toLocaleString(),             color:'var(--a-green)'},
-              {label:'Completion', val:`${completionPct}%`,                  color:'var(--a-red)'},
+              {label:'Unlocked',   val:`${unlockedCount}/${BADGES.length}`,  color:'#f5c842'},
+              {label:'Total XP',   val:totalXP.toLocaleString(),             color:'#22c55e'},
+              {label:'Completion', val:`${completionPct}%`,                  color:'#e84a2f'},
             ].map((st,i) => (
               <div key={i} style={{textAlign:'center', background:'var(--t-s04)', border:`1px solid ${st.color}33`, borderRadius:14, padding:'12px 18px', minWidth:96}}>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif", fontSize:24, color:st.color, lineHeight:1, textShadow:`0 0 12px ${st.color}66`}}>{st.val}</div>

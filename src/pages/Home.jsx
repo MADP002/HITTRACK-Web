@@ -1340,8 +1340,8 @@ export default function Home() {
                   {[
                     {label:'Streak', val:`${streak}d`, color:streak>=14?'#f5c842':'#42a5f5'},
                     {label:'Weekly', val:`${weeklyPct}%`, color:weeklyPct>=80?'#22c55e':weeklyPct>=40?'#f5c842':'#e84a2f'},
-                    {label:'Difficulty', val:adaptiveDifficulty, color:'var(--a-purple)'},
-                    {label:'Total', val:totalWorkouts, color:'var(--a-blue)'},
+                    {label:'Difficulty', val:adaptiveDifficulty, color:'#c084fc'},
+                    {label:'Total', val:totalWorkouts, color:'#42a5f5'},
                   ].map((s,i) => (
                     <div key={i} style={{padding:'10px 12px',background:`${s.color}10`,border:`1px solid ${s.color}25`,borderRadius:10}}>
                       <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:s.color,lineHeight:1}}>{s.val}</div>
@@ -1504,16 +1504,16 @@ export default function Home() {
           // Banner config per state
           let cfg
           if (state === STATUS.EXPIRED) {
-            cfg = { color:'var(--a-red)', bg:'rgba(232,74,47,0.08)', border:'rgba(232,74,47,0.35)', icon:'🔒', title:'Membership expired', body:'Bookings are locked. Speak with the gym admin to renew your plan.', cta:null }
+            cfg = { color:'#e84a2f', bg:'rgba(232,74,47,0.08)', border:'rgba(232,74,47,0.35)', icon:'🔒', title:'Membership expired', body:'Bookings are locked. Speak with the gym admin to renew your plan.', cta:null }
           } else if (state === STATUS.PAUSED) {
             cfg = { color:'#9ca3af', bg:'rgba(156,163,175,0.06)', border:'rgba(156,163,175,0.3)', icon:'⏸', title:'Membership paused', body:'Your expiry timer is frozen. See the admin to resume access.', cta:null }
           } else if (state === STATUS.NONE) {
             cfg = { color:'var(--t-dim2)', bg:'var(--t-s03)', border:'var(--t-s10)', icon:'⚪', title:'No active membership', body:'Speak with the gym admin to set up your plan.', cta:null }
           } else if (state === STATUS.TRIAL) {
-            cfg = { color:'var(--a-blue)', bg:'rgba(66,165,245,0.07)', border:'rgba(66,165,245,0.3)', icon:'🎁', title:`Trial · ${days} day${days===1?'':'s'} left`, body:`Your 7-day trial ends ${fmtExpiry(profile.membership)}. Speak with admin to continue after.`, cta:null }
+            cfg = { color:'#42a5f5', bg:'rgba(66,165,245,0.07)', border:'rgba(66,165,245,0.3)', icon:'🎁', title:`Trial · ${days} day${days===1?'':'s'} left`, body:`Your 7-day trial ends ${fmtExpiry(profile.membership)}. Speak with admin to continue after.`, cta:null }
           } else {
             // ACTIVE but expiring soon
-            cfg = { color:'var(--a-gold)', bg:'rgba(245,200,66,0.08)', border:'rgba(245,200,66,0.35)', icon:'⚠', title:`Expiring in ${days} day${days===1?'':'s'}`, body:`Membership expires ${fmtExpiry(profile.membership)}. Renew with admin before access is locked.`, cta:null }
+            cfg = { color:'#f5c842', bg:'rgba(245,200,66,0.08)', border:'rgba(245,200,66,0.35)', icon:'⚠', title:`Expiring in ${days} day${days===1?'':'s'}`, body:`Membership expires ${fmtExpiry(profile.membership)}. Renew with admin before access is locked.`, cta:null }
           }
 
           return (
@@ -1591,7 +1591,7 @@ export default function Home() {
             <div style={{display:'flex',background:'var(--t-s03)',borderRadius:12,padding:'10px',border:'1px solid rgba(245,200,66,0.08)'}}>
               {[
                 {val:totalWorkouts,       label:'🥊 Workouts',  color:totalWorkouts>0?'#4ade80':'#f5c842'},
-                {val:`${completedThisWeek}/7`, label:'📅 This Week', color:'var(--a-gold)'},
+                {val:`${completedThisWeek}/7`, label:'📅 This Week', color:'#f5c842'},
                 {val:streak,              label:'🔥 Streak',    color:streak>0?'#e84a2f':'#f5c842'},
               ].map((st,i,arr) => (
                 <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,borderRight:i<arr.length-1?'1px solid var(--t-s08)':'none'}}>
@@ -1971,12 +1971,12 @@ export default function Home() {
             // Tier system based on total workouts — gives the widget identity
             const TIER_TABLE = [
               {min:0,   max:9,   name:'ROOKIE',     color:'#888888', icon:'🥊'},
-              {min:10,  max:19,  name:'CONTENDER',  color:'var(--a-orange)', icon:'🥊'},
-              {min:20,  max:29,  name:'PROSPECT',   color:'var(--a-green)', icon:'⚡'},
-              {min:30,  max:39,  name:'WARRIOR',    color:'var(--a-blue)', icon:'🔥'},
-              {min:40,  max:49,  name:'CHAMPION',   color:'var(--a-purple)', icon:'🏆'},
-              {min:50,  max:99,  name:'LEGEND',     color:'var(--a-gold)', icon:'👑'},
-              {min:100, max:Infinity, name:'IMMORTAL', color:'var(--a-red)', icon:'💎'},
+              {min:10,  max:19,  name:'CONTENDER',  color:'#fb923c', icon:'🥊'},
+              {min:20,  max:29,  name:'PROSPECT',   color:'#22c55e', icon:'⚡'},
+              {min:30,  max:39,  name:'WARRIOR',    color:'#42a5f5', icon:'🔥'},
+              {min:40,  max:49,  name:'CHAMPION',   color:'#c084fc', icon:'🏆'},
+              {min:50,  max:99,  name:'LEGEND',     color:'#f5c842', icon:'👑'},
+              {min:100, max:Infinity, name:'IMMORTAL', color:'#e84a2f', icon:'💎'},
             ]
             const tier = TIER_TABLE.find(t => totalWorkouts >= t.min && totalWorkouts <= t.max) || TIER_TABLE[0]
             // Per-milestone tier color (each badge gets its own glow color)

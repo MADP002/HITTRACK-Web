@@ -126,13 +126,13 @@ export default function MedicalCertUpload({ member, onUploaded }) {
             <div style={iconTile('rgba(74,222,128,0.25)','rgba(74,222,128,0.6)')}>🏥</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:4}}>
-                <span style={{fontSize:13,fontWeight:800,color:'#4ade80',letterSpacing:'0.04em'}}>Medical Certificate on file</span>
+                <span style={{fontSize:13,fontWeight:800,color:'var(--a-green2)',letterSpacing:'0.04em'}}>Medical Certificate on file</span>
                 <span style={typePill(isPdf)}>{isPdf ? 'PDF' : 'IMAGE'}</span>
               </div>
-              <div style={{fontSize:12,color:'#f0ece8',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:2}}>
+              <div style={{fontSize:12,color:'var(--t-text)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:2}}>
                 {existing.fileName || 'certificate'}
               </div>
-              <div style={{fontSize:10,color:'#aaa'}}>
+              <div style={{fontSize:10,color:'var(--t-dim1)'}}>
                 Submitted {fmtDate(existing.submittedAt)}
               </div>
             </div>
@@ -157,7 +157,7 @@ export default function MedicalCertUpload({ member, onUploaded }) {
         <div style={{display:'flex',alignItems:'center',gap:14}}>
           <div style={iconTile('rgba(66,165,245,0.25)','rgba(66,165,245,0.6)')}>🏥</div>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:13,fontWeight:800,color:'#42a5f5',letterSpacing:'0.04em',marginBottom:3}}>
+            <div style={{fontSize:13,fontWeight:800,color:'var(--a-blue)',letterSpacing:'0.04em',marginBottom:3}}>
               {replacing ? 'Replace Medical Certificate' : (justUploaded ? 'Certificate Uploaded' : 'Upload Medical Certificate')}
             </div>
             <div style={{fontSize:11,color:'#cdd5dc',lineHeight:1.55}}>
@@ -181,25 +181,25 @@ export default function MedicalCertUpload({ member, onUploaded }) {
         {picked && !uploading && (
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
             {picked.preview ? (
-              <div style={{position:'relative',borderRadius:12,overflow:'hidden',border:'1px solid rgba(255,255,255,0.08)',background:'#fff'}}>
+              <div style={{position:'relative',borderRadius:12,overflow:'hidden',border:'1px solid var(--t-s08)',background:'#fff'}}>
                 <img src={picked.preview} alt="Preview" style={{display:'block',width:'100%',maxHeight:280,objectFit:'contain',background:'#fff'}}/>
                 <button onClick={clearPick} title="Remove"
-                  style={{position:'absolute',top:8,right:8,width:28,height:28,borderRadius:'50%',background:'rgba(0,0,0,0.7)',border:'1px solid rgba(255,255,255,0.2)',color:'#fff',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+                  style={{position:'absolute',top:8,right:8,width:28,height:28,borderRadius:'50%',background:'rgba(0,0,0,0.7)',border:'1px solid var(--t-s20)',color:'#fff',fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
               </div>
             ) : (
               <div style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'rgba(192,132,252,0.1)',border:'1px solid rgba(192,132,252,0.4)',borderRadius:12}}>
                 <span style={{fontSize:24}}>📄</span>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:700,color:'#f0ece8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{picked.file.name}</div>
-                  <div style={{fontSize:10,color:'#aaa',marginTop:2}}>PDF · {fmtBytes(picked.file.size)}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:'var(--t-text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{picked.file.name}</div>
+                  <div style={{fontSize:10,color:'var(--t-dim1)',marginTop:2}}>PDF · {fmtBytes(picked.file.size)}</div>
                 </div>
                 <button onClick={clearPick} title="Remove"
-                  style={{width:28,height:28,borderRadius:'50%',background:'rgba(232,74,47,0.15)',border:'1px solid rgba(232,74,47,0.4)',color:'#e84a2f',fontSize:14,cursor:'pointer'}}>✕</button>
+                  style={{width:28,height:28,borderRadius:'50%',background:'rgba(232,74,47,0.15)',border:'1px solid rgba(232,74,47,0.4)',color:'var(--a-red)',fontSize:14,cursor:'pointer'}}>✕</button>
               </div>
             )}
 
             {picked.preview && (
-              <div style={{fontSize:10,color:'#888',display:'flex',justifyContent:'space-between'}}>
+              <div style={{fontSize:10,color:'var(--t-dim2)',display:'flex',justifyContent:'space-between'}}>
                 <span>{picked.file.name}</span>
                 <span>{fmtBytes(picked.file.size)}</span>
               </div>
@@ -225,8 +225,8 @@ export default function MedicalCertUpload({ member, onUploaded }) {
           <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'rgba(66,165,245,0.12)',border:'1px solid rgba(66,165,245,0.4)',borderRadius:12}}>
             <div style={{width:18,height:18,borderRadius:'50%',border:'2px solid rgba(66,165,245,0.3)',borderTopColor:'#42a5f5',animation:'spin 0.8s linear infinite'}}/>
             <div>
-              <div style={{fontSize:12,fontWeight:700,color:'#42a5f5'}}>Uploading…</div>
-              <div style={{fontSize:10,color:'#aaa',marginTop:2}}>Do not close this tab.</div>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--a-blue)'}}>Uploading…</div>
+              <div style={{fontSize:10,color:'var(--t-dim1)',marginTop:2}}>Do not close this tab.</div>
             </div>
             <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
           </div>
@@ -240,16 +240,16 @@ export default function MedicalCertUpload({ member, onUploaded }) {
               onMouseEnter={e=>{e.currentTarget.style.background='rgba(245,200,66,0.18)';e.currentTarget.style.transform='translateY(-1px)'}}
               onMouseLeave={e=>{e.currentTarget.style.background='rgba(245,200,66,0.08)';e.currentTarget.style.transform='translateY(0)'}}>
               <div style={{fontSize:24}}>📷</div>
-              <div style={{fontSize:12,fontWeight:800,color:'#f5c842',letterSpacing:'0.04em',marginTop:6}}>Image</div>
-              <div style={{fontSize:9,color:'#888',marginTop:2}}>JPG · PNG · WEBP</div>
+              <div style={{fontSize:12,fontWeight:800,color:'var(--a-gold)',letterSpacing:'0.04em',marginTop:6}}>Image</div>
+              <div style={{fontSize:9,color:'var(--t-dim2)',marginTop:2}}>JPG · PNG · WEBP</div>
             </button>
             <button onClick={()=>openPicker('application/pdf')}
               style={pickerBtnStyle('#c084fc')}
               onMouseEnter={e=>{e.currentTarget.style.background='rgba(192,132,252,0.18)';e.currentTarget.style.transform='translateY(-1px)'}}
               onMouseLeave={e=>{e.currentTarget.style.background='rgba(192,132,252,0.08)';e.currentTarget.style.transform='translateY(0)'}}>
               <div style={{fontSize:24}}>📄</div>
-              <div style={{fontSize:12,fontWeight:800,color:'#c084fc',letterSpacing:'0.04em',marginTop:6}}>PDF</div>
-              <div style={{fontSize:9,color:'#888',marginTop:2}}>Document</div>
+              <div style={{fontSize:12,fontWeight:800,color:'var(--a-purple)',letterSpacing:'0.04em',marginTop:6}}>PDF</div>
+              <div style={{fontSize:9,color:'var(--t-dim2)',marginTop:2}}>Document</div>
             </button>
           </div>
         )}
@@ -257,12 +257,12 @@ export default function MedicalCertUpload({ member, onUploaded }) {
         {/* Replacing — give a way back if member changes their mind */}
         {replacing && !picked && !uploading && (
           <button onClick={()=>setReplacing(false)}
-            style={{background:'transparent',color:'#888',border:'none',fontSize:11,fontWeight:600,cursor:'pointer',alignSelf:'center',marginTop:-4,textDecoration:'underline'}}>
+            style={{background:'transparent',color:'var(--t-dim2)',border:'none',fontSize:11,fontWeight:600,cursor:'pointer',alignSelf:'center',marginTop:-4,textDecoration:'underline'}}>
             ← Keep existing certificate
           </button>
         )}
 
-        <div style={{fontSize:9,color:'#666',textAlign:'center'}}>
+        <div style={{fontSize:9,color:'var(--t-dim3)',textAlign:'center'}}>
           Max file size: {fmtBytes(MAX_BYTES)} · Stored securely in Firestore
         </div>
       </div>
@@ -314,8 +314,8 @@ const pickerBtnStyle = (color) => ({
 })
 
 const cancelBtnStyle = {
-  background:'rgba(255,255,255,0.04)', color:'#aaa',
-  border:'1px solid rgba(255,255,255,0.1)', borderRadius:50,
+  background:'var(--t-s04)', color:'var(--t-dim1)',
+  border:'1px solid var(--t-s10)', borderRadius:50,
   padding:'10px 20px', fontSize:12, fontWeight:700, cursor:'pointer',
   flex:'0 0 auto',
 }

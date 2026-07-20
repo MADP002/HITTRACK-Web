@@ -859,10 +859,10 @@ export default function Profile(){
               {/* Body stats grid */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:isMobile?8:10}}>
                 {[
-                  {icon:'📏',label:'Height',val:profile.height?`${profile.height} cm`:'—',color:'var(--a-blue)'},
-                  {icon:'⚖️',label:'Weight',val:profile.weight?`${profile.weight} kg`:'—',color:'var(--a-purple)'},
-                  {icon:'🎂',label:'Age',    val:displayAge?`${displayAge} years`:'—',color:'var(--a-orange)'},
-                  {icon:'🥊',label:'Stance', val:profile.stance||'—',color:'var(--a-gold)'},
+                  {icon:'📏',label:'Height',val:profile.height?`${profile.height} cm`:'—',color:'#42a5f5'},
+                  {icon:'⚖️',label:'Weight',val:profile.weight?`${profile.weight} kg`:'—',color:'#c084fc'},
+                  {icon:'🎂',label:'Age',    val:displayAge?`${displayAge} years`:'—',color:'#fb923c'},
+                  {icon:'🥊',label:'Stance', val:profile.stance||'—',color:'#f5c842'},
                 ].map((m,i)=>(
                   <div key={i} style={{background:'var(--t-s03)',border:`1px solid ${m.color}18`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:10}}>
                     <div style={{width:32,height:32,borderRadius:10,background:`${m.color}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{m.icon}</div>

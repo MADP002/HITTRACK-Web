@@ -33,7 +33,7 @@ function useCanvasBg(canvasRef) {
   }, [canvasRef])
 }
 
-const ROLE_BADGE = { admin: { bg: 'rgba(192,132,252,0.15)', color: 'var(--a-purple)', border: 'rgba(192,132,252,0.3)', label: 'ADMIN', icon: '👑' }, coach: { bg: 'rgba(66,165,245,0.15)', color: 'var(--a-blue)', border: 'rgba(66,165,245,0.3)', label: 'COACH', icon: '🥊' } }
+const ROLE_BADGE = { admin: { bg: 'rgba(192,132,252,0.15)', color: '#c084fc', border: 'rgba(192,132,252,0.3)', label: 'ADMIN', icon: '👑' }, coach: { bg: 'rgba(66,165,245,0.15)', color: '#42a5f5', border: 'rgba(66,165,245,0.3)', label: 'COACH', icon: '🥊' } }
 const CATEGORIES = ['General', 'Training', 'Nutrition', 'Equipment', 'Events', 'Other']
 const CAT_COLORS = { General: '#f5c842', Training: '#e84a2f', Nutrition: '#22c55e', Equipment: '#42a5f5', Events: '#c084fc', Other: 'var(--t-dim2)' }
 const CAT_ICONS = { General: '💬', Training: '🏋️', Nutrition: '🥗', Equipment: '🥊', Events: '📅', Other: '💡' }

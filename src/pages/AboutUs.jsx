@@ -5,7 +5,7 @@ import { db } from '../firebase'
 import Navbar from '../components/Navbar'
 
 const glass = (extra={}) => ({
-  background:'linear-gradient(135deg,rgba(30,28,28,0.97),rgba(18,16,16,0.99))',
+  background:'linear-gradient(135deg,var(--t-card),var(--t-card2))',
   borderRadius:20, border:'1px solid rgba(245,200,66,0.15)',
   boxShadow:'0 8px 40px rgba(0,0,0,0.5),inset 0 1px 0 rgba(245,200,66,0.08)',
   overflow:'hidden', ...extra,
@@ -98,8 +98,8 @@ function EmptyBlock({ icon, title, hint }) {
   return (
     <div style={{...glass({borderRadius:18}),padding:'36px 28px',textAlign:'center'}}>
       <div style={{fontSize:36,marginBottom:10,opacity:0.35}}>{icon}</div>
-      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#888',letterSpacing:'0.06em',marginBottom:6}}>{title}</div>
-      <div style={{fontSize:11,color:'#555',lineHeight:1.6}}>{hint}</div>
+      <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'var(--t-dim2)',letterSpacing:'0.06em',marginBottom:6}}>{title}</div>
+      <div style={{fontSize:11,color:'var(--t-dim3)',lineHeight:1.6}}>{hint}</div>
     </div>
   )
 }
@@ -268,10 +268,10 @@ export default function AboutUs() {
   const contactSubhead = cfg.contactSubhead?.trim() || 'Get In Touch'
 
   const inputStyle = {
-    background:'rgba(255,255,255,0.04)',
-    border:'1px solid rgba(255,255,255,0.08)',
+    background:'var(--t-s04)',
+    border:'1px solid var(--t-s08)',
     borderRadius:12, padding:'13px 16px',
-    color:'#f0ece8', fontSize:13,
+    color:'var(--t-text)', fontSize:13,
     fontFamily:'Montserrat,sans-serif',
     outline:'none', transition:'border-color 0.2s',
     width:'100%', boxSizing:'border-box',
@@ -287,31 +287,31 @@ export default function AboutUs() {
         {/* HERO */}
         <div style={{minHeight:'60vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',padding:'60px 20px',position:'relative'}}>
           {configLoading ? (
-            <div style={{fontSize:13,color:'#666',letterSpacing:'0.12em'}}>Loading gym info...</div>
+            <div style={{fontSize:13,color:'var(--t-dim3)',letterSpacing:'0.12em'}}>Loading gym info...</div>
           ) : (
             <>
-              <div style={{fontSize:14,fontWeight:700,color:'#e84a2f',letterSpacing:'0.2em',textTransform:'uppercase',marginBottom:16,
+              <div style={{fontSize:14,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.2em',textTransform:'uppercase',marginBottom:16,
                 opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(20px)',transition:'all 0.6s ease'}}>
                 {foundingYear ? `Est. ${foundingYear}` : 'Established'}{gymName ? ` · ${gymName}` : ''}
               </div>
               {heroLine1 || heroLine2 ? (
-                <h1 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:'clamp(52px,8vw,96px)',letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1,margin:0,
+                <h1 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:'clamp(52px,8vw,96px)',letterSpacing:'0.04em',color:'var(--t-text)',lineHeight:1,margin:0,
                   opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(30px)',transition:'all 0.7s ease 0.1s',
                   textShadow:'0 0 80px rgba(232,74,47,0.3)'}}>
-                  {heroLine1}{heroLine2 ? <><br/><span style={{color:'#e84a2f',WebkitTextStroke:'2px #e84a2f',WebkitTextFillColor:'transparent'}}>{heroLine2}</span></> : null}
+                  {heroLine1}{heroLine2 ? <><br/><span style={{color:'var(--a-red)',WebkitTextStroke:'2px #e84a2f',WebkitTextFillColor:'transparent'}}>{heroLine2}</span></> : null}
                 </h1>
               ) : gymName ? (
-                <h1 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:'clamp(40px,6vw,72px)',letterSpacing:'0.04em',color:'#f0ece8',lineHeight:1.1,margin:0,
+                <h1 style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:'clamp(40px,6vw,72px)',letterSpacing:'0.04em',color:'var(--t-text)',lineHeight:1.1,margin:0,
                   opacity:mounted?1:0,transition:'all 0.7s ease 0.1s'}}>{gymName}</h1>
               ) : null}
               {(tagline || heroDescription) && (
-                <p style={{fontSize:16,color:'#7a7570',maxWidth:560,lineHeight:1.8,marginTop:20,
+                <p style={{fontSize:16,color:'var(--t-muted)',maxWidth:560,lineHeight:1.8,marginTop:20,
                   opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(20px)',transition:'all 0.7s ease 0.2s'}}>
                   {tagline}{tagline && heroDescription ? ' ' : ''}{heroDescription}
                 </p>
               )}
               {!gymName && !tagline && !heroDescription && (
-                <p style={{fontSize:14,color:'#666',marginTop:12}}>Gym profile not configured yet. Ask your admin to set up Gym Settings.</p>
+                <p style={{fontSize:14,color:'var(--t-dim3)',marginTop:12}}>Gym profile not configured yet. Ask your admin to set up Gym Settings.</p>
               )}
             </>
           )}
@@ -323,14 +323,14 @@ export default function AboutUs() {
               Start Training
             </button>
             <button type="button" onClick={()=>navigate('/home')}
-              style={{background:'rgba(255,255,255,0.04)',color:'#f0ece8',border:'1px solid rgba(255,255,255,0.1)',borderRadius:50,padding:'14px 32px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+              style={{background:'var(--t-s04)',color:'var(--t-text)',border:'1px solid var(--t-s10)',borderRadius:50,padding:'14px 32px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
               View Classes
             </button>
           </div>
 
           <div style={{position:'absolute',bottom:20,left:'50%',transform:'translateX(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:4,animation:'bounce 2s ease infinite',opacity:0.4}}>
-            <div style={{width:1,height:40,background:'linear-gradient(180deg,transparent,#555)'}}/>
-            <div style={{fontSize:10,color:'#555',fontWeight:600,letterSpacing:'0.1em'}}>SCROLL</div>
+            <div style={{width:1,height:40,background:'linear-gradient(180deg,transparent,var(--t-dim3))'}}/>
+            <div style={{fontSize:10,color:'var(--t-dim3)',fontWeight:600,letterSpacing:'0.1em'}}>SCROLL</div>
           </div>
         </div>
 
@@ -342,13 +342,13 @@ export default function AboutUs() {
               transition:`all 0.6s ease ${0.4+i*0.1}s`}}>
               <div style={{fontSize:32,marginBottom:10}}>{st.icon}</div>
               {st.loading || st.val == null ? (
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:'#555',lineHeight:1}}>—</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:'var(--t-dim3)',lineHeight:1}}>—</div>
               ) : (
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,color:'#e84a2f',lineHeight:1,textShadow:'0 0 20px rgba(232,74,47,0.4)'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:48,color:'var(--a-red)',lineHeight:1,textShadow:'0 0 20px rgba(232,74,47,0.4)'}}>
                   <AnimNum target={st.val} suffix={st.suffix}/>
                 </div>
               )}
-              <div style={{fontSize:11,fontWeight:700,color:'#7a7570',letterSpacing:'0.08em',textTransform:'uppercase',marginTop:8}}>{st.label}</div>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--t-muted)',letterSpacing:'0.08em',textTransform:'uppercase',marginTop:8}}>{st.label}</div>
             </div>
           ))}
         </div>
@@ -359,25 +359,25 @@ export default function AboutUs() {
             <div style={{position:'absolute',right:-20,top:'50%',transform:'translateY(-50%)',fontSize:180,opacity:0.03,userSelect:'none'}}>🥊</div>
             <div style={{display:'grid',gridTemplateColumns: services.length > 0 ? '1fr 1fr' : '1fr',gap:48,position:'relative',zIndex:1}}>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:12}}>Our Story</div>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:12}}>Our Story</div>
                 {storyTitle && (
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:'#f0ece8',lineHeight:1.2,marginBottom:20,whiteSpace:'pre-line'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:'var(--t-text)',lineHeight:1.2,marginBottom:20,whiteSpace:'pre-line'}}>
                     {storyTitle}
                   </div>
                 )}
                 {storyParagraphs.map((para, i) => (
-                  <p key={i} style={{fontSize:13,color:'#7a7570',lineHeight:1.9,marginBottom:i < storyParagraphs.length - 1 ? 16 : 0}}>
+                  <p key={i} style={{fontSize:13,color:'var(--t-muted)',lineHeight:1.9,marginBottom:i < storyParagraphs.length - 1 ? 16 : 0}}>
                     {para}
                   </p>
                 ))}
               </div>
               {services.length > 0 && (
                 <div style={{display:'flex',flexDirection:'column',gap:16}}>
-                  <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:4}}>What We Offer</div>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:4}}>What We Offer</div>
                   {services.map((item,i)=>(
-                    <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'rgba(255,255,255,0.03)',borderRadius:12,border:'1px solid rgba(232,74,47,0.1)'}}>
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'var(--t-s03)',borderRadius:12,border:'1px solid rgba(232,74,47,0.1)'}}>
                       <div style={{width:8,height:8,borderRadius:'50%',background:'#e84a2f',flexShrink:0,boxShadow:'0 0 8px rgba(232,74,47,0.6)'}}/>
-                      <span style={{fontSize:13,color:'#f0ece8',fontWeight:500}}>{item}</span>
+                      <span style={{fontSize:13,color:'var(--t-text)',fontWeight:500}}>{item}</span>
                     </div>
                   ))}
                 </div>
@@ -393,8 +393,8 @@ export default function AboutUs() {
         {/* COACHES */}
         <div style={{marginBottom:24}}>
           <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Meet The Team</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'#f0ece8'}}>Our Coaches</div>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Meet The Team</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'var(--t-text)'}}>Our Coaches</div>
           </div>
 
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))',gap:20}}>
@@ -406,10 +406,10 @@ export default function AboutUs() {
                     {coach.initial}
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:18,fontWeight:700,color:'#f0ece8'}}>{coach.name}</div>
+                    <div style={{fontSize:18,fontWeight:700,color:'var(--t-text)'}}>{coach.name}</div>
                     <div style={{fontSize:11,color:coach.color,fontWeight:600,marginTop:3,marginBottom:14}}>{coach.role}</div>
-                    <div style={{fontSize:11,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6}}>Specialty</div>
-                    <div style={{fontSize:12,color:'#b0ada8'}}>{coach.specialty}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--t-dim3)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:6}}>Specialty</div>
+                    <div style={{fontSize:12,color:'var(--t-muted2)'}}>{coach.specialty}</div>
                   </div>
                 </div>
                 <div style={{marginTop:18,position:'relative',zIndex:1}}>
@@ -417,8 +417,8 @@ export default function AboutUs() {
                     <span style={{fontSize:15}}>🏆</span>
                     <span style={{fontSize:12,fontWeight:700,color:coach.color,lineHeight:1.4}}>{coach.achievement}</span>
                   </div>
-                  <div style={{fontSize:9,fontWeight:700,color:'#888',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:8}}>Certification</div>
-                  <img src={coach.cert} alt={`${coach.name} certification`} style={{width:'100%',borderRadius:12,border:'1px solid rgba(255,255,255,0.08)',background:'#0e0a0a',display:'block'}}/>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--t-dim2)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:8}}>Certification</div>
+                  <img src={coach.cert} alt={`${coach.name} certification`} style={{width:'100%',borderRadius:12,border:'1px solid var(--t-s08)',background:'var(--t-card2)',display:'block'}}/>
                 </div>
               </div>
             ))}
@@ -428,11 +428,11 @@ export default function AboutUs() {
         {/* VALUES */}
         <div style={{marginBottom:24}}>
           <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>What We Stand For</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'#f0ece8'}}>Our Values</div>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>What We Stand For</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'var(--t-text)'}}>Our Values</div>
           </div>
           {configLoading ? (
-            <div style={{...glass({borderRadius:18}),padding:'32px',textAlign:'center',fontSize:12,color:'#666'}}>Loading values...</div>
+            <div style={{...glass({borderRadius:18}),padding:'32px',textAlign:'center',fontSize:12,color:'var(--t-dim3)'}}>Loading values...</div>
           ) : values.length === 0 ? (
             <EmptyBlock icon="⭐" title="VALUES NOT CONFIGURED" hint="Add a values array in gymConfig/main (icon, title, desc for each value)." />
           ) : (
@@ -442,8 +442,8 @@ export default function AboutUs() {
                   onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-6px)';e.currentTarget.style.borderColor='rgba(232,74,47,0.3)'}}
                   onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.borderColor='rgba(245,200,66,0.15)'}}>
                   {v.icon && <div style={{fontSize:36,marginBottom:14}}>{v.icon}</div>}
-                  {v.title && <div style={{fontSize:15,fontWeight:700,color:'#f0ece8',marginBottom:10}}>{v.title}</div>}
-                  {v.desc && <div style={{fontSize:12,color:'#7a7570',lineHeight:1.7}}>{v.desc}</div>}
+                  {v.title && <div style={{fontSize:15,fontWeight:700,color:'var(--t-text)',marginBottom:10}}>{v.title}</div>}
+                  {v.desc && <div style={{fontSize:12,color:'var(--t-muted)',lineHeight:1.7}}>{v.desc}</div>}
                 </div>
               ))}
             </div>
@@ -453,12 +453,12 @@ export default function AboutUs() {
         {/* LOCATION & HOURS */}
         <div style={{marginBottom:24}}>
           <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Drop By</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'#f0ece8'}}>Find Us & Train</div>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Drop By</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'var(--t-text)'}}>Find Us & Train</div>
           </div>
           <div style={{...glass({borderRadius:24}),padding:0,display:'grid',gridTemplateColumns:'1.2fr 1fr',gap:0,overflow:'hidden'}}>
             {/* Map */}
-            <div style={{position:'relative',minHeight:320,background:'#0e0a0a'}}>
+            <div style={{position:'relative',minHeight:320,background:'var(--t-card2)'}}>
               <iframe
                 title="Gym location map"
                 src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`}
@@ -470,27 +470,27 @@ export default function AboutUs() {
             {/* Hours + address */}
             <div style={{padding:'36px 36px',display:'flex',flexDirection:'column',gap:22}}>
               <div>
-                <div style={{fontSize:10,fontWeight:700,color:'#e84a2f',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
                   <span style={{display:'inline-block',width:16,height:2,background:'#e84a2f'}}/>
                   Location
                 </div>
-                <div style={{fontSize:14,color:'#f0ece8',fontWeight:600,lineHeight:1.6}}>{address}</div>
+                <div style={{fontSize:14,color:'var(--t-text)',fontWeight:600,lineHeight:1.6}}>{address}</div>
                 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`} target="_blank" rel="noreferrer"
-                  style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:10,fontSize:12,fontWeight:700,color:'#42a5f5',textDecoration:'none'}}>
+                  style={{display:'inline-flex',alignItems:'center',gap:6,marginTop:10,fontSize:12,fontWeight:700,color:'var(--a-blue)',textDecoration:'none'}}>
                   Get Directions →
                 </a>
               </div>
-              <div style={{height:1,background:'rgba(255,255,255,0.06)'}}/>
+              <div style={{height:1,background:'var(--t-s06)'}}/>
               <div>
-                <div style={{fontSize:10,fontWeight:700,color:'#f5c842',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--a-gold)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:12,display:'flex',alignItems:'center',gap:8}}>
                   <span style={{display:'inline-block',width:16,height:2,background:'#f5c842'}}/>
                   Gym Hours
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
                   {weeklyHours.map((h,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12}}>
-                      <span style={{fontSize:13,color:'#b0ada8',fontWeight:600}}>{h.day}</span>
-                      <span style={{fontSize:13,color:'#f0ece8',fontWeight:700,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.04em'}}>{h.time}</span>
+                      <span style={{fontSize:13,color:'var(--t-muted2)',fontWeight:600}}>{h.day}</span>
+                      <span style={{fontSize:13,color:'var(--t-text)',fontWeight:700,fontFamily:"'Bebas Neue',sans-serif",letterSpacing:'0.04em'}}>{h.time}</span>
                     </div>
                   ))}
                 </div>
@@ -502,9 +502,9 @@ export default function AboutUs() {
         {/* MEMBERSHIP PLANS */}
         <div style={{marginBottom:24}}>
           <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Join The Gym</div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'#f0ece8'}}>Membership Plans</div>
-            <div style={{fontSize:12,color:'#7a7570',marginTop:6}}>Start with a trial. Plans are activated by gym admin — speak with the front desk to subscribe.</div>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:8}}>Join The Gym</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:40,color:'var(--t-text)'}}>Membership Plans</div>
+            <div style={{fontSize:12,color:'var(--t-muted)',marginTop:6}}>Start with a trial. Plans are activated by gym admin — speak with the front desk to subscribe.</div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:18,alignItems:'stretch'}}>
             {plans.map((plan,i)=>{
@@ -516,30 +516,30 @@ export default function AboutUs() {
                   boxShadow:plan.highlight?'0 12px 40px rgba(232,74,47,0.2)':'0 8px 30px rgba(0,0,0,0.4)',
                   display:'flex',flexDirection:'column',gap:16}}>
                   {plan.highlight && (
-                    <div style={{position:'absolute',top:14,right:14,fontSize:8,fontWeight:800,letterSpacing:'0.1em',padding:'4px 10px',borderRadius:50,background:'rgba(232,74,47,0.2)',color:'#e84a2f',border:'1px solid rgba(232,74,47,0.4)'}}>POPULAR</div>
+                    <div style={{position:'absolute',top:14,right:14,fontSize:8,fontWeight:800,letterSpacing:'0.1em',padding:'4px 10px',borderRadius:50,background:'rgba(232,74,47,0.2)',color:'var(--a-red)',border:'1px solid rgba(232,74,47,0.4)'}}>POPULAR</div>
                   )}
                   <div>
                     <div style={{fontSize:13,fontWeight:700,color,letterSpacing:'0.06em',textTransform:'uppercase'}}>{plan.name}</div>
                     <div style={{display:'flex',alignItems:'baseline',gap:6,marginTop:10}}>
-                      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:44,color:'#f0ece8',lineHeight:1}}>
+                      <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:44,color:'var(--t-text)',lineHeight:1}}>
                         {isFree ? 'FREE' : <>&#8369;{plan.price}</>}
                       </span>
-                      {!isFree && <span style={{fontSize:12,color:'#7a7570',fontWeight:600}}>/ {plan.period}</span>}
+                      {!isFree && <span style={{fontSize:12,color:'var(--t-muted)',fontWeight:600}}>/ {plan.period}</span>}
                     </div>
-                    {isFree && <div style={{fontSize:12,color:'#7a7570',fontWeight:600,marginTop:2}}>{plan.period}</div>}
+                    {isFree && <div style={{fontSize:12,color:'var(--t-muted)',fontWeight:600,marginTop:2}}>{plan.period}</div>}
                   </div>
-                  <div style={{height:1,background:'rgba(255,255,255,0.06)'}}/>
+                  <div style={{height:1,background:'var(--t-s06)'}}/>
                   <div style={{display:'flex',flexDirection:'column',gap:10,flex:1}}>
                     {(plan.perks||[]).map((perk,j)=>(
-                      <div key={j} style={{display:'flex',alignItems:'flex-start',gap:10,fontSize:12,color:'#b0ada8',lineHeight:1.5}}>
+                      <div key={j} style={{display:'flex',alignItems:'flex-start',gap:10,fontSize:12,color:'var(--t-muted2)',lineHeight:1.5}}>
                         <span style={{color,flexShrink:0,fontWeight:800}}>✓</span>
                         <span>{perk}</span>
                       </div>
                     ))}
                   </div>
                   <button type="button" onClick={()=>navigate('/home')}
-                    style={{background:plan.highlight?'linear-gradient(135deg,#e84a2f,#c93820)':'rgba(255,255,255,0.04)',
-                      color:plan.highlight?'#fff':'#f0ece8',border:plan.highlight?'none':'1px solid rgba(255,255,255,0.1)',
+                    style={{background:plan.highlight?'linear-gradient(135deg,#e84a2f,#c93820)':'var(--t-s04)',
+                      color:plan.highlight?'#fff':'var(--t-text)',border:plan.highlight?'none':'1px solid var(--t-s10)',
                       borderRadius:50,padding:'12px',fontSize:13,fontWeight:700,cursor:'pointer',
                       boxShadow:plan.highlight?'0 6px 20px rgba(232,74,47,0.4)':'none',transition:'all 0.25s'}}>
                     {isFree ? 'Start Trial' : 'Get Started'}
@@ -554,8 +554,8 @@ export default function AboutUs() {
         <div style={{...glass({borderRadius:24}),padding:'44px 52px',border:'1px solid rgba(232,74,47,0.2)'}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:48,alignItems:'start'}}>
             <div>
-              <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:12}}>{contactSubhead}</div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:'#f0ece8',lineHeight:1.2,marginBottom:24,whiteSpace:'pre-line'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--a-red)',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:12}}>{contactSubhead}</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,color:'var(--t-text)',lineHeight:1.2,marginBottom:24,whiteSpace:'pre-line'}}>
                 {contactHeadline}
               </div>
               {contactFields.length > 0 ? (
@@ -566,19 +566,19 @@ export default function AboutUs() {
                         {c.icon}
                       </div>
                       <div>
-                        <div style={{fontSize:10,fontWeight:700,color:'#555',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:3}}>{c.label}</div>
-                        <div style={{fontSize:13,color:'#f0ece8',fontWeight:500}}>{c.val}</div>
+                        <div style={{fontSize:10,fontWeight:700,color:'var(--t-dim3)',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:3}}>{c.label}</div>
+                        <div style={{fontSize:13,color:'var(--t-text)',fontWeight:500}}>{c.val}</div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{fontSize:12,color:'#666',lineHeight:1.7}}>Contact details will appear here once configured in Gym Settings.</div>
+                <div style={{fontSize:12,color:'var(--t-dim3)',lineHeight:1.7}}>Contact details will appear here once configured in Gym Settings.</div>
               )}
             </div>
 
-            <div style={{background:'rgba(255,255,255,0.02)',borderRadius:20,padding:'32px',border:'1px solid rgba(255,255,255,0.05)',display:'flex',flexDirection:'column',gap:14}}>
-              <div style={{fontSize:14,fontWeight:700,color:'#f0ece8',marginBottom:4}}>Send a Message</div>
+            <div style={{background:'var(--t-s02)',borderRadius:20,padding:'32px',border:'1px solid var(--t-s05)',display:'flex',flexDirection:'column',gap:14}}>
+              <div style={{fontSize:14,fontWeight:700,color:'var(--t-text)',marginBottom:4}}>Send a Message</div>
 
               <input
                 placeholder="Full Name"
@@ -586,7 +586,7 @@ export default function AboutUs() {
                 onChange={e => setContactForm(p => ({ ...p, name: e.target.value }))}
                 style={inputStyle}
                 onFocus={e=>e.target.style.borderColor='rgba(232,74,47,0.4)'}
-                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}
+                onBlur={e=>e.target.style.borderColor='var(--t-s08)'}
               />
               <input
                 placeholder="Email Address"
@@ -595,7 +595,7 @@ export default function AboutUs() {
                 onChange={e => setContactForm(p => ({ ...p, email: e.target.value }))}
                 style={inputStyle}
                 onFocus={e=>e.target.style.borderColor='rgba(232,74,47,0.4)'}
-                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}
+                onBlur={e=>e.target.style.borderColor='var(--t-s08)'}
               />
               <textarea
                 placeholder="Message"
@@ -604,16 +604,16 @@ export default function AboutUs() {
                 onChange={e => setContactForm(p => ({ ...p, message: e.target.value }))}
                 style={{...inputStyle, resize:'vertical'}}
                 onFocus={e=>e.target.style.borderColor='rgba(232,74,47,0.4)'}
-                onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.08)'}
+                onBlur={e=>e.target.style.borderColor='var(--t-s08)'}
               />
 
               {contactStatus === 'success' && (
-                <div style={{padding:'10px 14px',background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.25)',borderRadius:10,fontSize:12,color:'#4ade80',fontWeight:700}}>
+                <div style={{padding:'10px 14px',background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.25)',borderRadius:10,fontSize:12,color:'var(--a-green2)',fontWeight:700}}>
                   Message sent. We will get back to you soon.
                 </div>
               )}
               {contactStatus === 'error' && (
-                <div style={{padding:'10px 14px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:10,fontSize:12,color:'#e84a2f',fontWeight:700}}>
+                <div style={{padding:'10px 14px',background:'rgba(232,74,47,0.08)',border:'1px solid rgba(232,74,47,0.25)',borderRadius:10,fontSize:12,color:'var(--a-red)',fontWeight:700}}>
                   Failed to send. Please try again.
                 </div>
               )}
@@ -623,8 +623,8 @@ export default function AboutUs() {
                 onClick={handleContactSubmit}
                 disabled={contactStatus === 'sending'}
                 style={{
-                  background: contactStatus === 'sending' ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,#e84a2f,#c93820)',
-                  color: contactStatus === 'sending' ? '#666' : '#fff',
+                  background: contactStatus === 'sending' ? 'var(--t-s08)' : 'linear-gradient(135deg,#e84a2f,#c93820)',
+                  color: contactStatus === 'sending' ? 'var(--t-dim3)' : '#fff',
                   border:'none', borderRadius:50, padding:'14px',
                   fontSize:14, fontWeight:700,
                   cursor: contactStatus === 'sending' ? 'not-allowed' : 'pointer',
@@ -634,7 +634,7 @@ export default function AboutUs() {
                 }}>
                 {contactStatus === 'sending' ? (
                   <>
-                    <span style={{display:'inline-block',width:14,height:14,border:'2px solid rgba(255,255,255,0.2)',borderTopColor:'#aaa',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+                    <span style={{display:'inline-block',width:14,height:14,border:'2px solid var(--t-s20)',borderTopColor:'var(--t-dim1)',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
                     Sending…
                   </>
                 ) : 'Send Message'}
