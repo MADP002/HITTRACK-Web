@@ -134,15 +134,21 @@
   --t-dim4:   #9a8e7c;
 
   /* Borders/veils — warm brown tint with more weight than the first pass,
-     so cards actually have an edge. Pure-black alpha looked like soot. */
-  --t-s02: rgba(122,92,58,0.030);
-  --t-s03: rgba(122,92,58,0.042);
-  --t-s04: rgba(122,92,58,0.055);
-  --t-s05: rgba(122,92,58,0.070);
-  --t-s06: rgba(122,92,58,0.095);
-  --t-s08: rgba(122,92,58,0.130);
-  --t-s10: rgba(122,92,58,0.170);
-  --t-s20: rgba(122,92,58,0.270);
+     so cards actually have an edge. Pure-black alpha looked like soot.
+
+     The LOW end (s02-s04) is boosted harder than a straight inversion
+     would suggest. Those are used as subtle FILLS — chips, table rows,
+     stat tiles. A 3% white veil over a dark card is clearly visible; a 3%
+     brown veil over warm white is not, which is why Leaderboard and Forum
+     still read as flat white. These now carry real weight. */
+  --t-s02: rgba(122,92,58,0.055);
+  --t-s03: rgba(122,92,58,0.075);
+  --t-s04: rgba(122,92,58,0.095);
+  --t-s05: rgba(122,92,58,0.105);
+  --t-s06: rgba(122,92,58,0.125);
+  --t-s08: rgba(122,92,58,0.150);
+  --t-s10: rgba(122,92,58,0.185);
+  --t-s20: rgba(122,92,58,0.280);
 
   /* Warm, soft elevation — the single biggest visual fix. */
   --t-sh-sm: rgba(122,92,58,0.08);
@@ -211,6 +217,34 @@ body {
 .nav-link.active {
   color: var(--accent);
   background: rgba(232,74,47,0.1);
+}
+
+/* ── LIGHT MODE NAV ──
+   On a dark bar, bare text links read fine — the contrast does the work.
+   On a light bar they look like unstyled text, so here they get a real
+   pill surface with an edge, and the active item gets a solid tint. */
+:root[data-theme="light"] .nav {
+  box-shadow: 0 1px 0 var(--t-s06), 0 2px 12px var(--t-sh-sm);
+}
+:root[data-theme="light"] .nav-link {
+  background: var(--t-card3);
+  border: 1px solid var(--t-s06);
+  color: var(--t-muted2);
+}
+:root[data-theme="light"] .nav-link:hover {
+  background: var(--t-s06);
+  border-color: var(--t-s10);
+  color: var(--t-text);
+}
+:root[data-theme="light"] .nav-link.active {
+  background: rgba(192,52,27,0.13);
+  border-color: rgba(192,52,27,0.42);
+  color: var(--a-red);
+  font-weight: 700;
+}
+/* The logo tile needs an edge too, or it floats on the light bar. */
+:root[data-theme="light"] .nav-logo-icon {
+  background: var(--t-card3);
 }
 
 .nav-avatar {
