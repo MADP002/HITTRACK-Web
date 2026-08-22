@@ -22,7 +22,7 @@ export default function Inbox(){
   if(!uid) return null
 
   return(
-    <div style={{minHeight:'100vh',background:'#0c0a0a',fontFamily:'Montserrat,sans-serif'}}>
+    <div style={{minHeight:'100vh',background:'var(--t-bg)',fontFamily:'Montserrat,sans-serif'}}>
       <Navbar user={{name:profile.name||'Athlete'}}/>
       <div style={{paddingTop:8}}>
         <InboxView
