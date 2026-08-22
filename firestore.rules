@@ -99,7 +99,14 @@ service cloud.firestore {
 
     // FEEDBACK — coach creates; member reads their own; admin can do anything.
     match /feedback/{feedbackId} {
-      allow read:   if request.auth != null;
+      // READ — the owning member (their query MUST filter memberId == uid), or any
+      // coach/admin (they browse a member's full feedback history across coaches).
+      // Was a bare 'request.auth != null', which let ANY signed-in member read every
+      // coach critique and rating written about every other member.
+      allow read:   if request.auth != null && (
+                       resource.data.memberId == request.auth.uid
+                       || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'admin']
+                    );
       allow create: if request.auth != null
                        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'admin'];
       // Coach/admin can fully update. The owning member can ONLY toggle
