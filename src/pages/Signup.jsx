@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -76,6 +76,18 @@ function firebaseErrorMessage(code) {
   return map[code] || 'Signup failed. Please try again.'
 }
 
+// Seconds the member must wait between verification emails. Firebase throttles
+// rapid resends (auth/too-many-requests), so we pace the button instead.
+const RESEND_COOLDOWN_S = 60
+
+function resendErrorMessage(err) {
+  const map = {
+    'auth/too-many-requests': 'Too many requests — a verification email was already sent. Check your inbox and spam folder, then wait a few minutes before resending.',
+    'auth/network-request-failed': 'Network error. Check your internet connection and try again.',
+  }
+  return map[err.code] || `Could not resend (${err.code || err.message || 'unknown error'}). Check your inbox first — the original link may still work.`
+}
+
 export default function Signup() {
   const navigate  = useNavigate()
   const canvasRef = useRef(null)
@@ -89,6 +101,22 @@ export default function Signup() {
   const [touched, setTouched] = useState({})
   const [showPw, setShowPw] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+
+  // ── "Check your email" panel ──
+  // After signup we stay here instead of jumping to Login, so a member whose
+  // link never arrived can resend it right away — before, the resend button
+  // only appeared after they tried (and failed) to log in unverified.
+  const [verifyEmail, setVerifyEmail] = useState('')   // set once the account exists
+  const [verifySent, setVerifySent]   = useState(false) // did the signup-time email go out?
+  const [resending, setResending]     = useState(false)
+  const [resendMsg, setResendMsg]     = useState('')
+  const [cooldown, setCooldown]       = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
 
   // ════════════════════════════════════════════════════════
   //  AGE GATE — Min 13, Max 100. Aligns with Philippine DPA
@@ -219,7 +247,8 @@ export default function Signup() {
       const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, form.password)
 
       // Email verification — send the link right after account creation.
-      try { await sendEmailVerification(cred.user) } catch (_) {}
+      let sent = false
+      try { await sendEmailVerification(cred.user); sent = true } catch (_) {}
 
       const userData = {
         uid: cred.user.uid, name: form.name.trim(), email: normalizedEmail,
@@ -302,12 +331,35 @@ export default function Signup() {
           },
         })
         await auth.signOut()
-        navigate('/login?registered=1')
+        setVerifySent(sent)
+        setCooldown(sent ? RESEND_COOLDOWN_S : 0)  // if the first send failed, allow an immediate retry
+        setVerifyEmail(normalizedEmail)
+        setLoading(false)
       }
     } catch (err) {
       setError(firebaseErrorMessage(err.code))
       setLoading(false)
     }
+  }
+
+  // Resend the verification link. The member is signed out (login is gated on
+  // verification), so — like Login.jsx — sign in briefly with the password they
+  // just typed, send, and sign straight back out.
+  async function handleResend() {
+    if (resending || cooldown > 0) return
+    setResending(true); setResendMsg('')
+    try {
+      const cred = await signInWithEmailAndPassword(auth, verifyEmail, form.password)
+      await sendEmailVerification(cred.user)
+      await auth.signOut()
+      setVerifySent(true)
+      setCooldown(RESEND_COOLDOWN_S)
+      setResendMsg('success:A new verification link was sent to ' + verifyEmail + '.')
+    } catch (err) {
+      console.error('[resendVerification] failed:', err)
+      auth.signOut().catch(() => {})
+      setResendMsg('error:' + resendErrorMessage(err))
+    } finally { setResending(false) }
   }
 
   const strength = getPasswordStrength(form.password)
@@ -369,6 +421,12 @@ export default function Signup() {
           )}
           <div style={{background:'rgba(20,17,17,0.92)',borderRadius:20,border:'1px solid rgba(255,255,255,0.08)',boxShadow:'0 32px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.05)',padding:isMobile?'28px 22px':'40px 36px',backdropFilter:'blur(16px)'}}>
 
+            {verifyEmail ? (
+              <CheckEmailPanel
+                email={verifyEmail} sent={verifySent} cooldown={cooldown}
+                resending={resending} resendMsg={resendMsg}
+                onResend={handleResend} onLogin={() => navigate('/login?registered=1')}/>
+            ) : (<>
             <div style={{marginBottom:24}}>
               <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:6}}>Create Account</div>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:'#f0ece8',letterSpacing:'0.06em',lineHeight:1}}>JOIN WILD BOUT GYM</div>
@@ -489,6 +547,7 @@ export default function Signup() {
               Already have an account?{' '}
               <span style={{color:'#e84a2f',fontWeight:700,cursor:'pointer'}} onClick={()=>navigate('/login')}>Sign In</span>
             </div>
+            </>)}
           </div>
         </div>
       </div>
@@ -498,6 +557,78 @@ export default function Signup() {
         @keyframes chevPulse{0%,100%{opacity:0.18}50%{opacity:0.5}}
         input::placeholder{color:#444}
       `}</style>
+    </div>
+  )
+}
+
+// Shown in place of the form once the account exists: where the link went, how
+// to find it, and a paced Resend button for when it never arrives.
+function CheckEmailPanel({ email, sent, cooldown, resending, resendMsg, onResend, onLogin }) {
+  const isGmail   = /@(gmail|googlemail)\.com$/i.test(email)
+  const canResend = !resending && cooldown <= 0
+  const ok        = resendMsg.startsWith('success')
+  return (
+    <div>
+      <div style={{textAlign:'center',marginBottom:22}}>
+        <div style={{fontSize:44,marginBottom:10}}>📧</div>
+        <div style={{fontSize:11,fontWeight:700,color:'#e84a2f',letterSpacing:'0.15em',textTransform:'uppercase',marginBottom:6}}>Account Created · One Last Step</div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:'#f0ece8',letterSpacing:'0.06em',lineHeight:1}}>VERIFY YOUR EMAIL</div>
+        <div style={{fontSize:12,color:'#8a847f',marginTop:12,lineHeight:1.7}}>
+          {sent ? 'We sent a verification link to' : 'Your account is ready, but the verification email could not be sent to'}
+          <div style={{color:'#f0ece8',fontWeight:700,fontSize:13,marginTop:2,wordBreak:'break-all'}}>{email}</div>
+        </div>
+      </div>
+
+      {!sent && !resendMsg && (
+        <div style={{background:'rgba(245,200,66,0.08)',border:'1px solid rgba(245,200,66,0.3)',borderRadius:10,padding:'10px 14px',fontSize:12,color:'#f5c842',fontWeight:600,marginBottom:16,lineHeight:1.6}}>
+          ⚠ Tap <strong>Resend verification email</strong> below to get your link.
+        </div>
+      )}
+
+      <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
+        {['Open your email inbox', 'Click the verification link in the email', 'Come back here and sign in'].map((t, i) => (
+          <div key={i} style={{display:'flex',alignItems:'center',gap:12,fontSize:12,color:'#c9c3bd'}}>
+            <div style={{width:24,height:24,borderRadius:'50%',background:'rgba(232,74,47,0.12)',border:'1px solid rgba(232,74,47,0.35)',color:'#e84a2f',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{i + 1}</div>
+            {t}
+          </div>
+        ))}
+      </div>
+
+      {isGmail && (
+        <a href="https://mail.google.com/" target="_blank" rel="noopener noreferrer"
+          style={{display:'block',textAlign:'center',background:'rgba(255,255,255,0.04)',border:'1.5px solid rgba(255,255,255,0.1)',borderRadius:10,padding:'12px',fontSize:13,fontWeight:700,color:'#f0ece8',textDecoration:'none',marginBottom:16}}>
+          Open Gmail ↗
+        </a>
+      )}
+
+      <div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:12,padding:'12px 14px',marginBottom:16}}>
+        <div style={{fontSize:10,fontWeight:700,color:'#777',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:8}}>Didn't get it?</div>
+        {[
+          'Check your Spam and Promotions folders',
+          'Search your inbox for “verify”',
+          'Give it a minute or two to arrive',
+          'Wrong email address? Ask the front desk to fix it',
+        ].map((t, i) => (
+          <div key={i} style={{fontSize:11,color:'#8a847f',lineHeight:1.8}}>• {t}</div>
+        ))}
+      </div>
+
+      {resendMsg && (
+        <div style={{background:ok?'rgba(74,222,128,0.1)':'rgba(232,74,47,0.1)',border:`1px solid ${ok?'rgba(74,222,128,0.25)':'rgba(232,74,47,0.25)'}`,borderRadius:10,padding:'10px 14px',fontSize:12,fontWeight:600,marginBottom:14,lineHeight:1.6,color:ok?'#4ade80':'#e84a2f'}}>
+          {ok ? '✅' : '⚠'} {resendMsg.split(':').slice(1).join(':')}
+        </div>
+      )}
+
+      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+        <button type="button" onClick={onResend} disabled={!canResend}
+          style={{background:'rgba(66,165,245,0.08)',border:'1px solid rgba(66,165,245,0.3)',borderRadius:10,padding:'12px 14px',fontSize:13,color:'#42a5f5',fontWeight:700,cursor:canResend?'pointer':'default',opacity:canResend?1:0.55,transition:'all 0.2s'}}>
+          {resending ? 'Sending...' : cooldown > 0 ? `Resend available in ${cooldown}s` : '📧 Resend verification email'}
+        </button>
+        <button type="button" onClick={onLogin}
+          style={{background:'#e84a2f',color:'#fff',border:'none',borderRadius:10,padding:'14px',fontSize:14,fontWeight:700,cursor:'pointer',letterSpacing:'0.04em',boxShadow:'0 6px 24px rgba(232,74,47,0.4)'}}>
+          I've Verified — Go to Login
+        </button>
+      </div>
     </div>
   )
 }

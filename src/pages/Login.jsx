@@ -227,6 +227,9 @@ export default function Login() {
             {success && (
               <div style={{ background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.25)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#4ade80', fontWeight:600, marginBottom:18, lineHeight:1.7 }}>
                 ✅ Account created! We sent a verification link to your email — open it, then sign in.
+                <div style={{ fontWeight:500, color:'rgba(74,222,128,0.8)', marginTop:2 }}>
+                  No email? Sign in anyway and you'll get a "Resend verification email" button.
+                </div>
               </div>
             )}
             {pending && (
