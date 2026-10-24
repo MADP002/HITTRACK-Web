@@ -130,8 +130,11 @@
   --t-muted2: #4a4239;
   --t-dim1:   #4a4239;
   --t-dim2:   #6b6157;
-  --t-dim3:   #7b7062;
-  --t-dim4:   #9a8e7c;
+  /* dim3/dim4 are used almost only as TEXT (small labels, captions), so they
+     must clear 4.5:1 on cream. The old #7b7062 / #9a8e7c sat at 4.0 / 2.6
+     on the page background — "0 of 6 unlocked", "TO 10" etc. vanished. */
+  --t-dim3:   #6f6457;
+  --t-dim4:   #7a6e60;
 
   /* Borders/veils — warm brown tint with more weight than the first pass,
      so cards actually have an edge. Pure-black alpha looked like soot.
@@ -155,6 +158,114 @@
   --t-sh-md: rgba(122,92,58,0.13);
   --t-sh-lg: rgba(122,92,58,0.18);
 }
+
+/* ── LIGHT MODE: HARD-CODED DARK-THEME COLOURS ─────────────────
+   The member pages still set ~100 text colours as literals tuned for the
+   dark theme (gold #f5c842, green #4ade80, sky #42a5f5, #ccc greys…),
+   often through data objects (badge tiers, rarity, level colours) rather
+   than inline literals. On cream those score 1.3–1.7:1 — unreadable.
+
+   Rather than chase every literal through every data structure, this
+   block catches them at render time: React writes inline colours to the
+   style attribute as "color: rgb(r, g, b)", so an attribute selector can
+   find the exact dark-theme colour and swap in its light-mode variant
+   (every target clears 4.5:1 on the light surfaces).
+
+   • Matches only the TEXT colour. "background-color: rgb(…)" and
+     "border-color: rgb(…)" are preceded by "-", never by start-of-string
+     or a space, so tints, fills and borders are untouched. Alpha tints
+     (#f5c84222 → rgba(…)) never match "rgb(" either.
+   • Scoped to .ht-themed (App.jsx wraps the member routes + Program
+     Builder in it). Login/Signup and the admin/coach dashboards stay dark
+     in both themes, so their bright text must NOT be darkened.
+   • Dark mode is untouched: everything is under data-theme="light".
+   New code should use var(--a-*) / var(--t-*) instead of adding here. */
+/* gold: #f5c842 #e8b020 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(245, 200, 66)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(245, 200, 66)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(232, 176, 32)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(232, 176, 32)"],
+/* translucent gold text too (#f5c84288 "finish prev" label → rgba(245, 200, 66, 0.533)) */
+:root[data-theme="light"] .ht-themed [style^="color: rgba(245, 200, 66,"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgba(245, 200, 66,"] { color: var(--a-gold) !important; }
+/* gold, deep: #e08820 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(224, 136, 32)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(224, 136, 32)"] { color: var(--a-gold-dk) !important; }
+/* green: #22c55e #16a34a */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(34, 197, 94)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(34, 197, 94)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(22, 163, 74)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(22, 163, 74)"] { color: var(--a-green) !important; }
+/* green, light: #4ade80 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(74, 222, 128)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(74, 222, 128)"] { color: var(--a-green2) !important; }
+/* blue: #42a5f5 #1e88e5 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(66, 165, 245)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(66, 165, 245)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(30, 136, 229)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(30, 136, 229)"] { color: var(--a-blue) !important; }
+/* purple: #c084fc #d8b4fe */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(192, 132, 252)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(192, 132, 252)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(216, 180, 254)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(216, 180, 254)"] { color: var(--a-purple) !important; }
+/* muted violet: #8a7fa0 #9d8ec0 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(138, 127, 160)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(138, 127, 160)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(157, 142, 192)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(157, 142, 192)"] { color: var(--t-violet) !important; }
+/* orange: #fb923c */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(251, 146, 60)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(251, 146, 60)"] { color: var(--a-orange) !important; }
+/* red: #e84a2f #ff6347 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(232, 74, 47)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(232, 74, 47)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(255, 99, 71)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(255, 99, 71)"] { color: var(--a-red) !important; }
+/* pink: #f472b6 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(244, 114, 182)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(244, 114, 182)"] { color: #be185d !important; }
+/* cyan: #06b6d4 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(6, 182, 212)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(6, 182, 212)"] { color: #0e7490 !important; }
+/* bronze: #cd7f32 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(205, 127, 50)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(205, 127, 50)"] { color: #8a5a2b !important; }
+/* light greys / silver (body copy): #ccc #bbb #ddd #aaa #c9c5c1 #c9c2ba #cdd5dc #b0bec5 #c8d6e5 #b0ada8 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(204, 204, 204)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(204, 204, 204)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(187, 187, 187)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(187, 187, 187)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(221, 221, 221)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(221, 221, 221)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(170, 170, 170)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(170, 170, 170)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(201, 197, 193)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(201, 197, 193)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(201, 194, 186)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(201, 194, 186)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(205, 213, 220)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(205, 213, 220)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(176, 190, 197)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(176, 190, 197)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(200, 214, 229)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(200, 214, 229)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(176, 173, 168)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(176, 173, 168)"] { color: var(--t-muted2) !important; }
+/* mid greys (labels): #999 #888 #9ca3af #7a7570 */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(153, 153, 153)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(153, 153, 153)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(136, 136, 136)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(136, 136, 136)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(156, 163, 175)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(156, 163, 175)"],
+:root[data-theme="light"] .ht-themed [style^="color: rgb(122, 117, 112)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(122, 117, 112)"] { color: var(--t-muted) !important; }
+/* SVG chart marks — presentation attributes, so no !important needed */
+:root[data-theme="light"] .ht-themed [fill="#f5c842" i] { fill: var(--a-gold); }
+:root[data-theme="light"] .ht-themed [stroke="#f5c842" i] { stroke: var(--a-gold); }
+:root[data-theme="light"] .ht-themed [fill="#42a5f5" i] { fill: var(--a-blue); }
+:root[data-theme="light"] .ht-themed [stroke="#42a5f5" i] { stroke: var(--a-blue); }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

@@ -120,7 +120,14 @@ function RequireMember({ s, children }) {
   if (s.role === 'coach') return <Navigate to="/coach" replace/>
   if (s.role === 'admin') return <Navigate to="/admin" replace/>
   if (!s.programSetupDone) return <Navigate to="/program-builder" replace/>
-  return children
+  return <Themed>{children}</Themed>
+}
+
+// Marks the part of the app that follows the light/dark toggle. The light-mode
+// colour fixes in index.css only apply inside .ht-themed, so the always-dark
+// screens (login, signup, admin, coach) keep their bright text.
+function Themed({ children }) {
+  return <div className="ht-themed">{children}</div>
 }
 
 function RequireAuth({ s, children }) {
@@ -161,7 +168,7 @@ export default function App() {
         <Route path="/"                element={<SmartRoot s={authState}/>}/>
         <Route path="/login"           element={<Login/>}/>
         <Route path="/signup"          element={<Signup/>}/>
-        <Route path="/program-builder" element={<RequireAuth s={authState}><ProgramBuilder/></RequireAuth>}/>
+        <Route path="/program-builder" element={<RequireAuth s={authState}><Themed><ProgramBuilder/></Themed></RequireAuth>}/>
         <Route path="/home"            element={<RequireMember s={authState}><Home/></RequireMember>}/>
         <Route path="/profile"         element={<RequireMember s={authState}><Profile/></RequireMember>}/>
         <Route path="/leaderboard"     element={<RequireMember s={authState}><Leaderboard/></RequireMember>}/>
