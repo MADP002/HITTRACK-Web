@@ -198,7 +198,10 @@
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(22, 163, 74)"] { color: var(--a-green) !important; }
 /* green, light: #4ade80 */
 :root[data-theme="light"] .ht-themed [style^="color: rgb(74, 222, 128)"],
-:root[data-theme="light"] .ht-themed [style*=" color: rgb(74, 222, 128)"] { color: var(--a-green2) !important; }
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(74, 222, 128)"],
+/* #7ed99c — Inbox status line */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(126, 217, 156)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(126, 217, 156)"] { color: var(--a-green2) !important; }
 /* blue: #42a5f5 #1e88e5 */
 :root[data-theme="light"] .ht-themed [style^="color: rgb(66, 165, 245)"],
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(66, 165, 245)"],
@@ -221,7 +224,10 @@
 :root[data-theme="light"] .ht-themed [style^="color: rgb(232, 74, 47)"],
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(232, 74, 47)"],
 :root[data-theme="light"] .ht-themed [style^="color: rgb(255, 99, 71)"],
-:root[data-theme="light"] .ht-themed [style*=" color: rgb(255, 99, 71)"] { color: var(--a-red) !important; }
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(255, 99, 71)"],
+/* #E63946 — "Punch" movement type (lib/trainingPrograms.js) */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(230, 57, 70)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(230, 57, 70)"] { color: var(--a-red) !important; }
 /* pink: #f472b6 */
 :root[data-theme="light"] .ht-themed [style^="color: rgb(244, 114, 182)"],
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(244, 114, 182)"] { color: #be185d !important; }
@@ -251,7 +257,10 @@
 :root[data-theme="light"] .ht-themed [style^="color: rgb(200, 214, 229)"],
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(200, 214, 229)"],
 :root[data-theme="light"] .ht-themed [style^="color: rgb(176, 173, 168)"],
-:root[data-theme="light"] .ht-themed [style*=" color: rgb(176, 173, 168)"] { color: var(--t-muted2) !important; }
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(176, 173, 168)"],
+/* #d4cfc9 — inactive links in the Navbar's mobile drawer */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(212, 207, 201)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(212, 207, 201)"] { color: var(--t-muted2) !important; }
 /* mid greys (labels): #999 #888 #9ca3af #7a7570 */
 :root[data-theme="light"] .ht-themed [style^="color: rgb(153, 153, 153)"],
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(153, 153, 153)"],
@@ -260,12 +269,19 @@
 :root[data-theme="light"] .ht-themed [style^="color: rgb(156, 163, 175)"],
 :root[data-theme="light"] .ht-themed [style*=" color: rgb(156, 163, 175)"],
 :root[data-theme="light"] .ht-themed [style^="color: rgb(122, 117, 112)"],
-:root[data-theme="light"] .ht-themed [style*=" color: rgb(122, 117, 112)"] { color: var(--t-muted) !important; }
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(122, 117, 112)"],
+/* #a8a29e — "class removed" activity colour (lib/activityLog.js) */
+:root[data-theme="light"] .ht-themed [style^="color: rgb(168, 162, 158)"],
+:root[data-theme="light"] .ht-themed [style*=" color: rgb(168, 162, 158)"] { color: var(--t-muted) !important; }
 /* SVG chart marks — presentation attributes, so no !important needed */
 :root[data-theme="light"] .ht-themed [fill="#f5c842" i] { fill: var(--a-gold); }
 :root[data-theme="light"] .ht-themed [stroke="#f5c842" i] { stroke: var(--a-gold); }
 :root[data-theme="light"] .ht-themed [fill="#42a5f5" i] { fill: var(--a-blue); }
 :root[data-theme="light"] .ht-themed [stroke="#42a5f5" i] { stroke: var(--a-blue); }
+/* Neon glows. Every member-page text-shadow is a "0 0 Npx <bright accent>"
+   halo — depth on a dark card, but on cream it blurs the (now darkened)
+   letters into a smudge. Light mode drops them. */
+:root[data-theme="light"] .ht-themed [style*="text-shadow"] { text-shadow: none !important; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
